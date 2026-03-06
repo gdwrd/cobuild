@@ -9,6 +9,7 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   workingDirectory: string;
+  completed: boolean;
 }
 
 export function getSessionsDir(): string {
@@ -29,8 +30,42 @@ export function createSession(): Session {
     createdAt: now,
     updatedAt: now,
     workingDirectory: process.cwd(),
+    completed: false,
   };
   return session;
+}
+
+export function findLatestByWorkingDirectory(workingDirectory: string): Session | null {
+  const sessionsDir = getSessionsDir();
+
+  let files: string[];
+  try {
+    files = fs.readdirSync(sessionsDir);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw err;
+  }
+
+  const sessions: Session[] = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const sessionId = file.slice(0, -5);
+    try {
+      const session = loadSession(sessionId);
+      if (session && session.workingDirectory === workingDirectory) {
+        sessions.push(session);
+      }
+    } catch {
+      // skip corrupted session files
+    }
+  }
+
+  if (sessions.length === 0) return null;
+
+  sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return sessions[0];
 }
 
 export function saveSession(session: Session): void {

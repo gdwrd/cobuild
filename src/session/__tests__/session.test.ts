@@ -52,6 +52,7 @@ describe('createSession', () => {
     expect(new Date(session.createdAt).getTime()).toBeGreaterThanOrEqual(before);
     expect(new Date(session.createdAt).getTime()).toBeLessThanOrEqual(after);
     expect(session.workingDirectory).toBe(process.cwd());
+    expect(session.completed).toBe(false);
   });
 });
 
@@ -66,6 +67,7 @@ describe('saveSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
     };
 
     saveSession(session);
@@ -96,6 +98,7 @@ describe('loadSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
     };
     fsMock.readFileSync.mockReturnValue(JSON.stringify(mockSession));
 
@@ -129,6 +132,7 @@ describe('updateSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
     };
 
     const updated = updateSession(original);
@@ -149,7 +153,67 @@ describe('createAndSaveSession', () => {
     const session = createAndSaveSession();
 
     expect(session.id).toBeTruthy();
+    expect(session.completed).toBe(false);
     expect(fsMock.writeFileSync).toHaveBeenCalled();
     expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+});
+
+describe('findLatestByWorkingDirectory', () => {
+  const makeSession = (id: string, workingDirectory: string, createdAt: string, completed = false) =>
+    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed });
+
+  it('returns null when sessions directory does not exist', async () => {
+    fsMock.readdirSync.mockImplementation(() => {
+      const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
+  it('returns null when no sessions match working directory', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/other', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
+  it('returns the most recent session matching working directory', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json', 'session-b.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync
+      .mockReturnValueOnce(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z'))
+      .mockReturnValueOnce(makeSession('session-b', '/work', '2026-02-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe('session-b');
+  });
+
+  it('skips non-json files', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json', 'README.txt'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+    expect(fsMock.readFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips corrupted session files', async () => {
+    fsMock.readdirSync.mockReturnValue(['bad.json', 'good.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync
+      .mockReturnValueOnce('not valid json{{{')
+      .mockReturnValueOnce(makeSession('good', '/work', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('good');
   });
 });

@@ -31,13 +31,13 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 1: Implement Session Resolution and Resume Logic
 
-- [ ] Implement session lookup by working directory
-- [ ] Implement `findLatestByWorkingDirectory` session method
-- [ ] Detect unfinished sessions
-- [ ] Implement logic for `--new-session` flag
-- [ ] Automatically start a new session if latest session is completed
-- [ ] Persist newly created session to disk
-- [ ] Log session resolution decisions
+- [x] Implement session lookup by working directory
+- [x] Implement `findLatestByWorkingDirectory` session method
+- [x] Detect unfinished sessions
+- [x] Implement logic for `--new-session` flag
+- [x] Automatically start a new session if latest session is completed
+- [x] Persist newly created session to disk
+- [x] Log session resolution decisions
 
 ---
 

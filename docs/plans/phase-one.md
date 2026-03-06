@@ -140,11 +140,11 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 9: Add Cross-Platform Path Utilities
 
-- [ ] Implement path helpers for Windows/macOS/Linux
-- [ ] Normalize filesystem paths
-- [ ] Ensure safe filename helpers
-- [ ] Implement home-directory resolution utility
-- [ ] Add tests for path utilities
+- [x] Implement path helpers for Windows/macOS/Linux
+- [x] Normalize filesystem paths
+- [x] Ensure safe filename helpers
+- [x] Implement home-directory resolution utility
+- [x] Add tests for path utilities
 
 ---
 

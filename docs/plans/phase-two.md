@@ -153,11 +153,11 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 12: Implement Interview UI Experience
 
-- [ ] Render transcript messages in UI
-- [ ] Implement thinking animation while awaiting model response
-- [ ] Display available slash commands in footer
-- [ ] Display transient error messages
-- [ ] Ensure input box remains responsive
+- [x] Render transcript messages in UI
+- [x] Implement thinking animation while awaiting model response
+- [x] Display available slash commands in footer
+- [x] Display transient error messages
+- [x] Ensure input box remains responsive
 
 ---
 

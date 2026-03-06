@@ -185,10 +185,10 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 15: Verify End-to-End Interview Flow
 
-- [ ] Run cobuild in a fresh directory
-- [ ] Complete a full interview session
-- [ ] Verify transcript persistence
-- [ ] Verify slash commands work correctly
-- [ ] Verify model switching works mid-interview
-- [ ] Verify logs capture model I/O
-- [ ] Verify interview ends correctly and stage transitions to spec
+- [x] Run cobuild in a fresh directory
+- [x] Complete a full interview session
+- [x] Verify transcript persistence
+- [x] Verify slash commands work correctly
+- [x] Verify model switching works mid-interview
+- [x] Verify logs capture model I/O
+- [x] Verify interview ends correctly and stage transitions to spec

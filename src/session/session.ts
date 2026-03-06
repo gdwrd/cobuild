@@ -16,6 +16,9 @@ export function getSessionsDir(): string {
 }
 
 export function getSessionFilePath(sessionId: string): string {
+  if (path.basename(sessionId) !== sessionId) {
+    throw new Error(`Invalid session ID: ${sessionId}`);
+  }
   return path.join(getSessionsDir(), `${sessionId}.json`);
 }
 
@@ -32,10 +35,10 @@ export function createSession(): Session {
 
 export function saveSession(session: Session): void {
   const filePath = getSessionFilePath(session.id);
-  const tmpPath = `${filePath}.tmp`;
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
   const json = JSON.stringify(session, null, 2);
 
-  fs.writeFileSync(tmpPath, json, { encoding: 'utf8' });
+  fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
   fs.renameSync(tmpPath, filePath);
 
   getLogger().info(`session saved: ${session.id}`);
@@ -46,8 +49,11 @@ export function loadSession(sessionId: string): Session | null {
   try {
     const raw = fs.readFileSync(filePath, { encoding: 'utf8' });
     return JSON.parse(raw) as Session;
-  } catch {
-    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw err;
   }
 }
 

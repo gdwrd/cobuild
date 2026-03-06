@@ -31,6 +31,11 @@ describe('getSessionFilePath', () => {
       '/home/testuser/.cobuild/sessions/abc-123.json',
     );
   });
+
+  it('throws on path traversal in session id', async () => {
+    const { getSessionFilePath } = await import('../session.js');
+    expect(() => getSessionFilePath('../evil')).toThrow('Invalid session ID');
+  });
 });
 
 describe('createSession', () => {
@@ -71,13 +76,14 @@ describe('saveSession', () => {
       'sessions',
       'test-id.json',
     );
+    const expectedTmpPath = `${expectedPath}.${process.pid}.tmp`;
     expect(fsMock.writeFileSync).toHaveBeenCalledWith(
-      `${expectedPath}.tmp`,
+      expectedTmpPath,
       JSON.stringify(session, null, 2),
-      { encoding: 'utf8' },
+      { encoding: 'utf8', mode: 0o600 },
     );
     expect(fsMock.renameSync).toHaveBeenCalledWith(
-      `${expectedPath}.tmp`,
+      expectedTmpPath,
       expectedPath,
     );
   });
@@ -101,7 +107,8 @@ describe('loadSession', () => {
 
   it('returns null when file does not exist', async () => {
     fsMock.readFileSync.mockImplementation(() => {
-      throw new Error('ENOENT');
+      const err = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
+      throw err;
     });
 
     const { loadSession } = await import('../session.js');

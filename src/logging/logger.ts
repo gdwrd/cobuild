@@ -28,7 +28,7 @@ function formatEntry(entry: LogEntry): string {
 
 function writeToFile(filePath: string, line: string): void {
   try {
-    fs.appendFileSync(filePath, line, { encoding: 'utf8' });
+    fs.appendFileSync(filePath, line, { encoding: 'utf8', mode: 0o600 });
   } catch {
     // silently ignore file write errors to avoid crashing the CLI
   }

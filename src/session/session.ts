@@ -18,6 +18,7 @@ export interface Session {
   completed: boolean;
   transcript: InterviewMessage[];
   model?: string;
+  lastError?: string;
 }
 
 export function getSessionsDir(): string {
@@ -144,4 +145,15 @@ export function createAndSaveSession(): Session {
   saveSession(session);
   getLogger().info(`session created: ${session.id}`);
   return session;
+}
+
+export function persistErrorState(session: Session, error: string): Session {
+  const updated: Session = {
+    ...session,
+    lastError: error,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().error(`session error persisted (session ${session.id}): ${error}`);
+  return updated;
 }

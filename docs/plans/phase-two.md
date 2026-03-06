@@ -143,11 +143,11 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 11: Implement Retry Executor for Model Requests
 
-- [ ] Implement retry wrapper utility
-- [ ] Retry failed model requests up to 5 times
-- [ ] Log retry attempts
-- [ ] Surface retry UI action when attempts exhausted
-- [ ] Persist error state in session
+- [x] Implement retry wrapper utility
+- [x] Retry failed model requests up to 5 times
+- [x] Log retry attempts
+- [x] Surface retry UI action when attempts exhausted
+- [x] Persist error state in session
 
 ---
 

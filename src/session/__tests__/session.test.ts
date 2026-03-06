@@ -290,6 +290,47 @@ describe('appendInterviewMessage', () => {
   });
 });
 
+describe('persistErrorState', () => {
+  it('saves session with lastError field set', async () => {
+    const { persistErrorState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-err',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    const updated = persistErrorState(session, 'something went wrong');
+    expect(updated.lastError).toBe('something went wrong');
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('returns updated session object with lastError', async () => {
+    const { persistErrorState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-err2',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    const updated = persistErrorState(session, 'model timeout');
+    expect(updated.id).toBe('sess-err2');
+    expect(updated.lastError).toBe('model timeout');
+    expect(updated.transcript).toEqual([]);
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

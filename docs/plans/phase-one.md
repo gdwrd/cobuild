@@ -54,12 +54,12 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 2: Implement CLI Startup and Argument Parsing
 
-- [ ] Implement CLI argument parsing for `--new-session`
-- [ ] Create startup flow controller (`app-shell`)
-- [ ] Implement CLI help and usage text
-- [ ] Ensure CLI command launches successfully with no arguments
-- [ ] Implement basic runtime configuration object
-- [ ] Add structured startup logging
+- [x] Implement CLI argument parsing for `--new-session`
+- [x] Create startup flow controller (`app-shell`)
+- [x] Implement CLI help and usage text
+- [x] Ensure CLI command launches successfully with no arguments
+- [x] Implement basic runtime configuration object
+- [x] Add structured startup logging
 
 ---
 

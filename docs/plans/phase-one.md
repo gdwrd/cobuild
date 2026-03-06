@@ -150,12 +150,12 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 10: Add Basic Unit Tests
 
-- [ ] Test session creation and persistence
-- [ ] Test directory bootstrap
-- [ ] Test logging module
-- [ ] Test CLI argument parsing
-- [ ] Test TTY detection logic
-- [ ] Ensure tests run via CI command
+- [x] Test session creation and persistence
+- [x] Test directory bootstrap
+- [x] Test logging module
+- [x] Test CLI argument parsing
+- [x] Test TTY detection logic
+- [x] Ensure tests run via CI command
 
 ---
 

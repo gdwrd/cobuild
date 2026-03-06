@@ -114,16 +114,16 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 7: Implement Basic Ink UI Shell
 
-- [ ] Install Ink and React CLI dependencies
-- [ ] Create root Ink app component
-- [ ] Implement terminal layout structure:
+- [x] Install Ink and React CLI dependencies
+- [x] Create root Ink app component
+- [x] Implement terminal layout structure:
   - transcript area
   - input prompt area
   - status/progress bar
   - footer command area
-- [ ] Implement simple user input capture
-- [ ] Display placeholder system message
-- [ ] Render basic CLI UI successfully
+- [x] Implement simple user input capture
+- [x] Display placeholder system message
+- [x] Render basic CLI UI successfully
 
 ---
 

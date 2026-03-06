@@ -3,8 +3,11 @@ import { program } from 'commander';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import React from 'react';
+import { render } from 'ink';
 import { createConfig } from './config.js';
 import { runStartup } from './app-shell.js';
+import { App } from '../ui/App.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,7 +51,7 @@ Examples:
       process.exit(1);
     }
 
-    console.log(result.message);
+    render(React.createElement(App, { sessionId: result.sessionId ?? '', version: getVersion() }));
   });
 
 program.parse(process.argv);

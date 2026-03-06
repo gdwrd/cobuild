@@ -7,7 +7,7 @@ import React from 'react';
 import { render } from 'ink';
 import { createConfig } from './config.js';
 import { runStartup } from './app-shell.js';
-import { App } from '../ui/App.js';
+import { ScreenController } from '../ui/ScreenController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,14 +44,9 @@ Examples:
       verbose: opts.verbose ?? false,
     });
 
-    const result = await runStartup(config);
+    const startupPromise = runStartup(config);
 
-    if (!result.success) {
-      process.stderr.write(`Error: ${result.message}\n`);
-      process.exit(1);
-    }
-
-    render(React.createElement(App, { sessionId: result.sessionId ?? '', version: getVersion() }));
+    render(React.createElement(ScreenController, { startupPromise, version: getVersion() }));
   });
 
 program.parse(process.argv);

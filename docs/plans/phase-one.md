@@ -129,12 +129,12 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 8: Integrate Startup Flow with UI
 
-- [ ] Wire startup flow to Ink UI renderer
-- [ ] Create minimal screen controller
-- [ ] Show startup status messages
-- [ ] Display placeholder prompt:
+- [x] Wire startup flow to Ink UI renderer
+- [x] Create minimal screen controller
+- [x] Show startup status messages
+- [x] Display placeholder prompt:
   `What would you like to build today?`
-- [ ] Confirm CLI remains interactive
+- [x] Confirm CLI remains interactive
 
 ---
 

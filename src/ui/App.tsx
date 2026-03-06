@@ -11,6 +11,7 @@ export interface AppProps {
   version: string;
   transcript?: InterviewMessage[];
   isThinking?: boolean;
+  isComplete?: boolean;
   errorMessage?: string | null;
   onSubmit?: (input: string) => void;
 }
@@ -20,6 +21,7 @@ export function App({
   version,
   transcript = [],
   isThinking = false,
+  isComplete = false,
   errorMessage = null,
   onSubmit,
 }: AppProps) {
@@ -99,8 +101,8 @@ export function App({
 
       {/* Status bar */}
       <Box borderStyle="single" paddingX={1}>
-        <Text color={isThinking ? 'yellow' : 'green'}>
-          {isThinking ? '[thinking]' : '[ready]'}
+        <Text color={isComplete ? 'magenta' : isThinking ? 'yellow' : 'green'}>
+          {isComplete ? '[complete]' : isThinking ? '[thinking]' : '[ready]'}
         </Text>
         <Text dimColor>
           {'  cobuild v'}
@@ -110,22 +112,30 @@ export function App({
         </Text>
       </Box>
 
-      {/* Input prompt area */}
-      <Box paddingX={1} paddingY={1}>
-        <Text bold color="cyan">
-          {'▶ '}
-        </Text>
-        <Text>{input}</Text>
-        {!isThinking && <Text>{'█'}</Text>}
-      </Box>
+      {isComplete ? (
+        <Box paddingX={1} paddingY={1}>
+          <Text color="magenta">Interview complete. Press ctrl+c to exit.</Text>
+        </Box>
+      ) : (
+        <>
+          {/* Input prompt area */}
+          <Box paddingX={1} paddingY={1}>
+            <Text bold color="cyan">
+              {'▶ '}
+            </Text>
+            <Text>{input}</Text>
+            {!isThinking && <Text>{'█'}</Text>}
+          </Box>
 
-      {/* Footer: slash commands */}
-      <Box paddingX={1}>
-        <Text dimColor>
-          {SLASH_COMMANDS.join('  ')}
-          {'  ctrl+c: quit'}
-        </Text>
-      </Box>
+          {/* Footer: slash commands */}
+          <Box paddingX={1}>
+            <Text dimColor>
+              {SLASH_COMMANDS.join('  ')}
+              {'  ctrl+c: quit'}
+            </Text>
+          </Box>
+        </>
+      )}
     </Box>
   );
 }

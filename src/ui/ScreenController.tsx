@@ -30,6 +30,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<InterviewMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const [interviewComplete, setInterviewComplete] = useState(false);
   const [interviewError, setInterviewError] = useState<string | null>(null);
 
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
@@ -75,7 +76,15 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     interviewStartedRef.current = true;
 
     const session = loadSession(sessionId);
-    if (!session) return;
+    if (!session) {
+      setErrorMessage(`Failed to load session ${sessionId}`);
+      setScreen('error');
+      setTimeout(() => {
+        exit();
+        process.exit(1);
+      }, 100);
+      return;
+    }
 
     currentSessionRef.current = session;
     setTranscript(session.transcript);
@@ -162,6 +171,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .then((finalSession) => {
         currentSessionRef.current = finalSession;
         setIsThinking(false);
+        setInterviewComplete(true);
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -221,6 +231,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       version={version}
       transcript={transcript}
       isThinking={isThinking}
+      isComplete={interviewComplete}
       errorMessage={interviewError}
       onSubmit={handleSubmit}
     />

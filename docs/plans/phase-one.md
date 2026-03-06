@@ -88,13 +88,13 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 5: Implement Logging Framework
 
-- [ ] Create structured logger module
-- [ ] Implement timestamped log entries
-- [ ] Write logs to `~/.cobuild/logs/`
-- [ ] Support log levels (info, warn, error, debug)
-- [ ] Implement append-friendly logging
-- [ ] Add runtime event logging (startup, validation results)
-- [ ] Implement error logging helper
+- [x] Create structured logger module
+- [x] Implement timestamped log entries
+- [x] Write logs to `~/.cobuild/logs/`
+- [x] Support log levels (info, warn, error, debug)
+- [x] Implement append-friendly logging
+- [x] Add runtime event logging (startup, validation results)
+- [x] Implement error logging helper
 
 ---
 

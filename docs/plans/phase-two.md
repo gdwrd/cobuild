@@ -123,10 +123,10 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 9: Implement `/provider` Command
 
-- [ ] Implement `/provider` command handler
-- [ ] Display informational message
-- [ ] Show that only Ollama is supported in v1
-- [ ] Log command invocation
+- [x] Implement `/provider` command handler
+- [x] Display informational message
+- [x] Show that only Ollama is supported in v1
+- [x] Log command invocation
 
 ---
 

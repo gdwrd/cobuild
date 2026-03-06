@@ -43,13 +43,13 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 2: Implement Restored Session UX
 
-- [ ] Create restored-session screen component
-- [ ] Display message indicating session restoration
-- [ ] Display current progress stage
-- [ ] Display current phase progress if applicable
-- [ ] Ensure prior chat history is not rendered in UI
-- [ ] Wait for user to press Enter before continuing
-- [ ] Log restore continuation event
+- [x] Create restored-session screen component
+- [x] Display message indicating session restoration
+- [x] Display current progress stage
+- [x] Display current phase progress if applicable
+- [x] Ensure prior chat history is not rendered in UI
+- [x] Wait for user to press Enter before continuing
+- [x] Log restore continuation event
 
 ---
 

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Box, Text, useApp } from 'ink';
 import type { StartupResult } from '../cli/app-shell.js';
 import { App } from './App.js';
+import { RestoredSession } from './RestoredSession.js';
 
-type Screen = 'startup' | 'main' | 'error';
+type Screen = 'startup' | 'restored' | 'main' | 'error';
 
 export interface ScreenControllerProps {
   startupPromise: Promise<StartupResult>;
@@ -22,7 +23,11 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .then(result => {
         if (result.success) {
           setSessionId(result.sessionId ?? '');
-          setScreen('main');
+          if (result.sessionResolution === 'resumed') {
+            setScreen('restored');
+          } else {
+            setScreen('main');
+          }
         } else {
           setErrorMessage(result.message);
           setScreen('error');
@@ -51,6 +56,15 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         </Text>
         <Text dimColor>{'  '}{statusMessage}</Text>
       </Box>
+    );
+  }
+
+  if (screen === 'restored') {
+    return (
+      <RestoredSession
+        sessionId={sessionId}
+        onContinue={() => setScreen('main')}
+      />
     );
   }
 

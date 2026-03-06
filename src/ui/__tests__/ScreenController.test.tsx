@@ -11,6 +11,12 @@ vi.mock('../App.js', () => ({
   },
 }));
 
+vi.mock('../RestoredSession.js', () => ({
+  RestoredSession: function MockRestoredSession() {
+    return null;
+  },
+}));
+
 describe('ScreenController', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -33,6 +39,24 @@ describe('ScreenController', () => {
     const { unmount } = render(
       React.createElement(ScreenController, {
         startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 10));
+    unmount();
+  });
+
+  it('renders without throwing when startup succeeds with resumed session', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          sessionResolution: 'resumed' as const,
+        }),
         version: '0.1.0',
       }),
       { stdout: stream as unknown as NodeJS.WriteStream },

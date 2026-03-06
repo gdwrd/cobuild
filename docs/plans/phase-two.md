@@ -79,12 +79,12 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 5: Implement Interview Prompt Orchestration
 
-- [ ] Implement fixed interview system prompt
-- [ ] Inject user project idea into first prompt
-- [ ] Ensure full conversation history is included in model input
-- [ ] Implement prompt builder utilities
-- [ ] Implement prompt-too-large detection
-- [ ] Log prompt orchestration events
+- [x] Implement fixed interview system prompt
+- [x] Inject user project idea into first prompt
+- [x] Ensure full conversation history is included in model input
+- [x] Implement prompt builder utilities
+- [x] Implement prompt-too-large detection
+- [x] Log prompt orchestration events
 
 ---
 

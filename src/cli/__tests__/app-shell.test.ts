@@ -13,6 +13,7 @@ vi.mock('../../session/session.js', () => ({
     updatedAt: '2026-01-01T00:00:00.000Z',
     workingDirectory: '/work',
     completed: false,
+    transcript: [],
   })),
   findLatestByWorkingDirectory: vi.fn(() => null),
 }));
@@ -39,6 +40,7 @@ const mockNewSession = {
   updatedAt: '2026-01-01T00:00:00.000Z',
   workingDirectory: '/work',
   completed: false,
+  transcript: [],
 };
 
 describe('runStartup', () => {
@@ -70,6 +72,7 @@ describe('runStartup', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: process.cwd(),
       completed: false,
+      transcript: [],
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
     expect(result.success).toBe(true);
@@ -85,6 +88,7 @@ describe('runStartup', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: process.cwd(),
       completed: true,
+      transcript: [],
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
     expect(result.success).toBe(true);
@@ -99,6 +103,7 @@ describe('runStartup', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: process.cwd(),
       completed: false,
+      transcript: [],
     });
     const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false });
     expect(result.success).toBe(true);

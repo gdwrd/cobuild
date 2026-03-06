@@ -55,13 +55,13 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 3: Implement Interview Transcript Model
 
-- [ ] Define interview message schema
-- [ ] Add transcript structure to session schema
-- [ ] Implement append-only message storage
-- [ ] Persist transcript after each turn
-- [ ] Add timestamps to interview messages
-- [ ] Implement transcript retrieval helper
-- [ ] Log interview turn events
+- [x] Define interview message schema
+- [x] Add transcript structure to session schema
+- [x] Implement append-only message storage
+- [x] Persist transcript after each turn
+- [x] Add timestamps to interview messages
+- [x] Implement transcript retrieval helper
+- [x] Log interview turn events
 
 ---
 

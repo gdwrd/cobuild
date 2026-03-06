@@ -4,12 +4,19 @@ import * as path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '../logging/logger.js';
 
+export interface InterviewMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
 export interface Session {
   id: string;
   createdAt: string;
   updatedAt: string;
   workingDirectory: string;
   completed: boolean;
+  transcript: InterviewMessage[];
 }
 
 export function getSessionsDir(): string {
@@ -31,8 +38,33 @@ export function createSession(): Session {
     updatedAt: now,
     workingDirectory: process.cwd(),
     completed: false,
+    transcript: [],
   };
   return session;
+}
+
+export function appendInterviewMessage(
+  session: Session,
+  role: InterviewMessage['role'],
+  content: string,
+): Session {
+  const message: InterviewMessage = {
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+  };
+  const updated: Session = {
+    ...session,
+    transcript: [...session.transcript, message],
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`interview turn: ${role} (session ${session.id})`);
+  return updated;
+}
+
+export function getTranscript(session: Session): InterviewMessage[] {
+  return session.transcript;
 }
 
 export function findLatestByWorkingDirectory(workingDirectory: string): Session | null {

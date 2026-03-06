@@ -68,6 +68,7 @@ describe('saveSession', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
       completed: false,
+      transcript: [],
     };
 
     saveSession(session);
@@ -99,6 +100,7 @@ describe('loadSession', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
       completed: false,
+      transcript: [],
     };
     fsMock.readFileSync.mockReturnValue(JSON.stringify(mockSession));
 
@@ -133,6 +135,7 @@ describe('updateSession', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
       completed: false,
+      transcript: [],
     };
 
     const updated = updateSession(original);
@@ -161,7 +164,7 @@ describe('createAndSaveSession', () => {
 
 describe('findLatestByWorkingDirectory', () => {
   const makeSession = (id: string, workingDirectory: string, createdAt: string, completed = false) =>
-    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed });
+    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed, transcript: [] });
 
   it('returns null when sessions directory does not exist', async () => {
     fsMock.readdirSync.mockImplementation(() => {
@@ -215,5 +218,103 @@ describe('findLatestByWorkingDirectory', () => {
     const result = findLatestByWorkingDirectory('/work');
 
     expect(result?.id).toBe('good');
+  });
+});
+
+describe('appendInterviewMessage', () => {
+  const baseSession = {
+    id: 'sess-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: false,
+    transcript: [],
+  };
+
+  it('appends a user message and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'user', 'Hello!');
+
+    expect(updated.transcript).toHaveLength(1);
+    expect(updated.transcript[0].role).toBe('user');
+    expect(updated.transcript[0].content).toBe('Hello!');
+    expect(updated.transcript[0].timestamp).toBeTruthy();
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('appends an assistant message and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'assistant', 'What is your project idea?');
+
+    expect(updated.transcript[0].role).toBe('assistant');
+    expect(updated.transcript[0].content).toBe('What is your project idea?');
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    appendInterviewMessage(baseSession, 'user', 'Hi');
+
+    expect(baseSession.transcript).toHaveLength(0);
+  });
+
+  it('accumulates messages across calls', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const after1 = appendInterviewMessage(baseSession, 'assistant', 'Question 1?');
+    const after2 = appendInterviewMessage(after1, 'user', 'Answer 1');
+
+    expect(after2.transcript).toHaveLength(2);
+    expect(after2.transcript[0].role).toBe('assistant');
+    expect(after2.transcript[1].role).toBe('user');
+  });
+
+  it('updates updatedAt on append', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'user', 'Hi');
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+});
+
+describe('getTranscript', () => {
+  it('returns empty array for session with no messages', async () => {
+    const { getTranscript } = await import('../session.js');
+    const session = {
+      id: 'sess-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+    expect(getTranscript(session)).toEqual([]);
+  });
+
+  it('returns transcript messages', async () => {
+    const { getTranscript } = await import('../session.js');
+    const msg = { role: 'user' as const, content: 'Hello', timestamp: '2026-01-01T00:00:00.000Z' };
+    const session = {
+      id: 'sess-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [msg],
+    };
+    expect(getTranscript(session)).toEqual([msg]);
   });
 });

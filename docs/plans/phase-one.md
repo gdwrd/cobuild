@@ -161,10 +161,10 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 11: Verify End-to-End CLI Execution
 
-- [ ] Run CLI locally via `npm link`
-- [ ] Verify session file creation
-- [ ] Verify logs are written
-- [ ] Verify UI renders correctly
-- [ ] Verify Ollama validation behavior
-- [ ] Verify failure on non-interactive terminal
-- [ ] Verify command exits cleanly
+- [x] Run CLI locally via `npm link`
+- [x] Verify session file creation
+- [x] Verify logs are written
+- [x] Verify UI renders correctly
+- [x] Verify Ollama validation behavior
+- [x] Verify failure on non-interactive terminal
+- [x] Verify command exits cleanly

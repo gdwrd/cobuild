@@ -67,13 +67,13 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 4: Implement Interview Controller
 
-- [ ] Create interview controller module
-- [ ] Implement interview loop logic
-- [ ] Send full transcript to model on each turn
-- [ ] Ensure model responses appear only after completion
-- [ ] Prevent multi-question responses from advancing incorrectly
-- [ ] Stop interview when model indicates completion
-- [ ] Persist session after each turn
+- [x] Create interview controller module
+- [x] Implement interview loop logic
+- [x] Send full transcript to model on each turn
+- [x] Ensure model responses appear only after completion
+- [x] Prevent multi-question responses from advancing incorrectly
+- [x] Stop interview when model indicates completion
+- [x] Persist session after each turn
 
 ---
 

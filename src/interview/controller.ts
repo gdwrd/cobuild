@@ -91,6 +91,9 @@ export async function runInterviewLoop(
       const parsed = parseCommand(userInput);
       if (parsed) {
         const cmdResult = await routeCommand(parsed);
+        if (cmdResult.message) {
+          await onAssistantResponse(cmdResult.message, false);
+        }
         if (!cmdResult.continueInterview) {
           logger.info('interview loop: command stopped interview');
           complete = true;

@@ -17,6 +17,50 @@ vi.mock('../RestoredSession.js', () => ({
   },
 }));
 
+vi.mock('../../session/session.js', () => ({
+  loadSession: vi.fn(() => ({
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview',
+    transcript: [],
+  })),
+  persistErrorState: vi.fn(),
+}));
+
+vi.mock('../../providers/ollama.js', () => ({
+  OllamaProvider: vi.fn().mockImplementation(() => ({
+    generate: vi.fn(),
+    listModels: vi.fn(),
+  })),
+}));
+
+vi.mock('../../interview/controller.js', () => ({
+  runInterviewLoop: vi.fn(() => new Promise(() => {})),
+}));
+
+vi.mock('../../interview/prompts.js', () => ({
+  buildInterviewSystemPrompt: vi.fn(() => 'mock system prompt'),
+}));
+
+vi.mock('../../interview/finish-now.js', () => ({
+  createFinishNowHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/model-command.js', () => ({
+  createModelHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/provider-command.js', () => ({
+  createProviderHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/retry.js', () => ({
+  withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+}));
+
 describe('ScreenController', () => {
   afterEach(() => {
     vi.restoreAllMocks();

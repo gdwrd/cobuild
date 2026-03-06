@@ -44,6 +44,12 @@ export async function runInterviewTurn(
   const logger = getLogger();
   const messages = buildModelMessages(systemPrompt, session);
 
+  const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4) + 4, 0);
+  logger.info(`prompt orchestration: ${messages.length} messages, ~${estimatedTokens} estimated tokens`);
+  if (estimatedTokens > 8000) {
+    logger.warn(`prompt orchestration: prompt may be too large (~${estimatedTokens} tokens > 8000)`);
+  }
+
   logger.info(`interview turn: sending ${messages.length} messages to model`);
 
   const rawResponse = await provider.generate(messages);

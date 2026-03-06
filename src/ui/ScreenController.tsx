@@ -184,10 +184,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     (input: string) => {
       if (!userInputResolverRef.current) return;
       if (!isSelectingModelRef.current) {
-        setTranscript((t) => [
-          ...t,
-          { role: 'user', content: input, timestamp: new Date().toISOString() },
-        ]);
+        if (!input.startsWith('/')) {
+          setTranscript((t) => [
+            ...t,
+            { role: 'user', content: input, timestamp: new Date().toISOString() },
+          ]);
+        }
         setIsThinking(true);
       }
       userInputResolverRef.current(input);

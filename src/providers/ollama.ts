@@ -43,29 +43,31 @@ export class OllamaProvider implements ModelProvider, ModelLister {
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     let response: Response;
-    try {
-      response = await fetch(url, { signal: controller.signal });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.error(`ollama: listModels fetch error: ${detail}`);
-      throw new Error(`Failed to reach Ollama at ${this.baseUrl}: ${detail}`);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      const msg = `ollama: listModels HTTP ${response.status}`;
-      logger.error(msg);
-      throw new Error(`Ollama returned HTTP ${response.status} for /api/tags`);
-    }
-
     let body: OllamaTagsResponse;
     try {
-      body = (await response.json()) as OllamaTagsResponse;
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.error(`ollama: listModels JSON parse error: ${detail}`);
-      throw new Error(`Failed to parse Ollama /api/tags response: ${detail}`);
+      try {
+        response = await fetch(url, { signal: controller.signal });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        logger.error(`ollama: listModels fetch error: ${detail}`);
+        throw new Error(`Failed to reach Ollama at ${this.baseUrl}: ${detail}`);
+      }
+
+      if (!response.ok) {
+        const msg = `ollama: listModels HTTP ${response.status}`;
+        logger.error(msg);
+        throw new Error(`Ollama returned HTTP ${response.status} for /api/tags`);
+      }
+
+      try {
+        body = (await response.json()) as OllamaTagsResponse;
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        logger.error(`ollama: listModels JSON parse error: ${detail}`);
+        throw new Error(`Failed to parse Ollama /api/tags response: ${detail}`);
+      }
+    } finally {
+      clearTimeout(timer);
     }
 
     logger.info(`ollama: raw /api/tags response: ${JSON.stringify(body)}`);
@@ -94,34 +96,36 @@ export class OllamaProvider implements ModelProvider, ModelLister {
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.error(`ollama: generate fetch error: ${detail}`);
-      throw new Error(`Failed to reach Ollama at ${this.baseUrl}: ${detail}`);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      const msg = `ollama: generate HTTP ${response.status}`;
-      logger.error(msg);
-      throw new Error(`Ollama returned HTTP ${response.status} for /api/chat`);
-    }
-
     let body: OllamaChatResponse;
     try {
-      body = (await response.json()) as OllamaChatResponse;
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      logger.error(`ollama: generate JSON parse error: ${detail}`);
-      throw new Error(`Failed to parse Ollama /api/chat response: ${detail}`);
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        logger.error(`ollama: generate fetch error: ${detail}`);
+        throw new Error(`Failed to reach Ollama at ${this.baseUrl}: ${detail}`);
+      }
+
+      if (!response.ok) {
+        const msg = `ollama: generate HTTP ${response.status}`;
+        logger.error(msg);
+        throw new Error(`Ollama returned HTTP ${response.status} for /api/chat`);
+      }
+
+      try {
+        body = (await response.json()) as OllamaChatResponse;
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        logger.error(`ollama: generate JSON parse error: ${detail}`);
+        throw new Error(`Failed to parse Ollama /api/chat response: ${detail}`);
+      }
+    } finally {
+      clearTimeout(timer);
     }
 
     logger.debug(`ollama: raw response body: ${JSON.stringify(body)}`);

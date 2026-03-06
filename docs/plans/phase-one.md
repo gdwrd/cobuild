@@ -32,23 +32,23 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 1: Initialize Project Repository and CLI Scaffold
 
-- [ ] Create new git repository for cobuild
-- [ ] Initialize Node.js project with `package.json`
-- [ ] Configure TypeScript (`tsconfig.json`)
-- [ ] Install core dependencies:
+- [x] Create new git repository for cobuild
+- [x] Initialize Node.js project with `package.json`
+- [x] Configure TypeScript (`tsconfig.json`)
+- [x] Install core dependencies:
   - Ink
   - React
   - commander (or equivalent CLI arg parser)
   - uuid
-- [ ] Install development dependencies:
+- [x] Install development dependencies:
   - typescript
   - eslint
   - prettier
   - vitest or jest
-- [ ] Configure build script to compile TypeScript into `dist/`
-- [ ] Configure npm bin entry for global command `cobuild`
-- [ ] Implement basic CLI entrypoint `src/cli/index.ts`
-- [ ] Verify `npm link` installs `cobuild` command locally
+- [x] Configure build script to compile TypeScript into `dist/`
+- [x] Configure npm bin entry for global command `cobuild`
+- [x] Implement basic CLI entrypoint `src/cli/index.ts`
+- [x] Verify `npm link` installs `cobuild` command locally
 
 ---
 

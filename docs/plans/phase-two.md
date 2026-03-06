@@ -173,13 +173,13 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 14: Add Integration Tests for Interview Workflow
 
-- [ ] Test new session interview start
-- [ ] Test restored session continuation
-- [ ] Test `/finish-now` behavior
-- [ ] Test `/model` switching
-- [ ] Test `/provider` command
-- [ ] Test retry behavior
-- [ ] Test session persistence after each turn
+- [x] Test new session interview start
+- [x] Test restored session continuation
+- [x] Test `/finish-now` behavior
+- [x] Test `/model` switching
+- [x] Test `/provider` command
+- [x] Test retry behavior
+- [x] Test session persistence after each turn
 
 ---
 

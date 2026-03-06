@@ -101,12 +101,12 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 7: Implement `/finish-now` Command
 
-- [ ] Implement `/finish-now` command handler
-- [ ] Stop normal interview questioning
-- [ ] Generate finish-now prompt
-- [ ] Send final prompt instructing model to infer missing details
-- [ ] Mark interview as completed in session
-- [ ] Persist completion state
+- [x] Implement `/finish-now` command handler
+- [x] Stop normal interview questioning
+- [x] Generate finish-now prompt
+- [x] Send final prompt instructing model to infer missing details
+- [x] Mark interview as completed in session
+- [x] Persist completion state
 
 ---
 

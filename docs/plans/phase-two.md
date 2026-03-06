@@ -132,12 +132,12 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 10: Implement Ollama Provider Integration
 
-- [ ] Implement Ollama provider module
-- [ ] Implement model listing API call
-- [ ] Implement text generation API call
-- [ ] Normalize provider responses
-- [ ] Capture raw request/response for logging
-- [ ] Add provider error handling
+- [x] Implement Ollama provider module
+- [x] Implement model listing API call
+- [x] Implement text generation API call
+- [x] Normalize provider responses
+- [x] Capture raw request/response for logging
+- [x] Add provider error handling
 
 ---
 

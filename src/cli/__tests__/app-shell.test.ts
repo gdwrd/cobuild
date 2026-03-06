@@ -6,6 +6,15 @@ vi.mock('../../validation/env.js', () => ({
   checkOllama: vi.fn(async () => ({ ok: true, message: 'Ollama is reachable at http://localhost:11434' })),
 }));
 
+vi.mock('../../session/session.js', () => ({
+  createAndSaveSession: vi.fn(() => ({
+    id: 'mock-session-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+  })),
+}));
+
 import { checkTTY, checkOllama } from '../../validation/env.js';
 
 describe('runStartup', () => {

@@ -2,10 +2,12 @@ import type { RuntimeConfig } from './config.js';
 import { checkTTY, checkOllama } from '../validation/env.js';
 import { bootstrapDirectories } from '../fs/bootstrap.js';
 import { getLogger } from '../logging/logger.js';
+import { createAndSaveSession } from '../session/session.js';
 
 export interface StartupResult {
   success: boolean;
   message: string;
+  sessionId?: string;
 }
 
 export async function runStartup(config: RuntimeConfig): Promise<StartupResult> {
@@ -36,7 +38,10 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
     return { success: false, message: bootstrapResult.message };
   }
 
+  const session = createAndSaveSession();
+  logger.info(`active session: ${session.id}`);
+
   logger.info('startup complete');
 
-  return { success: true, message: 'cobuild started successfully' };
+  return { success: true, message: 'cobuild started successfully', sessionId: session.id };
 }

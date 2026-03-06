@@ -100,15 +100,15 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 6: Implement Session Schema and Persistence
 
-- [ ] Define initial session TypeScript schema
-- [ ] Implement session ID generation (UUID)
-- [ ] Implement session creation logic
-- [ ] Implement JSON session file persistence
-- [ ] Implement atomic write (temp file + rename)
-- [ ] Implement session load helper
-- [ ] Implement working directory capture
-- [ ] Implement session update timestamp logic
-- [ ] Log session creation and saves
+- [x] Define initial session TypeScript schema
+- [x] Implement session ID generation (UUID)
+- [x] Implement session creation logic
+- [x] Implement JSON session file persistence
+- [x] Implement atomic write (temp file + rename)
+- [x] Implement session load helper
+- [x] Implement working directory capture
+- [x] Implement session update timestamp logic
+- [x] Log session creation and saves
 
 ---
 

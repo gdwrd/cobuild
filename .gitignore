@@ -1,0 +1,8 @@
+
+# ralphex progress logs
+.ralphex/progress/
+
+node_modules/
+dist/
+*.js.map
+*.d.ts.map

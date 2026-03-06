@@ -13,26 +13,35 @@ export interface ScreenControllerProps {
 export function ScreenController({ startupPromise, version }: ScreenControllerProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>('startup');
-  const [statusMessages, setStatusMessages] = useState<string[]>(['Starting cobuild...']);
+  const [statusMessage] = useState('Starting cobuild...');
   const [sessionId, setSessionId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    startupPromise.then(result => {
-      if (result.success) {
-        setSessionId(result.sessionId ?? '');
-        setStatusMessages(prev => [...prev, 'Ready.']);
-        setScreen('main');
-      } else {
-        setErrorMessage(result.message);
+    startupPromise
+      .then(result => {
+        if (result.success) {
+          setSessionId(result.sessionId ?? '');
+          setScreen('main');
+        } else {
+          setErrorMessage(result.message);
+          setScreen('error');
+          setTimeout(() => {
+            exit();
+            process.exit(1);
+          }, 100);
+        }
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        setErrorMessage(message);
         setScreen('error');
         setTimeout(() => {
           exit();
           process.exit(1);
         }, 100);
-      }
-    });
-  }, []);
+      });
+  }, [startupPromise]);
 
   if (screen === 'startup') {
     return (
@@ -40,12 +49,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         <Text bold color="cyan">
           cobuild v{version}
         </Text>
-        {statusMessages.map((msg, i) => (
-          <Text key={i} dimColor>
-            {'  '}
-            {msg}
-          </Text>
-        ))}
+        <Text dimColor>{'  '}{statusMessage}</Text>
       </Box>
     );
   }

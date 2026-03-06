@@ -1,28 +1,75 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render } from 'ink';
+import React from 'react';
+import { PassThrough } from 'node:stream';
 import { ScreenController } from '../ScreenController.js';
 import type { StartupResult } from '../../cli/app-shell.js';
 
-describe('ScreenController component', () => {
-  it('exports ScreenController as a function component', () => {
-    expect(typeof ScreenController).toBe('function');
+vi.mock('../App.js', () => ({
+  App: function MockApp() {
+    return null;
+  },
+}));
+
+describe('ScreenController', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('accepts ScreenControllerProps with startupPromise and version', () => {
-    const result: StartupResult = { success: true, message: 'ok', sessionId: 'abc-123' };
-    const props = {
-      startupPromise: Promise.resolve(result),
-      version: '0.1.0',
-    };
-    expect(props.version).toBe('0.1.0');
-    expect(props.startupPromise).toBeInstanceOf(Promise);
+  it('renders without throwing given a pending promise', () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: new Promise<StartupResult>(() => {}),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    unmount();
   });
 
-  it('accepts a failed startup result', () => {
-    const result: StartupResult = { success: false, message: 'Ollama is not reachable' };
-    const props = {
-      startupPromise: Promise.resolve(result),
-      version: '0.1.0',
-    };
-    return expect(props.startupPromise).resolves.toMatchObject({ success: false });
+  it('renders without throwing when startup succeeds', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 10));
+    unmount();
+  });
+
+  it('calls process.exit(1) after startup failure', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: false, message: 'Ollama unreachable' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 200));
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    unmount();
+  });
+
+  it('calls process.exit(1) when startup promise rejects', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stream = new PassThrough();
+    const rejected = Promise.reject<StartupResult>(new Error('unexpected crash'));
+    rejected.catch(() => {});
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: rejected,
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 200));
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    unmount();
   });
 });

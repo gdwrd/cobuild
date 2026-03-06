@@ -33,8 +33,8 @@ export async function checkOllama(baseUrl = 'http://localhost:11434'): Promise<V
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     const detail = isTimeout
-      ? `connection timed out after 5s`
-      : `connection refused`;
+      ? 'connection timed out after 5s'
+      : err instanceof Error ? err.message : String(err);
     return {
       ok: false,
       message: `Ollama is not reachable at ${baseUrl} (${detail}). Start Ollama and try again.`,

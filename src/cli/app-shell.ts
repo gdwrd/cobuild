@@ -38,10 +38,18 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
     return { success: false, message: bootstrapResult.message };
   }
 
-  const session = createAndSaveSession();
-  logger.info(`active session: ${session.id}`);
+  let sessionId: string;
+  try {
+    const session = createAndSaveSession();
+    logger.info(`active session: ${session.id}`);
+    sessionId = session.id;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`session creation failed: ${message}`);
+    return { success: false, message: `Failed to create session: ${message}` };
+  }
 
   logger.info('startup complete');
 
-  return { success: true, message: 'cobuild started successfully', sessionId: session.id };
+  return { success: true, message: 'cobuild started successfully', sessionId };
 }

@@ -13,7 +13,7 @@ const fsMock = vi.mocked(fs);
 const osMock = vi.mocked(os);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   osMock.homedir.mockReturnValue('/home/testuser');
 });
 

@@ -15,18 +15,37 @@ vi.mock('../../session/session.js', () => ({
   })),
 }));
 
+vi.mock('../../fs/bootstrap.js', () => ({
+  bootstrapDirectories: vi.fn(() => ({
+    ok: true,
+    cobuildDir: '/home/testuser/.cobuild',
+    message: 'directories ready: /home/testuser/.cobuild',
+  })),
+}));
+
+vi.mock('../../logging/logger.js', () => ({
+  getLogger: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), log: vi.fn() }),
+}));
+
 import { checkTTY, checkOllama } from '../../validation/env.js';
+import { bootstrapDirectories } from '../../fs/bootstrap.js';
 
 describe('runStartup', () => {
   beforeEach(() => {
     vi.mocked(checkTTY).mockReturnValue({ ok: true, message: 'terminal is interactive' });
     vi.mocked(checkOllama).mockResolvedValue({ ok: true, message: 'Ollama is reachable at http://localhost:11434' });
+    vi.mocked(bootstrapDirectories).mockReturnValue({
+      ok: true,
+      cobuildDir: '/home/testuser/.cobuild',
+      message: 'directories ready: /home/testuser/.cobuild',
+    });
   });
 
   it('returns success when validations pass', async () => {
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
     expect(result.success).toBe(true);
     expect(result.message).toBeTruthy();
+    expect(result.sessionId).toBe('mock-session-id');
   });
 
   it('returns success with newSession=true', async () => {
@@ -57,5 +76,16 @@ describe('runStartup', () => {
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/not reachable/i);
+  });
+
+  it('returns failure when directory bootstrap fails', async () => {
+    vi.mocked(bootstrapDirectories).mockReturnValue({
+      ok: false,
+      cobuildDir: '/home/testuser/.cobuild',
+      message: 'failed to create directories: permission denied',
+    });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/permission denied/i);
   });
 });

@@ -163,11 +163,11 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 13: Persist Interview Completion State
 
-- [ ] Mark interview as completed in session schema
-- [ ] Store whether interview ended via `/finish-now`
-- [ ] Update session stage to `spec`
-- [ ] Persist session state
-- [ ] Log interview completion event
+- [x] Mark interview as completed in session schema
+- [x] Store whether interview ended via `/finish-now`
+- [x] Update session stage to `spec`
+- [x] Persist session state
+- [x] Log interview completion event
 
 ---
 

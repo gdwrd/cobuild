@@ -11,9 +11,16 @@ vi.mock('../../session/session.js', () => ({
     updatedAt: '2026-01-01T00:00:01.000Z',
   })),
   getTranscript: vi.fn((session) => session.transcript),
+  completeInterview: vi.fn((session, finishedEarly) => ({
+    ...session,
+    completed: true,
+    stage: 'spec' as const,
+    finishedEarly,
+    updatedAt: '2026-01-01T00:00:02.000Z',
+  })),
 }));
 
-import { appendInterviewMessage, getTranscript } from '../../session/session.js';
+import { appendInterviewMessage, getTranscript, completeInterview } from '../../session/session.js';
 import {
   COMPLETION_MARKER,
   buildModelMessages,
@@ -46,6 +53,13 @@ beforeEach(() => {
     updatedAt: '2026-01-01T00:00:01.000Z',
   }));
   vi.mocked(getTranscript).mockImplementation((session) => session.transcript);
+  vi.mocked(completeInterview).mockImplementation((session, finishedEarly) => ({
+    ...session,
+    completed: true,
+    stage: 'spec' as const,
+    finishedEarly,
+    updatedAt: '2026-01-01T00:00:02.000Z',
+  }));
 });
 
 describe('buildModelMessages', () => {
@@ -287,6 +301,29 @@ describe('runInterviewLoop', () => {
     expect(finishHandler).toHaveBeenCalledTimes(1);
     expect(provider.generate).not.toHaveBeenCalled();
     expect(onAssistantResponse).not.toHaveBeenCalled();
+  });
+
+  it('calls completeInterview with finishedEarly=false on natural completion', async () => {
+    const session = makeSession();
+    const provider = makeProvider(`All done! ${COMPLETION_MARKER}`);
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    expect(completeInterview).toHaveBeenCalledWith(expect.anything(), false);
+  });
+
+  it('returns session with stage=spec after natural completion', async () => {
+    const session = makeSession();
+    const provider = makeProvider(`All done! ${COMPLETION_MARKER}`);
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    const finalSession = await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    expect(finalSession.stage).toBe('spec');
+    expect(finalSession.completed).toBe(true);
   });
 
   it('ignores unrecognized slash commands and re-prompts', async () => {

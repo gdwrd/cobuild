@@ -1,4 +1,4 @@
-import { Session, appendInterviewMessage, getTranscript } from '../session/session.js';
+import { Session, appendInterviewMessage, getTranscript, completeInterview } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import { isSlashCommand, parseCommand, createCommandRouter } from './commands.js';
 import type { CommandHandler, SlashCommand } from './commands.js';
@@ -77,6 +77,7 @@ export async function runInterviewLoop(
 
     if (result.complete) {
       logger.info('interview loop: completed after initial turn');
+      currentSession = completeInterview(currentSession, false);
       return currentSession;
     }
   }
@@ -109,6 +110,7 @@ export async function runInterviewLoop(
 
     if (complete) {
       logger.info('interview loop: completed');
+      currentSession = completeInterview(currentSession, false);
     }
   }
 

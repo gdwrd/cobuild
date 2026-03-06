@@ -10,11 +10,17 @@ vi.mock('../../session/session.js', () => ({
     transcript: [...session.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
     updatedAt: '2026-01-01T00:00:01.000Z',
   })),
-  saveSession: vi.fn(),
+  completeInterview: vi.fn((session, finishedEarly) => ({
+    ...session,
+    completed: true,
+    stage: 'spec' as const,
+    finishedEarly,
+    updatedAt: '2026-01-01T00:00:02.000Z',
+  })),
   getTranscript: vi.fn((session) => session.transcript),
 }));
 
-import { appendInterviewMessage, saveSession, getTranscript } from '../../session/session.js';
+import { appendInterviewMessage, completeInterview, getTranscript } from '../../session/session.js';
 import {
   FINISH_NOW_PROMPT,
   buildFinishNowMessages,
@@ -47,7 +53,13 @@ beforeEach(() => {
     transcript: [...session.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
     updatedAt: '2026-01-01T00:00:01.000Z',
   }));
-  vi.mocked(saveSession).mockImplementation(() => {});
+  vi.mocked(completeInterview).mockImplementation((session, finishedEarly) => ({
+    ...session,
+    completed: true,
+    stage: 'spec' as const,
+    finishedEarly,
+    updatedAt: '2026-01-01T00:00:02.000Z',
+  }));
   vi.mocked(getTranscript).mockImplementation((session) => session.transcript);
 });
 
@@ -137,7 +149,7 @@ describe('createFinishNowHandler', () => {
     expect(appendInterviewMessage).toHaveBeenCalledWith(session, 'assistant', 'All done.');
   });
 
-  it('marks session as completed and saves it', async () => {
+  it('marks session as completed via completeInterview with finishedEarly=true', async () => {
     const session = makeSession();
     const provider = makeProvider(`Done. ${COMPLETION_MARKER}`);
     const onSessionUpdate = vi.fn();
@@ -146,12 +158,12 @@ describe('createFinishNowHandler', () => {
 
     await handler([]);
 
-    expect(saveSession).toHaveBeenCalledOnce();
-    const savedSession = vi.mocked(saveSession).mock.calls[0][0];
-    expect(savedSession.completed).toBe(true);
+    expect(completeInterview).toHaveBeenCalledOnce();
+    const [, calledFinishedEarly] = vi.mocked(completeInterview).mock.calls[0];
+    expect(calledFinishedEarly).toBe(true);
   });
 
-  it('calls onSessionUpdate with completed session', async () => {
+  it('calls onSessionUpdate with completed session (stage=spec)', async () => {
     const session = makeSession();
     const provider = makeProvider(`Done. ${COMPLETION_MARKER}`);
     const onSessionUpdate = vi.fn();
@@ -163,6 +175,7 @@ describe('createFinishNowHandler', () => {
     expect(onSessionUpdate).toHaveBeenCalledOnce();
     const updatedSession = onSessionUpdate.mock.calls[0][0];
     expect(updatedSession.completed).toBe(true);
+    expect(updatedSession.stage).toBe('spec');
   });
 
   it('calls onResponse with the cleaned response text', async () => {

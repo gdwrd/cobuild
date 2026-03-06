@@ -331,6 +331,64 @@ describe('persistErrorState', () => {
   });
 });
 
+describe('completeInterview', () => {
+  const baseSession = {
+    id: 'sess-c',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: false,
+    stage: 'interview' as const,
+    transcript: [],
+  };
+
+  it('sets completed=true, stage=spec, and finishedEarly=false for natural completion', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, false);
+
+    expect(updated.completed).toBe(true);
+    expect(updated.stage).toBe('spec');
+    expect(updated.finishedEarly).toBe(false);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('sets finishedEarly=true when ended via /finish-now', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, true);
+
+    expect(updated.finishedEarly).toBe(true);
+    expect(updated.stage).toBe('spec');
+    expect(updated.completed).toBe(true);
+  });
+
+  it('updates updatedAt on completion', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, false);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    completeInterview(baseSession, false);
+
+    expect(baseSession.completed).toBe(false);
+    expect(baseSession.stage).toBe('interview');
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

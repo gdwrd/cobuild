@@ -1,4 +1,4 @@
-import { Session, appendInterviewMessage, saveSession } from '../session/session.js';
+import { Session, appendInterviewMessage, completeInterview } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import { buildModelMessages, stripCompletionMarker } from './controller.js';
 import type { CommandHandler, CommandResult } from './commands.js';
@@ -41,12 +41,7 @@ export function createFinishNowHandler(options: FinishNowHandlerOptions): Comman
     logger.info('/finish-now: received final model response, marking interview complete');
 
     let updatedSession = appendInterviewMessage(session, 'assistant', response);
-    updatedSession = {
-      ...updatedSession,
-      completed: true,
-      updatedAt: new Date().toISOString(),
-    };
-    saveSession(updatedSession);
+    updatedSession = completeInterview(updatedSession, true);
 
     logger.info(`/finish-now: session ${updatedSession.id} persisted as completed`);
 

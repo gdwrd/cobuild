@@ -16,6 +16,8 @@ export interface Session {
   updatedAt: string;
   workingDirectory: string;
   completed: boolean;
+  stage?: 'interview' | 'spec';
+  finishedEarly?: boolean;
   transcript: InterviewMessage[];
   model?: string;
   lastError?: string;
@@ -40,6 +42,7 @@ export function createSession(): Session {
     updatedAt: now,
     workingDirectory: process.cwd(),
     completed: false,
+    stage: 'interview',
     transcript: [],
   };
   return session;
@@ -155,5 +158,20 @@ export function persistErrorState(session: Session, error: string): Session {
   };
   saveSession(updated);
   getLogger().error(`session error persisted (session ${session.id}): ${error}`);
+  return updated;
+}
+
+export function completeInterview(session: Session, finishedEarly: boolean): Session {
+  const updated: Session = {
+    ...session,
+    completed: true,
+    stage: 'spec',
+    finishedEarly,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `interview completed (session ${session.id}, finishedEarly=${finishedEarly})`,
+  );
   return updated;
 }

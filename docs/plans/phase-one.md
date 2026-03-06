@@ -65,12 +65,12 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 3: Implement Environment Validation
 
-- [ ] Implement interactive TTY detection
-- [ ] Exit immediately if terminal is non-interactive
-- [ ] Implement Ollama connectivity check
-- [ ] Fail immediately if Ollama is not reachable
-- [ ] Display clear user-friendly error messages
-- [ ] Log validation results
+- [x] Implement interactive TTY detection
+- [x] Exit immediately if terminal is non-interactive
+- [x] Implement Ollama connectivity check
+- [x] Fail immediately if Ollama is not reachable
+- [x] Display clear user-friendly error messages
+- [x] Log validation results
 
 ---
 

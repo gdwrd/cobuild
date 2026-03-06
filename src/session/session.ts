@@ -17,6 +17,7 @@ export interface Session {
   workingDirectory: string;
   completed: boolean;
   transcript: InterviewMessage[];
+  model?: string;
 }
 
 export function getSessionsDir(): string {

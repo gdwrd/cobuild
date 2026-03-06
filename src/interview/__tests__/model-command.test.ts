@@ -1,0 +1,207 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../logging/logger.js', () => ({
+  getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+}));
+
+vi.mock('../../session/session.js', () => ({
+  saveSession: vi.fn(),
+}));
+
+import { saveSession } from '../../session/session.js';
+import { createModelHandler } from '../model-command.js';
+import type { ModelHandlerOptions, ModelLister } from '../model-command.js';
+import type { Session } from '../../session/session.js';
+
+const makeSession = (overrides: Partial<Session> = {}): Session => ({
+  id: 'sess-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  workingDirectory: '/work',
+  completed: false,
+  transcript: [],
+  ...overrides,
+});
+
+const makeLister = (models: string[]): ModelLister => ({
+  listModels: vi.fn(async () => models),
+});
+
+const makeOptions = (
+  session: Session,
+  lister: ModelLister,
+  overrides: Partial<ModelHandlerOptions> = {},
+): ModelHandlerOptions => {
+  let currentSession = session;
+  return {
+    getSession: () => currentSession,
+    onSessionUpdate: vi.fn((s) => {
+      currentSession = s;
+    }),
+    modelLister: lister,
+    onSelectModel: vi.fn(async () => null),
+    ...overrides,
+  };
+};
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(saveSession).mockImplementation(() => {});
+});
+
+describe('createModelHandler', () => {
+  it('calls listModels to get available models', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3', 'mistral']);
+    const options = makeOptions(session, lister);
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(lister.listModels).toHaveBeenCalledOnce();
+  });
+
+  it('returns handled=true and continueInterview=true when no models available', async () => {
+    const session = makeSession();
+    const lister = makeLister([]);
+    const options = makeOptions(session, lister);
+    const handler = createModelHandler(options);
+
+    const result = await handler([]);
+
+    expect(result).toEqual({
+      handled: true,
+      continueInterview: true,
+      message: 'No models available.',
+    });
+  });
+
+  it('does not call onSelectModel when no models available', async () => {
+    const session = makeSession();
+    const lister = makeLister([]);
+    const onSelectModel = vi.fn(async () => null);
+    const options = makeOptions(session, lister, { onSelectModel });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(onSelectModel).not.toHaveBeenCalled();
+  });
+
+  it('calls onSelectModel with the list of models', async () => {
+    const session = makeSession();
+    const models = ['llama3', 'mistral', 'codellama'];
+    const lister = makeLister(models);
+    const onSelectModel = vi.fn(async () => null);
+    const options = makeOptions(session, lister, { onSelectModel });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(onSelectModel).toHaveBeenCalledWith(models);
+  });
+
+  it('returns handled=true continueInterview=true when user cancels selection', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const onSelectModel = vi.fn(async () => null);
+    const options = makeOptions(session, lister, { onSelectModel });
+    const handler = createModelHandler(options);
+
+    const result = await handler([]);
+
+    expect(result).toEqual({ handled: true, continueInterview: true });
+  });
+
+  it('does not save session when user cancels selection', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, { onSelectModel: vi.fn(async () => null) });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(saveSession).not.toHaveBeenCalled();
+  });
+
+  it('persists selected model in session', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3', 'mistral']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'mistral'),
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(saveSession).toHaveBeenCalledOnce();
+    const saved = vi.mocked(saveSession).mock.calls[0][0];
+    expect(saved.model).toBe('mistral');
+  });
+
+  it('does not modify transcript when model is selected', async () => {
+    const session = makeSession({
+      transcript: [{ role: 'assistant', content: 'Question?', timestamp: '2026-01-01T00:00:00.000Z' }],
+    });
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'llama3'),
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    const saved = vi.mocked(saveSession).mock.calls[0][0];
+    expect(saved.transcript).toEqual(session.transcript);
+  });
+
+  it('calls onSessionUpdate with updated session after model selection', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const onSessionUpdate = vi.fn();
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'llama3'),
+      onSessionUpdate,
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(onSessionUpdate).toHaveBeenCalledOnce();
+    const updated = onSessionUpdate.mock.calls[0][0];
+    expect(updated.model).toBe('llama3');
+  });
+
+  it('returns handled=true continueInterview=true after successful model selection', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'llama3'),
+    });
+    const handler = createModelHandler(options);
+
+    const result = await handler([]);
+
+    expect(result).toEqual({ handled: true, continueInterview: true });
+  });
+
+  it('uses current session from getSession at time of invocation', async () => {
+    const initial = makeSession();
+    let currentSession = initial;
+    const lister = makeLister(['llama3']);
+    const options: ModelHandlerOptions = {
+      getSession: () => currentSession,
+      onSessionUpdate: vi.fn((s) => { currentSession = s; }),
+      modelLister: lister,
+      onSelectModel: vi.fn(async () => 'llama3'),
+    };
+    const handler = createModelHandler(options);
+
+    // Simulate session update before handler is called
+    currentSession = makeSession({ id: 'sess-updated' });
+    await handler([]);
+
+    const saved = vi.mocked(saveSession).mock.calls[0][0];
+    expect(saved.id).toBe('sess-updated');
+  });
+});

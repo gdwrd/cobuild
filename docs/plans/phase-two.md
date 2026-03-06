@@ -112,12 +112,12 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 8: Implement `/model` Command
 
-- [ ] Implement model listing via Ollama provider
-- [ ] Display installed models to the user
-- [ ] Allow user to select a new model
-- [ ] Persist selected model in session
-- [ ] Ensure interview transcript remains unchanged
-- [ ] Continue interview with selected model
+- [x] Implement model listing via Ollama provider
+- [x] Display installed models to the user
+- [x] Allow user to select a new model
+- [x] Persist selected model in session
+- [x] Ensure interview transcript remains unchanged
+- [x] Continue interview with selected model
 
 ---
 

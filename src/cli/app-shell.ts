@@ -1,5 +1,6 @@
 import type { RuntimeConfig } from './config.js';
 import { checkTTY, checkOllama } from '../validation/env.js';
+import { bootstrapDirectories } from '../fs/bootstrap.js';
 
 export interface StartupResult {
   success: boolean;
@@ -29,6 +30,12 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
   log(ollamaResult.ok ? 'info' : 'error', `ollama check: ${ollamaResult.message}`);
   if (!ollamaResult.ok) {
     return { success: false, message: ollamaResult.message };
+  }
+
+  const bootstrapResult = bootstrapDirectories();
+  log(bootstrapResult.ok ? 'info' : 'error', `bootstrap: ${bootstrapResult.message}`);
+  if (!bootstrapResult.ok) {
+    return { success: false, message: bootstrapResult.message };
   }
 
   log('info', 'startup complete');

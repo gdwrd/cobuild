@@ -76,13 +76,13 @@ At the end of this phase, running `cobuild` should successfully start a basic in
 
 ### Task 4: Implement Global Directory Bootstrap
 
-- [ ] Detect user home directory cross-platform
-- [ ] Create `.cobuild` directory if missing
-- [ ] Create `~/.cobuild/sessions/`
-- [ ] Create `~/.cobuild/logs/`
-- [ ] Implement reusable directory ensure utility
-- [ ] Ensure directories are created atomically and safely
-- [ ] Log directory initialization
+- [x] Detect user home directory cross-platform
+- [x] Create `.cobuild` directory if missing
+- [x] Create `~/.cobuild/sessions/`
+- [x] Create `~/.cobuild/logs/`
+- [x] Implement reusable directory ensure utility
+- [x] Ensure directories are created atomically and safely
+- [x] Log directory initialization
 
 ---
 

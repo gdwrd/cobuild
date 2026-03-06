@@ -39,7 +39,12 @@ export function saveSession(session: Session): void {
   const json = JSON.stringify(session, null, 2);
 
   fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
-  fs.renameSync(tmpPath, filePath);
+  try {
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }
+    throw err;
+  }
 
   getLogger().info(`session saved: ${session.id}`);
 }

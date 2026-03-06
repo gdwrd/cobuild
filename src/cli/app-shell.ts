@@ -11,13 +11,19 @@ export interface StartupResult {
 }
 
 export async function runStartup(config: RuntimeConfig): Promise<StartupResult> {
-  const logger = getLogger();
+  const bootstrapResult = bootstrapDirectories();
 
+  const logger = getLogger();
   logger.info(`cobuild v${config.version} starting`);
   logger.info(`new-session=${config.newSession}`);
 
   if (config.verbose) {
     logger.info('verbose mode enabled');
+  }
+
+  logger.log(bootstrapResult.ok ? 'info' : 'error', `bootstrap: ${bootstrapResult.message}`);
+  if (!bootstrapResult.ok) {
+    return { success: false, message: bootstrapResult.message };
   }
 
   const ttyResult = checkTTY();
@@ -30,12 +36,6 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
   logger.log(ollamaResult.ok ? 'info' : 'error', `ollama check: ${ollamaResult.message}`);
   if (!ollamaResult.ok) {
     return { success: false, message: ollamaResult.message };
-  }
-
-  const bootstrapResult = bootstrapDirectories();
-  logger.log(bootstrapResult.ok ? 'info' : 'error', `bootstrap: ${bootstrapResult.message}`);
-  if (!bootstrapResult.ok) {
-    return { success: false, message: bootstrapResult.message };
   }
 
   let sessionId: string;

@@ -1,5 +1,7 @@
 import { Session, appendInterviewMessage, getTranscript } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
+import { isSlashCommand, parseCommand, createCommandRouter } from './commands.js';
+import type { CommandHandler, SlashCommand } from './commands.js';
 
 export const COMPLETION_MARKER = '[INTERVIEW_COMPLETE]';
 
@@ -61,8 +63,10 @@ export async function runInterviewLoop(
   systemPrompt: string,
   onUserInput: () => Promise<string>,
   onAssistantResponse: (response: string, complete: boolean) => Promise<void>,
+  commandHandlers?: Partial<Record<SlashCommand, CommandHandler>>,
 ): Promise<Session> {
   const logger = getLogger();
+  const routeCommand = createCommandRouter(commandHandlers ?? {});
   let currentSession = session;
 
   if (getTranscript(currentSession).length === 0) {
@@ -81,6 +85,20 @@ export async function runInterviewLoop(
   while (!complete) {
     const userInput = await onUserInput();
     logger.info('interview loop: received user input');
+
+    if (isSlashCommand(userInput)) {
+      const parsed = parseCommand(userInput);
+      if (parsed) {
+        const cmdResult = await routeCommand(parsed);
+        if (!cmdResult.continueInterview) {
+          logger.info('interview loop: command stopped interview');
+          complete = true;
+        }
+        continue;
+      }
+      logger.info(`interview loop: unrecognized slash command "${userInput.trim()}", ignoring`);
+      continue;
+    }
 
     currentSession = appendInterviewMessage(currentSession, 'user', userInput);
 

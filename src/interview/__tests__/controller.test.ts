@@ -242,4 +242,73 @@ describe('runInterviewLoop', () => {
     expect(onUserInput).not.toHaveBeenCalled();
     expect(onAssistantResponse).toHaveBeenCalledWith('All done!', true);
   });
+
+  it('intercepts slash commands and does not send them to the model', async () => {
+    const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
+    const provider = makeProvider(`Done! ${COMPLETION_MARKER}`);
+    const commandHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: true });
+    let callCount = 0;
+    const onUserInput = vi.fn(async () => {
+      callCount++;
+      return callCount === 1 ? '/model' : 'regular answer';
+    });
+    const onAssistantResponse = vi.fn(async () => {});
+
+    vi.mocked(appendInterviewMessage).mockImplementation((s, role, content) => ({
+      ...s,
+      transcript: [...s.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }));
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse, {
+      '/model': commandHandler,
+    });
+
+    expect(commandHandler).toHaveBeenCalledWith([]);
+    // slash command input is never appended to transcript
+    expect(appendInterviewMessage).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'user',
+      '/model',
+    );
+  });
+
+  it('stops interview loop when command returns continueInterview=false', async () => {
+    const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
+    const provider = makeProvider('Never called');
+    const finishHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: false });
+    const onUserInput = vi.fn(async () => '/finish-now');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse, {
+      '/finish-now': finishHandler,
+    });
+
+    expect(finishHandler).toHaveBeenCalledTimes(1);
+    expect(provider.generate).not.toHaveBeenCalled();
+    expect(onAssistantResponse).not.toHaveBeenCalled();
+  });
+
+  it('ignores unrecognized slash commands and re-prompts', async () => {
+    const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
+    const provider = makeProvider(`Done! ${COMPLETION_MARKER}`);
+    let callCount = 0;
+    const onUserInput = vi.fn(async () => {
+      callCount++;
+      return callCount === 1 ? '/unknown-cmd' : 'real answer';
+    });
+    const onAssistantResponse = vi.fn(async () => {});
+
+    vi.mocked(appendInterviewMessage).mockImplementation((s, role, content) => ({
+      ...s,
+      transcript: [...s.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }));
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    // called twice: once for /unknown-cmd (ignored), once for real answer
+    expect(onUserInput).toHaveBeenCalledTimes(2);
+    expect(provider.generate).toHaveBeenCalledTimes(1);
+  });
 });

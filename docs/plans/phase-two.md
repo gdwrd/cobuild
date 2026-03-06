@@ -90,12 +90,12 @@ No artifact generation is implemented yet. The phase ends when the CLI can run a
 
 ### Task 6: Implement Slash Command Router
 
-- [ ] Detect slash commands in interview input
-- [ ] Implement command parsing utility
-- [ ] Ensure commands are intercepted by CLI
-- [ ] Prevent commands from being sent as model messages
-- [ ] Route commands to handlers
-- [ ] Log command usage
+- [x] Detect slash commands in interview input
+- [x] Implement command parsing utility
+- [x] Ensure commands are intercepted by CLI
+- [x] Prevent commands from being sent as model messages
+- [x] Route commands to handlers
+- [x] Log command usage
 
 ---
 

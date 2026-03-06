@@ -14,9 +14,15 @@
 src/
   cli/         — entrypoint (index.ts), runtime config (config.ts), startup orchestrator (app-shell.ts)
   fs/          — directory bootstrap (bootstrap.ts)
+  interview/   — interview engine: controller.ts (loop, ModelProvider interface, COMPLETION_MARKER),
+                 commands.ts (slash command router), prompts.ts (system prompt, token estimation),
+                 finish-now.ts (/finish-now handler), model-command.ts (/model handler, ModelLister),
+                 provider-command.ts (/provider handler), retry.ts (withRetry, RetryExhaustedError)
   logging/     — Logger class and getLogger() singleton (logger.ts)
-  session/     — Session schema, creation, atomic persistence (session.ts)
-  ui/          — Ink components: App.tsx (main shell), ScreenController.tsx (screen router)
+  providers/   — ollama.ts (OllamaProvider: generate via /api/chat, listModels via /api/tags, 120s timeout)
+  session/     — Session schema, creation, atomic persistence, transcript append, session resolution (session.ts)
+  ui/          — Ink components: App.tsx (main shell), ScreenController.tsx (screen router),
+                 RestoredSession.tsx (resumed-session interstitial screen)
   utils/       — Cross-platform path helpers (paths.ts)
   validation/  — TTY detection and Ollama connectivity check (env.ts)
 ```
@@ -30,7 +36,8 @@ src/
 - **Atomic session writes**: Sessions are written via `.tmp` file then renamed (`writeFileSync` + `renameSync`) to prevent partial writes.
 - **Logger singleton**: `getLogger()` returns a module-level singleton `Logger`. Tests mock `../../logging/logger.js` to avoid file I/O.
 - **Silent log failures**: The logger catches file write errors silently to prevent log I/O from crashing the CLI.
-- **Screen controller pattern**: `ScreenController.tsx` manages a `Screen` type (`'startup' | 'main' | 'error'`) and renders different Ink components per state.
+- **Screen controller pattern**: `ScreenController.tsx` manages a `Screen` type (`'startup' | 'restored' | 'main' | 'error'`) and renders different Ink components per state. The `'restored'` screen shows `RestoredSession` when startup resolves with `sessionResolution: 'resumed'`.
+- **Session resolution**: `runStartup` in `app-shell.ts` calls `findLatestByWorkingDirectory` to find an incomplete session for the current working directory. If found, it sets `sessionResolution: 'resumed'`; otherwise creates a new session. The `--new-session` flag bypasses lookup. `StartupResult` includes `sessionStage` for the resumed session's current stage.
 
 ## Toolchain
 
@@ -63,3 +70,6 @@ src/
 - The `--verbose` flag is parsed and stored in `RuntimeConfig` but currently only adds a single log line; it does not change the log level.
 - `safeFilename()` in `src/utils/paths.ts` strips leading/trailing dots in addition to unsafe characters, and truncates at 255 chars.
 - The `.gitignore` includes `.ralphex/` — this is an AI agent artifact directory and should not be committed.
+- **Interview completion marker**: The model signals end-of-interview by including the literal string `[INTERVIEW_COMPLETE]` anywhere in its response. `controller.ts` detects this, strips all occurrences from the displayed text, and calls `completeInterview()`. The marker is defined as `COMPLETION_MARKER` in `controller.ts` and referenced in the system prompt in `prompts.ts`.
+- **Token estimation**: `prompts.ts` estimates token count as `ceil(charCount / 4)` with 4 tokens overhead per message. Logs a warning when estimated total exceeds `MAX_PROMPT_TOKENS = 8000`. This is a rough heuristic, not a tokenizer.
+- **Session stage lifecycle**: New sessions start with `stage: 'interview'`. `completeInterview()` transitions to `stage: 'spec'` and sets `completed: true`. Sessions are only resumed (not started fresh) when `completed: false`.

@@ -57,6 +57,26 @@ describe('createSession', () => {
 });
 
 describe('saveSession', () => {
+  it('re-throws rename error and unlinks tmp file', async () => {
+    const renameErr = new Error('EACCES: permission denied');
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => { throw renameErr; });
+    fsMock.unlinkSync.mockImplementation(() => {});
+
+    const { saveSession } = await import('../session.js');
+    const session = {
+      id: 'test-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    expect(() => saveSession(session)).toThrow('EACCES: permission denied');
+    expect(fsMock.unlinkSync).toHaveBeenCalled();
+  });
+
   it('writes to tmp file then renames atomically', async () => {
     fsMock.writeFileSync.mockImplementation(() => {});
     fsMock.renameSync.mockImplementation(() => {});
@@ -121,6 +141,16 @@ describe('loadSession', () => {
 
     expect(result).toBeNull();
   });
+
+  it('re-throws non-ENOENT errors', async () => {
+    fsMock.readFileSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { loadSession } = await import('../session.js');
+    expect(() => loadSession('abc')).toThrow('EACCES: permission denied');
+  });
 });
 
 describe('updateSession', () => {
@@ -174,6 +204,16 @@ describe('findLatestByWorkingDirectory', () => {
 
     const { findLatestByWorkingDirectory } = await import('../session.js');
     expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
+  it('re-throws non-ENOENT errors from readdirSync', async () => {
+    fsMock.readdirSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(() => findLatestByWorkingDirectory('/work')).toThrow('EACCES: permission denied');
   });
 
   it('returns null when no sessions match working directory', async () => {

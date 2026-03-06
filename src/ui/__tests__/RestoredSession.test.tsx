@@ -33,19 +33,6 @@ describe('RestoredSession', () => {
     unmount();
   });
 
-  it('renders with a session ID and does not throw', () => {
-    const stream = new PassThrough();
-    const onContinue = vi.fn();
-    const { unmount } = render(
-      React.createElement(RestoredSession, {
-        sessionId: 'abc-123-def-456',
-        onContinue,
-      }),
-      { stdout: stream as unknown as NodeJS.WriteStream },
-    );
-    unmount();
-  });
-
   it('renders with a different session ID and does not throw', () => {
     const stream = new PassThrough();
     const onContinue = vi.fn();

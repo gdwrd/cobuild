@@ -16,6 +16,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [screen, setScreen] = useState<Screen>('startup');
   const [statusMessage] = useState('Starting cobuild...');
   const [sessionId, setSessionId] = useState('');
+  const [sessionStage, setSessionStage] = useState<'interview' | 'spec'>('interview');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .then(result => {
         if (result.success) {
           setSessionId(result.sessionId ?? '');
+          setSessionStage(result.sessionStage ?? 'interview');
           if (result.sessionResolution === 'resumed') {
             setScreen('restored');
           } else {
@@ -63,6 +65,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     return (
       <RestoredSession
         sessionId={sessionId}
+        stage={sessionStage}
         onContinue={() => setScreen('main')}
       />
     );

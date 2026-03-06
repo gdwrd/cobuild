@@ -4,10 +4,11 @@ import { getLogger } from '../logging/logger.js';
 
 export interface RestoredSessionProps {
   sessionId: string;
+  stage?: 'interview' | 'spec';
   onContinue: () => void;
 }
 
-export function RestoredSession({ sessionId, onContinue }: RestoredSessionProps) {
+export function RestoredSession({ sessionId, stage = 'interview', onContinue }: RestoredSessionProps) {
   const { exit } = useApp();
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export function RestoredSession({ sessionId, onContinue }: RestoredSessionProps)
       <Text> </Text>
       <Text>Resuming previous session:</Text>
       <Text dimColor>{'  Session: '}{sessionId.slice(0, 8)}</Text>
-      <Text dimColor>{'  Stage:   '}interview</Text>
+      <Text dimColor>{'  Stage:   '}{stage}</Text>
       <Text> </Text>
       <Text dimColor>Press Enter to continue...</Text>
     </Box>

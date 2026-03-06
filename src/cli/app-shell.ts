@@ -11,6 +11,7 @@ export interface StartupResult {
   message: string;
   sessionId?: string;
   sessionResolution?: SessionResolution;
+  sessionStage?: 'interview' | 'spec';
 }
 
 export async function runStartup(config: RuntimeConfig): Promise<StartupResult> {
@@ -43,6 +44,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
 
   let sessionId: string;
   let sessionResolution: SessionResolution;
+  let sessionStage: 'interview' | 'spec' | undefined;
   try {
     if (config.newSession) {
       logger.info('--new-session flag set, forcing new session');
@@ -56,6 +58,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         logger.info(`resuming existing session: ${existing.id}`);
         sessionId = existing.id;
         sessionResolution = 'resumed';
+        sessionStage = existing.stage;
       } else {
         if (existing && existing.completed) {
           logger.info(`latest session completed, starting new session (was: ${existing.id})`);
@@ -77,5 +80,5 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
 
   logger.info('startup complete');
 
-  return { success: true, message: 'cobuild started successfully', sessionId, sessionResolution };
+  return { success: true, message: 'cobuild started successfully', sessionId, sessionResolution, sessionStage };
 }

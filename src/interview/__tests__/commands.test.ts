@@ -62,7 +62,7 @@ describe('parseCommand', () => {
 
 describe('createCommandRouter', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('calls registered handler and returns its result', async () => {

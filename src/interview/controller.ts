@@ -33,7 +33,7 @@ export function detectCompletion(response: string): boolean {
 }
 
 export function stripCompletionMarker(response: string): string {
-  return response.replace(COMPLETION_MARKER, '').trim();
+  return response.replaceAll(COMPLETION_MARKER, '').trim();
 }
 
 export async function runInterviewTurn(

@@ -1,4 +1,4 @@
-import { describe, it, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
@@ -145,16 +145,12 @@ describe('App component', () => {
   it('renders session id prefix in output', () => {
     const { output, unmount } = renderApp({ sessionId: 'abcdefgh-rest', version: '0.1.0' });
     unmount();
-    if (output && !output.includes('abcdefgh')) {
-      throw new Error(`Expected session id prefix in output, got: ${output}`);
-    }
+    expect(output).toContain('abcdefgh');
   });
 
   it('renders version in output', () => {
     const { output, unmount } = renderApp({ sessionId: 'abc123', version: '0.1.0' });
     unmount();
-    if (output && !output.includes('0.1.0')) {
-      throw new Error(`Expected version in output, got: ${output}`);
-    }
+    expect(output).toContain('0.1.0');
   });
 });

@@ -87,12 +87,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 6: Improve Retry Exhaustion UX
 
-- [ ] Implement retry exhaustion UI state
-- [ ] Provide interactive retry option
-- [ ] Provide exit option
-- [ ] Persist retry exhaustion state in session
-- [ ] Log retry exhaustion events
-- [ ] Add tests for retry exhaustion flow
+- [x] Implement retry exhaustion UI state
+- [x] Provide interactive retry option
+- [x] Provide exit option
+- [x] Persist retry exhaustion state in session
+- [x] Log retry exhaustion events
+- [x] Add tests for retry exhaustion flow
 
 ---
 

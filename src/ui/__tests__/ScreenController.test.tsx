@@ -6,8 +6,9 @@ import { ScreenController } from '../ScreenController.js';
 import type { StartupResult } from '../../cli/app-shell.js';
 import { runInterviewLoop } from '../../interview/controller.js';
 import { runArtifactPipeline } from '../../artifacts/generator.js';
+import { RetryExhaustedError } from '../../interview/retry.js';
 import { writeArtifactFile } from '../../artifacts/file-output.js';
-import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession } from '../../session/session.js';
+import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession, persistRetryExhaustedState } from '../../session/session.js';
 import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
 
@@ -80,6 +81,7 @@ vi.mock('../../session/session.js', () => {
     persistErrorState: vi.fn(),
     persistSpecArtifact: vi.fn(() => base),
     completeSpecStage: vi.fn(() => base),
+    persistRetryExhaustedState: vi.fn(() => base),
   };
 });
 
@@ -324,6 +326,66 @@ describe('ScreenController write failure handling', () => {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(completeSpecStage).not.toHaveBeenCalled();
+
+    unmount();
+  });
+});
+
+describe('ScreenController retry exhaustion handling', () => {
+  const mockSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview' as const,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(loadSession).mockReturnValue(mockSession);
+    vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
+    vi.mocked(completeSpecStage).mockReturnValue(mockSession);
+    vi.mocked(persistRetryExhaustedState).mockReturnValue(mockSession);
+  });
+
+  it('calls persistRetryExhaustedState when RetryExhaustedError is thrown in pipeline', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockRejectedValue(new RetryExhaustedError(new Error('Model request failed'), 5));
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(persistRetryExhaustedState).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'abc-123' }),
+    );
+
+    unmount();
+  });
+
+  it('does not call persistErrorState when RetryExhaustedError is thrown in pipeline', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockRejectedValue(new RetryExhaustedError(new Error('Model request failed'), 5));
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(persistErrorState).not.toHaveBeenCalled();
 
     unmount();
   });

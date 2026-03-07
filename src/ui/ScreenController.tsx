@@ -8,7 +8,7 @@ import { GenerationScreen } from './GenerationScreen.js';
 import type { GenerationStatus, GenerationStage, CompletedStage } from './GenerationScreen.js';
 import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
-import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage } from '../session/session.js';
+import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage, persistRetryExhaustedState } from '../session/session.js';
 import { OllamaProvider } from '../providers/ollama.js';
 import { runInterviewLoop } from '../interview/controller.js';
 import type { ModelProvider } from '../interview/controller.js';
@@ -54,6 +54,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
   const [workflowTerminatedEarly, setWorkflowTerminatedEarly] = useState(false);
   const [devPlanProgress, setDevPlanProgress] = useState<{ current: number; total: number } | undefined>(undefined);
+
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -391,17 +393,31 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .catch((err: unknown) => {
         logFullError(getLogger(), 'generation screen: pipeline failed', err);
         const msg = formatUserMessage(err);
-        // RetryExhaustedError: onRetryExhausted already persisted error state inside the generator
-        if (!(err instanceof RetryExhaustedError)) {
-          const s = loadSession(sessionId) ?? currentSessionRef.current;
+        const s = loadSession(sessionId) ?? currentSessionRef.current;
+        if (err instanceof RetryExhaustedError) {
+          getLogger().error(`generation screen: retry exhaustion reached during artifact generation; prompting user to retry or exit`);
+          if (s) {
+            try { persistRetryExhaustedState(s); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist retry exhaustion state: ${String(persistErr)}`); }
+          }
+          setGenerationError(msg);
+          setGenerationStatus('retry-exhausted');
+        } else {
           if (s) {
             try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           }
+          setGenerationError(msg);
+          setGenerationStatus('error');
         }
-        setGenerationError(msg);
-        setGenerationStatus('error');
       });
-  }, [interviewComplete]);
+  }, [interviewComplete, retryTrigger]);
+
+  const handleRetry = useCallback(() => {
+    getLogger().info(`generation screen: user requested retry after retry exhaustion`);
+    pipelineStartedRef.current = false;
+    setGenerationStatus('generating');
+    setGenerationError(undefined);
+    setRetryTrigger((n) => n + 1);
+  }, []);
 
   const handleYesNoAnswer = useCallback((answer: boolean) => {
     if (!yesNoResolverRef.current) return;
@@ -467,6 +483,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         completedStages={completedStages}
         terminatedEarly={workflowTerminatedEarly}
         devPlanProgress={devPlanProgress}
+        onRetry={handleRetry}
       />
     );
   }

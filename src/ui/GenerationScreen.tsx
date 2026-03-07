@@ -3,7 +3,7 @@ import { Box, Text, useInput, useApp } from 'ink';
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-export type GenerationStatus = 'generating' | 'success' | 'error';
+export type GenerationStatus = 'generating' | 'success' | 'error' | 'retry-exhausted';
 export type GenerationStage = 'spec' | 'architecture' | 'plan' | 'dev-plan';
 
 export interface CompletedStage {
@@ -19,6 +19,7 @@ export interface GenerationScreenProps {
   completedStages?: CompletedStage[];
   terminatedEarly?: boolean;
   devPlanProgress?: { current: number; total: number };
+  onRetry?: () => void;
 }
 
 const STAGE_LABELS: Record<GenerationStage, string> = {
@@ -43,6 +44,7 @@ export function GenerationScreen({
   completedStages = [],
   terminatedEarly = false,
   devPlanProgress,
+  onRetry,
 }: GenerationScreenProps) {
   const { exit } = useApp();
   const [spinnerFrame, setSpinnerFrame] = useState(0);
@@ -62,6 +64,15 @@ export function GenerationScreen({
   }, [status, exit]);
 
   useInput((char, key) => {
+    if (status === 'retry-exhausted') {
+      if (char === 'r' || char === 'R') {
+        onRetry?.();
+      } else {
+        exit();
+        process.exit(1);
+      }
+      return;
+    }
     if (status === 'error') {
       exit();
       process.exit(1);
@@ -123,6 +134,14 @@ export function GenerationScreen({
           <Text color="red">{'Error: '}{errorMessage ?? 'Generation failed.'}</Text>
           <Text> </Text>
           <Text dimColor>Press any key to exit.</Text>
+        </Box>
+      )}
+      {status === 'retry-exhausted' && (
+        <Box flexDirection="column">
+          <Text color="red">{'Generation failed after all retry attempts.'}</Text>
+          {errorMessage && <Text dimColor>{errorMessage}</Text>}
+          <Text> </Text>
+          <Text>Press <Text bold>R</Text> to retry, or any other key to exit.</Text>
         </Box>
       )}
     </Box>

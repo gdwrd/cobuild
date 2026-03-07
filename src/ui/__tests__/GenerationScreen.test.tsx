@@ -292,6 +292,50 @@ describe('GenerationScreen', () => {
     expect(output).not.toContain('## Overview');
   });
 
+  it('renders without throwing in retry-exhausted state', () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(GenerationScreen, { status: 'retry-exhausted', errorMessage: 'retries failed' }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    unmount();
+  });
+
+  it('shows retry-exhausted failure message', () => {
+    const { output, unmount } = renderScreen({ status: 'retry-exhausted' });
+    unmount();
+    expect(output).toContain('Generation failed after all retry attempts');
+  });
+
+  it('shows retry prompt text in retry-exhausted state', () => {
+    const { output, unmount } = renderScreen({ status: 'retry-exhausted' });
+    unmount();
+    expect(output).toContain('Press');
+    expect(output).toContain('to retry');
+  });
+
+  it('shows error detail message in retry-exhausted state when provided', () => {
+    const { output, unmount } = renderScreen({
+      status: 'retry-exhausted',
+      errorMessage: 'Model request failed after 5 attempts',
+    });
+    unmount();
+    expect(output).toContain('Model request failed after 5 attempts');
+  });
+
+  it('does not show success text in retry-exhausted state', () => {
+    const { output, unmount } = renderScreen({ status: 'retry-exhausted' });
+    unmount();
+    expect(output).not.toContain('Specification generated successfully');
+    expect(output).not.toContain('All artifacts generated successfully');
+  });
+
+  it('does not show spinner in retry-exhausted state', () => {
+    const { output, unmount } = renderScreen({ status: 'retry-exhausted' });
+    unmount();
+    expect(output).not.toContain('Creating project specification');
+  });
+
   it('shows all completed dev plan stages in final success state', () => {
     const completed: CompletedStage[] = [
       { label: 'Project specification', filePath: '/tmp/docs/spec.md' },

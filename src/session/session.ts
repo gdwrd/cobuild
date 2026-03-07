@@ -75,6 +75,7 @@ export interface Session {
   currentDevPlanPhase?: number;
   devPlanHalted?: boolean;
   devPlansComplete?: boolean;
+  retryExhausted?: boolean;
 }
 
 export function getSessionsDir(): string {
@@ -130,6 +131,7 @@ export function migrateSession(raw: unknown): Session {
   if (data['currentDevPlanPhase'] !== undefined) migrated.currentDevPlanPhase = data['currentDevPlanPhase'] as number;
   if (data['devPlanHalted'] !== undefined) migrated.devPlanHalted = data['devPlanHalted'] as boolean;
   if (data['devPlansComplete'] !== undefined) migrated.devPlansComplete = data['devPlansComplete'] as boolean;
+  if (data['retryExhausted'] !== undefined) migrated.retryExhausted = data['retryExhausted'] as boolean;
 
   return migrated;
 }
@@ -264,6 +266,17 @@ export function persistErrorState(session: Session, error: string): Session {
   };
   saveSession(updated);
   getLogger().error(`session error persisted (session ${session.id}): ${error}`);
+  return updated;
+}
+
+export function persistRetryExhaustedState(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    retryExhausted: true,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().error(`retry exhaustion: generation failed after all retry attempts (session ${session.id})`);
   return updated;
 }
 

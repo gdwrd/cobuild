@@ -83,12 +83,12 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 4: Implement Dev Plan Generator
 
-- [ ] Create dev plan generator module
-- [ ] Send generation request to provider
-- [ ] Normalize generation output
-- [ ] Capture raw request and response for logging
-- [ ] Track generation attempts
-- [ ] Return generated Markdown plan
+- [x] Create dev plan generator module
+- [x] Send generation request to provider
+- [x] Normalize generation output
+- [x] Capture raw request and response for logging
+- [x] Track generation attempts
+- [x] Return generated Markdown plan
 
 ---
 

@@ -58,6 +58,7 @@ export interface Session {
   planArtifact?: PlanArtifact;
   architectureGenerationAttempts?: number;
   planGenerationAttempts?: number;
+  devPlanGenerationAttempts?: number;
   extractedPhases?: PlanPhase[];
 }
 

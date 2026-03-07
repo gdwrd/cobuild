@@ -72,12 +72,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 4: Implement Architecture Generator
 
-- [ ] Create architecture generator module
-- [ ] Send generation request via provider layer
-- [ ] Normalize generation output
-- [ ] Capture raw request/response for logging
-- [ ] Persist generation attempt counts
-- [ ] Return generated architecture markdown
+- [x] Create architecture generator module
+- [x] Send generation request via provider layer
+- [x] Normalize generation output
+- [x] Capture raw request/response for logging
+- [x] Persist generation attempt counts
+- [x] Return generated architecture markdown
 
 ---
 

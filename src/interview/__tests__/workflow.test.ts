@@ -252,6 +252,7 @@ describe('/model switching', () => {
       },
       modelLister: lister,
       onSelectModel: vi.fn().mockResolvedValue('mistral'),
+      supportsModelListing: true,
     });
 
     let callCount = 0;
@@ -297,6 +298,7 @@ describe('/model switching', () => {
       },
       modelLister: { listModels: vi.fn().mockResolvedValue(['llama3']) },
       onSelectModel: vi.fn().mockResolvedValue('llama3'),
+      supportsModelListing: true,
     });
 
     let callCount = 0;

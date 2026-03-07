@@ -31,11 +31,11 @@
 - [x] Add or update integration-style tests that cover the end-to-end orchestration path with a non-Ollama provider stub.
 
 ### Task 5: Disable `/model` for Codex CLI and make provider messaging explicit
-- [ ] Refactor `/model` handling to check provider capabilities before listing models.
-- [ ] Return a clear informational message for Codex CLI sessions stating that model changes must be made in Codex itself and cannot be changed from `cobuild`.
-- [ ] Keep the existing interactive model switching flow for Ollama unchanged.
-- [ ] Update `/provider` messaging so it reports the active provider and, for Codex CLI, mentions that model selection is managed externally.
-- [ ] Add unit and workflow tests covering `/model` and `/provider` behavior for both providers.
+- [x] Refactor `/model` handling to check provider capabilities before listing models.
+- [x] Return a clear informational message for Codex CLI sessions stating that model changes must be made in Codex itself and cannot be changed from `cobuild`.
+- [x] Keep the existing interactive model switching flow for Ollama unchanged.
+- [x] Update `/provider` messaging so it reports the active provider and, for Codex CLI, mentions that model selection is managed externally.
+- [x] Add unit and workflow tests covering `/model` and `/provider` behavior for both providers.
 
 ### Task 6: Update logs, errors, and user-facing text for multi-provider support
 - [ ] Replace Ollama-only wording in logs, transient errors, and UI copy where the text should now be provider-neutral.

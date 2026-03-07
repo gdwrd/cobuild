@@ -9,7 +9,7 @@ vi.mock('../../session/session.js', () => ({
 }));
 
 import { saveSession } from '../../session/session.js';
-import { createModelHandler } from '../model-command.js';
+import { createModelHandler, MODEL_NOT_SUPPORTED_MESSAGE } from '../model-command.js';
 import type { ModelHandlerOptions, ModelLister } from '../model-command.js';
 import type { Session } from '../../session/session.js';
 
@@ -40,6 +40,7 @@ const makeOptions = (
     }),
     modelLister: lister,
     onSelectModel: vi.fn(async () => null),
+    supportsModelListing: true,
     ...overrides,
   };
 };
@@ -194,6 +195,7 @@ describe('createModelHandler', () => {
       onSessionUpdate: vi.fn((s) => { currentSession = s; }),
       modelLister: lister,
       onSelectModel: vi.fn(async () => 'llama3'),
+      supportsModelListing: true,
     };
     const handler = createModelHandler(options);
 
@@ -203,5 +205,95 @@ describe('createModelHandler', () => {
 
     const saved = vi.mocked(saveSession).mock.calls[0][0];
     expect(saved.id).toBe('sess-updated');
+  });
+});
+
+describe('createModelHandler with supportsModelListing=false', () => {
+  it('returns handled=true and continueInterview=true', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    const result = await handler([]);
+
+    expect(result.handled).toBe(true);
+    expect(result.continueInterview).toBe(true);
+  });
+
+  it('returns MODEL_NOT_SUPPORTED_MESSAGE', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    const result = await handler([]);
+
+    expect(result.message).toBe(MODEL_NOT_SUPPORTED_MESSAGE);
+  });
+
+  it('does not call listModels when supportsModelListing is false', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      modelLister: lister,
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    await handler([]);
+
+    expect(lister.listModels).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSelectModel when supportsModelListing is false', async () => {
+    const session = makeSession();
+    const onSelectModel = vi.fn(async () => null);
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel,
+      supportsModelListing: false,
+    });
+
+    await handler([]);
+
+    expect(onSelectModel).not.toHaveBeenCalled();
+  });
+
+  it('does not save session when supportsModelListing is false', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    await handler([]);
+
+    expect(saveSession).not.toHaveBeenCalled();
+  });
+
+  it('message mentions Codex', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    const result = await handler([]);
+
+    expect(result.message).toContain('Codex');
   });
 });

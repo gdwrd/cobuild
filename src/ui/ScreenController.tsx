@@ -218,8 +218,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
               : Promise.resolve([]),
         },
         onSelectModel,
+        supportsModelListing: supportsModelListing(providerRef.current!),
       }),
-      '/provider': createProviderHandler(),
+      '/provider': createProviderHandler(session.provider ?? 'ollama'),
     })
       .then((finalSession) => {
         // Reload from disk so that session state written by command handlers (e.g. /finish-now

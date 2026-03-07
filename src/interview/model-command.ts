@@ -6,21 +6,32 @@ export interface ModelLister {
   listModels(): Promise<string[]>;
 }
 
+export const MODEL_NOT_SUPPORTED_MESSAGE =
+  'Model selection is managed by Codex. To change models, configure Codex directly — this cannot be changed from cobuild.';
+
 export interface ModelHandlerOptions {
   getSession: () => Session;
   onSessionUpdate: (session: Session) => void;
-  modelLister: ModelLister;
+  modelLister?: ModelLister;
   onSelectModel: (models: string[]) => Promise<string | null>;
+  supportsModelListing: boolean;
 }
 
 export function createModelHandler(options: ModelHandlerOptions): CommandHandler {
-  const { getSession, onSessionUpdate, modelLister, onSelectModel } = options;
+  const { getSession, onSessionUpdate, modelLister, onSelectModel, supportsModelListing } = options;
   const logger = getLogger();
 
   return async function handleModel(_args: string[]): Promise<CommandResult> {
+    logger.info('/model: command invoked');
+
+    if (!supportsModelListing) {
+      logger.info('/model: model listing not supported for active provider');
+      return { handled: true, continueInterview: true, message: MODEL_NOT_SUPPORTED_MESSAGE };
+    }
+
     logger.info('/model: listing installed models');
 
-    const models = await modelLister.listModels();
+    const models = await modelLister!.listModels();
 
     if (models.length === 0) {
       logger.info('/model: no models available');

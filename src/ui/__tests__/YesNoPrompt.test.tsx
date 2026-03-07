@@ -17,10 +17,10 @@ import { YesNoPrompt } from '../YesNoPrompt.js';
 
 function createInputStream(): NodeJS.ReadStream {
   const stdin = new PassThrough() as PassThrough & NodeJS.ReadStream & {
-    setRawMode: (mode: boolean) => void;
+    setRawMode: (mode: boolean) => typeof stdin;
   };
   stdin.isTTY = true;
-  stdin.setRawMode = () => {};
+  stdin.setRawMode = () => stdin;
   return stdin;
 }
 

@@ -12,6 +12,11 @@ export function ensureDocsDir(projectDir: string): string {
   if (!fs.existsSync(docsDir)) {
     fs.mkdirSync(docsDir, { recursive: true });
     getLogger().info(`file-output: created docs directory at ${docsDir}`);
+  } else {
+    const stat = fs.statSync(docsDir);
+    if (!stat.isDirectory()) {
+      throw new Error(`file-output: path exists but is not a directory: ${docsDir}`);
+    }
   }
   return docsDir;
 }
@@ -70,7 +75,9 @@ export function resolveOutputPath(docsDir: string, filename: string): string {
     suffix++;
   }
   if (suffix > 1000) {
-    throw new Error(`file-output: could not find a free filename for ${filename} after 1000 attempts`);
+    const msg = `file-output: could not find a free filename for ${filename} after 1000 attempts`;
+    getLogger().error(msg);
+    throw new Error(msg);
   }
   getLogger().info(`file-output: collision detected, using suffix ${suffix} → ${candidate}`);
   return candidate;

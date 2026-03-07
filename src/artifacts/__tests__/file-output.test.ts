@@ -52,6 +52,24 @@ describe('ensureDocsDir', () => {
     expect(mockLogger.info.mock.calls[0][0]).toMatch(/created docs directory/);
     fs.rmSync(tmpDir, { recursive: true });
   });
+
+  it('creates the docs directory when the project directory does not yet exist (recursive)', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
+    // projectDir itself does not exist yet (nested under tmpDir)
+    const projectDir = path.join(tmpDir, 'nested', 'project');
+    const docsDir = ensureDocsDir(projectDir);
+    expect(fs.existsSync(docsDir)).toBe(true);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('throws when the docs path exists but is a file, not a directory', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
+    const docsPath = path.join(tmpDir, 'docs');
+    // Create a regular file at the docs path
+    fs.writeFileSync(docsPath, 'not a directory');
+    expect(() => ensureDocsDir(tmpDir)).toThrow(/not a directory/);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
 });
 
 // ─── generateFilename ────────────────────────────────────────────────────────
@@ -77,6 +95,15 @@ describe('generateFilename', () => {
 
   it('appends -spec.md suffix', () => {
     expect(generateFilename('widget')).toBe('widget-spec.md');
+  });
+
+  it('falls back to project-spec.md for empty input', () => {
+    expect(generateFilename('')).toBe('project-spec.md');
+  });
+
+  it('falls back to project-spec.md for input that sanitizes to empty', () => {
+    // A string of only dots becomes empty after safeFilename trims leading/trailing dots
+    expect(generateFilename('...')).toBe('project-spec.md');
   });
 });
 
@@ -203,6 +230,27 @@ describe('resolveOutputPath', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
     resolveOutputPath(tmpDir, 'spec.md');
     expect(mockLogger.info).not.toHaveBeenCalled();
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('throws after 1000 collision attempts and logs an error', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
+    // Create the base file plus spec-2.md through spec-1000.md (1000 files total)
+    fs.writeFileSync(path.join(tmpDir, 'spec.md'), '');
+    for (let i = 2; i <= 1000; i++) {
+      fs.writeFileSync(path.join(tmpDir, `spec-${i}.md`), '');
+    }
+    expect(() => resolveOutputPath(tmpDir, 'spec.md')).toThrow(/1000 attempts/);
+    expect(mockLogger.error).toHaveBeenCalledOnce();
+    expect(mockLogger.error.mock.calls[0][0]).toMatch(/1000 attempts/);
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('handles a filename with no extension when resolving collisions', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
+    fs.writeFileSync(path.join(tmpDir, 'noext'), 'existing');
+    const result = resolveOutputPath(tmpDir, 'noext');
+    expect(result).toBe(path.join(tmpDir, 'noext-2'));
     fs.rmSync(tmpDir, { recursive: true });
   });
 });

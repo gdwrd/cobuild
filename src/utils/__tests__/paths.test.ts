@@ -75,6 +75,37 @@ describe('safeFilename', () => {
     const long = 'a'.repeat(300);
     expect(safeFilename(long).length).toBe(255);
   });
+
+  it('sanitizes control characters (\\x00-\\x1f)', () => {
+    const withControl = 'foo\x00bar\x1fbaz';
+    const result = safeFilename(withControl);
+    expect(result).toBe('foo_bar_baz');
+  });
+
+  it('sanitizes DEL character (\\x7f)', () => {
+    const withDel = 'foo\x7fbar';
+    const result = safeFilename(withDel);
+    expect(result).toBe('foo_bar');
+  });
+
+  it('returns empty string for input that is all unsafe characters', () => {
+    // All dots get stripped by the leading/trailing trim, but mid-string dots are kept.
+    // A string of only unsafe special chars becomes all underscores, then trimmed of
+    // leading/trailing spaces (no dots) → stays as underscores.
+    expect(safeFilename(':::')).toBe('___');
+  });
+
+  it('returns empty string for input that is only dots', () => {
+    expect(safeFilename('...')).toBe('');
+  });
+
+  it('preserves unicode letters', () => {
+    expect(safeFilename('café')).toBe('café');
+  });
+
+  it('handles empty string input', () => {
+    expect(safeFilename('')).toBe('');
+  });
 });
 
 describe('joinPath', () => {

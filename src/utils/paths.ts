@@ -29,9 +29,10 @@ export function normalizePath(filePath: string): string {
  * and trims leading/trailing dots and spaces.
  */
 export function safeFilename(name: string): string {
-  // Characters that are unsafe in filenames on Windows, macOS, or Linux
+  // Characters that are unsafe in filenames on Windows, macOS, or Linux.
+  // Includes control characters \x00-\x1f and DEL \x7f.
   // eslint-disable-next-line no-control-regex
-  const unsafe = /[<>:"/\\|?*\x00-\x1f]/g;
+  const unsafe = /[<>:"/\\|?*\x00-\x1f\x7f]/g;
   return name
     .replace(unsafe, '_')
     .replace(/^[\s.]+|[\s.]+$/g, '')

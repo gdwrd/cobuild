@@ -66,11 +66,11 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 4: Harden File System Operations
 
-- [ ] Verify directory creation behavior
-- [ ] Ensure filename sanitization handles unsafe characters
-- [ ] Improve collision handling edge cases
-- [ ] Validate path normalization
-- [ ] Add tests for file utilities
+- [x] Verify directory creation behavior
+- [x] Ensure filename sanitization handles unsafe characters
+- [x] Improve collision handling edge cases
+- [x] Validate path normalization
+- [x] Add tests for file utilities
 
 ---
 

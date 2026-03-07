@@ -94,15 +94,15 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 5: Implement Ralphex Plan Validator
 
-- [ ] Validate presence of required sections:
+- [x] Validate presence of required sections:
   - `# Plan:`
   - `## Overview`
   - `## Validation Commands`
-- [ ] Validate task sections use `### Task N:` or `### Iteration N:`
-- [ ] Validate tasks are Markdown checkboxes
-- [ ] Reject plans containing code snippets
-- [ ] Ensure plan content references only the current phase
-- [ ] Log validation failures
+- [x] Validate task sections use `### Task N:` or `### Iteration N:`
+- [x] Validate tasks are Markdown checkboxes
+- [x] Reject plans containing code snippets
+- [x] Ensure plan content references only the current phase
+- [x] Log validation failures
 
 ---
 

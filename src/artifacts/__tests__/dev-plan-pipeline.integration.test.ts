@@ -10,6 +10,7 @@ vi.mock('../../logging/logger.js', () => ({
 vi.mock('../../session/session.js', () => ({
   saveSession: vi.fn(),
   persistErrorState: vi.fn(),
+  loadSession: vi.fn((sessionId: string) => ({ id: sessionId })),
   persistCurrentDevPlanPhase: vi.fn((session: Session, phaseNumber: number) => ({
     ...session,
     currentDevPlanPhase: phaseNumber,

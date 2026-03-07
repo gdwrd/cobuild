@@ -107,7 +107,7 @@ describe('GenerationScreen', () => {
   it('includes fallback error text when no errorMessage provided', () => {
     const { output, unmount } = renderScreen({ status: 'error' });
     unmount();
-    expect(output).toContain('Spec generation failed');
+    expect(output).toContain('Generation failed');
   });
 
   it('does not include success text in error state output', () => {

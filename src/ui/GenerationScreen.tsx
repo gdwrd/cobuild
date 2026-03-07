@@ -4,7 +4,7 @@ import { Box, Text, useInput, useApp } from 'ink';
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 export type GenerationStatus = 'generating' | 'success' | 'error';
-export type GenerationStage = 'spec' | 'architecture' | 'plan';
+export type GenerationStage = 'spec' | 'architecture' | 'plan' | 'dev-plan';
 
 export interface CompletedStage {
   label: string;
@@ -18,18 +18,21 @@ export interface GenerationScreenProps {
   currentStage?: GenerationStage;
   completedStages?: CompletedStage[];
   terminatedEarly?: boolean;
+  devPlanProgress?: { current: number; total: number };
 }
 
 const STAGE_LABELS: Record<GenerationStage, string> = {
   spec: 'Creating project specification...',
   architecture: 'Creating architecture document...',
   plan: 'Creating high-level development plan...',
+  'dev-plan': 'Creating per-phase dev plan...',
 };
 
 const STAGE_HEADERS: Record<GenerationStage, string> = {
   spec: 'cobuild — Spec Generation',
   architecture: 'cobuild — Architecture Generation',
   plan: 'cobuild — Plan Generation',
+  'dev-plan': 'cobuild — Dev Plan Generation',
 };
 
 export function GenerationScreen({
@@ -39,6 +42,7 @@ export function GenerationScreen({
   currentStage = 'spec',
   completedStages = [],
   terminatedEarly = false,
+  devPlanProgress,
 }: GenerationScreenProps) {
   const { exit } = useApp();
   const [spinnerFrame, setSpinnerFrame] = useState(0);
@@ -92,7 +96,9 @@ export function GenerationScreen({
           <Text color="yellow">
             {SPINNER_FRAMES[spinnerFrame]}
             {' '}
-            {STAGE_LABELS[currentStage]}
+            {currentStage === 'dev-plan' && devPlanProgress
+              ? `Creating dev plan for phase ${devPlanProgress.current} of ${devPlanProgress.total}...`
+              : STAGE_LABELS[currentStage]}
           </Text>
         </Box>
       )}
@@ -114,7 +120,7 @@ export function GenerationScreen({
       )}
       {status === 'error' && (
         <Box flexDirection="column">
-          <Text color="red">{'Error: '}{errorMessage ?? 'Spec generation failed.'}</Text>
+          <Text color="red">{'Error: '}{errorMessage ?? 'Generation failed.'}</Text>
           <Text> </Text>
           <Text dimColor>Press any key to exit.</Text>
         </Box>

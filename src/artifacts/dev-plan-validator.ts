@@ -47,7 +47,7 @@ export function validateDevPlanStructure(
   const titleMatch = /^#\s+Plan:(.+)/im.exec(content);
   if (titleMatch) {
     const title = titleMatch[1];
-    const phaseRef = new RegExp(`phase\\s*${phaseNumber}`, 'i');
+    const phaseRef = new RegExp(`phase\\s*${phaseNumber}\\b`, 'i');
     if (!phaseRef.test(title) && !phaseRef.test(content.slice(0, 200))) {
       errors.push(
         `plan title or opening does not reference the current phase (phase ${phaseNumber})`,

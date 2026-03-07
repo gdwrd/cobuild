@@ -6,6 +6,7 @@ import {
   persistDevPlanHalt,
   persistDevPlanStage,
   completeDevPlanStage,
+  loadSession,
 } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import { RetryExhaustedError } from '../interview/retry.js';
@@ -69,7 +70,9 @@ export async function runDevPlanLoop(
         logger.error(
           `dev-plan loop: halting generation after retry exhaustion at phase ${phase.number} (session ${currentSession.id})`,
         );
-        currentSession = persistDevPlanHalt(currentSession, phase.number);
+        // Reload from disk to pick up devPlanGenerationAttempts and lastError written by the generator
+        const latestSession = loadSession(currentSession.id) ?? currentSession;
+        currentSession = persistDevPlanHalt(latestSession, phase.number);
         options.onHalt?.(phase.number);
         halted = true;
         break;

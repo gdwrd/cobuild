@@ -76,12 +76,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 5: Implement Prompt Size Detection
 
-- [ ] Estimate prompt size before provider request
-- [ ] Detect when interview transcript becomes too large
-- [ ] Abort generation with clear user message
-- [ ] Instruct user to finish interview using `/finish-now`
-- [ ] Log prompt size failures
-- [ ] Add tests for prompt size detection
+- [x] Estimate prompt size before provider request
+- [x] Detect when interview transcript becomes too large
+- [x] Abort generation with clear user message
+- [x] Instruct user to finish interview using `/finish-now`
+- [x] Log prompt size failures
+- [x] Add tests for prompt size detection
 
 ---
 

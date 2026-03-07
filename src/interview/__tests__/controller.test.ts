@@ -23,6 +23,8 @@ vi.mock('../../session/session.js', () => ({
 import { appendInterviewMessage, getTranscript, completeInterview } from '../../session/session.js';
 import {
   COMPLETION_MARKER,
+  PROMPT_TOO_LARGE_MESSAGE,
+  PromptTooLargeError,
   buildModelMessages,
   detectCompletion,
   stripCompletionMarker,
@@ -30,6 +32,7 @@ import {
   runInterviewLoop,
 } from '../controller.js';
 import type { ModelProvider } from '../controller.js';
+import { MAX_PROMPT_TOKENS } from '../prompts.js';
 import type { Session } from '../../session/session.js';
 
 const makeSession = (transcript: Array<{ role: 'user' | 'assistant'; content: string }> = []): Session => ({
@@ -117,6 +120,24 @@ describe('stripCompletionMarker', () => {
   });
 });
 
+const makeLargeSession = (): Session => {
+  // Build a session whose transcript content exceeds MAX_PROMPT_TOKENS * 4 chars
+  const largeContent = 'a'.repeat(MAX_PROMPT_TOKENS * 4 + 1000);
+  return makeSession([{ role: 'user', content: largeContent }]);
+};
+
+describe('PromptTooLargeError', () => {
+  it('is an instance of Error', () => {
+    const err = new PromptTooLargeError();
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it('has name PromptTooLargeError', () => {
+    const err = new PromptTooLargeError();
+    expect(err.name).toBe('PromptTooLargeError');
+  });
+});
+
 describe('runInterviewTurn', () => {
   it('calls provider with model messages and appends response to session', async () => {
     const session = makeSession();
@@ -168,6 +189,21 @@ describe('runInterviewTurn', () => {
     expect(result.session.transcript).toHaveLength(1);
     expect(result.session.transcript[0].role).toBe('assistant');
     expect(result.session.transcript[0].content).toBe('First question?');
+  });
+
+  it('throws PromptTooLargeError when prompt exceeds token limit', async () => {
+    const session = makeLargeSession();
+    const provider = makeProvider('Should not be called');
+
+    await expect(runInterviewTurn(session, provider, 'system')).rejects.toThrow(PromptTooLargeError);
+  });
+
+  it('does not call provider when prompt is too large', async () => {
+    const session = makeLargeSession();
+    const provider = makeProvider('Should not be called');
+
+    await expect(runInterviewTurn(session, provider, 'system')).rejects.toThrow();
+    expect(provider.generate).not.toHaveBeenCalled();
   });
 });
 
@@ -384,5 +420,66 @@ describe('runInterviewLoop', () => {
     // called twice: once for /unknown-cmd (ignored), once for real answer
     expect(onUserInput).toHaveBeenCalledTimes(2);
     expect(provider.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when initial turn (empty transcript) prompt is too large', async () => {
+    // Empty transcript — initial turn path. Make the system prompt huge.
+    const session = makeSession();
+    const largeSystemPrompt = 'a'.repeat(MAX_PROMPT_TOKENS * 4 + 1000);
+    const provider = makeProvider('Should not be called');
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    await runInterviewLoop(session, provider, largeSystemPrompt, onUserInput, onAssistantResponse);
+
+    expect(provider.generate).not.toHaveBeenCalled();
+    expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
+    expect(onUserInput).not.toHaveBeenCalled();
+  });
+
+  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when resume turn (transcript ends with user) prompt is too large', async () => {
+    // Transcript ends with user — resume path. Large content in transcript.
+    const session = makeLargeSession();
+    const provider = makeProvider('Should not be called');
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    expect(provider.generate).not.toHaveBeenCalled();
+    expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
+    expect(onUserInput).not.toHaveBeenCalled();
+  });
+
+  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when main-loop turn prompt is too large', async () => {
+    // Transcript ends with assistant so interview waits for user input
+    const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
+    const provider = makeProvider('Answer');
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    // Make generate throw PromptTooLargeError to simulate oversized prompt in main loop
+    vi.mocked(provider.generate as ReturnType<typeof vi.fn>).mockRejectedValue(new PromptTooLargeError());
+
+    vi.mocked(appendInterviewMessage).mockImplementation((s, role, content) => ({
+      ...s,
+      transcript: [...s.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }));
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
+  });
+
+  it('does not call completeInterview when prompt is too large on resume', async () => {
+    const session = makeLargeSession();
+    const provider = makeProvider('Should not be called');
+    const onUserInput = vi.fn(async () => 'answer');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    expect(completeInterview).not.toHaveBeenCalled();
   });
 });

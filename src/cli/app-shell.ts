@@ -48,7 +48,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
   try {
     if (config.newSession) {
       logger.info('--new-session flag set, forcing new session');
-      const session = createAndSaveSession();
+      const session = createAndSaveSession(config.provider);
       sessionId = session.id;
       sessionResolution = 'new';
       logger.info(`new session created: ${session.id}`);
@@ -59,7 +59,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         (!existing.completed ||
           (existing.stage === 'dev-plans' && !existing.devPlansComplete));
       if (isResumeableExisting) {
-        logger.info(`resuming existing session: ${existing.id} at stage ${existing.stage ?? 'interview'}`);
+        logger.info(`resuming existing session: ${existing.id} at stage ${existing.stage ?? 'interview'} (provider=${existing.provider ?? 'ollama'})`);
         sessionId = existing.id;
         sessionResolution = 'resumed';
         sessionStage = existing.stage;
@@ -69,7 +69,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         } else {
           logger.info('no existing session found for working directory, starting new session');
         }
-        const session = createAndSaveSession();
+        const session = createAndSaveSession(config.provider);
         sessionId = session.id;
         sessionResolution = 'new';
         logger.info(`new session created: ${session.id}`);

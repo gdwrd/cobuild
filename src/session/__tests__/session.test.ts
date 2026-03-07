@@ -213,8 +213,8 @@ describe('createAndSaveSession', () => {
 });
 
 describe('findLatestByWorkingDirectory', () => {
-  const makeSession = (id: string, workingDirectory: string, createdAt: string, completed = false) =>
-    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed, transcript: [] });
+  const makeSession = (id: string, workingDirectory: string, createdAt: string, completed = false, provider?: string) =>
+    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed, transcript: [], ...(provider !== undefined ? { provider } : {}) });
 
   it('returns null when sessions directory does not exist', async () => {
     fsMock.readdirSync.mockImplementation(() => {
@@ -309,6 +309,39 @@ describe('findLatestByWorkingDirectory', () => {
 
     const { findLatestByWorkingDirectory } = await import('../session.js');
     expect(() => findLatestByWorkingDirectory('/work')).toThrow('EACCES: permission denied');
+  });
+
+  it('resumes an ollama session and preserves its provider', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z', false, 'ollama'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+    expect(result?.provider).toBe('ollama');
+  });
+
+  it('resumes a codex-cli session and preserves its provider', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z', false, 'codex-cli'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+    expect(result?.provider).toBe('codex-cli');
+  });
+
+  it('defaults provider to ollama when resuming a legacy session without provider field', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z', false));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+    expect(result?.provider).toBe('ollama');
   });
 });
 
@@ -1439,6 +1472,50 @@ describe('migrateSession', () => {
     expect(result.specArtifact?.content).toBe('spec content');
     expect(result.architectureDecision).toBe(true);
   });
+
+  it('defaults provider to ollama when provider field is absent (legacy session)', async () => {
+    const { migrateSession } = await import('../session.js');
+    const legacy = {
+      id: 'legacy-no-provider',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+    const result = migrateSession(legacy);
+    expect(result.provider).toBe('ollama');
+  });
+
+  it('preserves provider=codex-cli when present in raw data', async () => {
+    const { migrateSession } = await import('../session.js');
+    const raw = {
+      id: 'codex-session',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+      provider: 'codex-cli',
+    };
+    const result = migrateSession(raw);
+    expect(result.provider).toBe('codex-cli');
+  });
+
+  it('preserves provider=ollama when present in raw data', async () => {
+    const { migrateSession } = await import('../session.js');
+    const raw = {
+      id: 'ollama-session',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+      provider: 'ollama',
+    };
+    const result = migrateSession(raw);
+    expect(result.provider).toBe('ollama');
+  });
 });
 
 describe('createSession schemaVersion', () => {
@@ -1446,6 +1523,24 @@ describe('createSession schemaVersion', () => {
     const { createSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
     const session = createSession();
     expect(session.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('defaults provider to ollama when no provider argument given', async () => {
+    const { createSession } = await import('../session.js');
+    const session = createSession();
+    expect(session.provider).toBe('ollama');
+  });
+
+  it('sets provider to codex-cli when specified', async () => {
+    const { createSession } = await import('../session.js');
+    const session = createSession('codex-cli');
+    expect(session.provider).toBe('codex-cli');
+  });
+
+  it('sets provider to ollama when explicitly specified', async () => {
+    const { createSession } = await import('../session.js');
+    const session = createSession('ollama');
+    expect(session.provider).toBe('ollama');
   });
 });
 

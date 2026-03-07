@@ -58,7 +58,7 @@ describe('runStartup', () => {
   });
 
   it('returns success when validations pass and no existing session', async () => {
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
     expect(result.message).toBeTruthy();
     expect(result.sessionId).toBe('mock-session-id');
@@ -74,7 +74,7 @@ describe('runStartup', () => {
       completed: false,
       transcript: [],
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('existing-session-id');
     expect(result.sessionResolution).toBe('resumed');
@@ -90,7 +90,7 @@ describe('runStartup', () => {
       completed: true,
       transcript: [],
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('mock-session-id');
     expect(result.sessionResolution).toBe('new');
@@ -105,7 +105,7 @@ describe('runStartup', () => {
       completed: false,
       transcript: [],
     });
-    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('mock-session-id');
     expect(result.sessionResolution).toBe('new');
@@ -113,12 +113,12 @@ describe('runStartup', () => {
   });
 
   it('returns success with newSession=true', async () => {
-    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
   });
 
   it('returns success with verbose=true', async () => {
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: true });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: true, provider: 'ollama' as const });
     expect(result.success).toBe(true);
   });
 
@@ -127,7 +127,7 @@ describe('runStartup', () => {
       ok: false,
       message: 'cobuild requires an interactive terminal.',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/interactive terminal/i);
   });
@@ -137,7 +137,7 @@ describe('runStartup', () => {
       ok: false,
       message: 'Ollama is not reachable at http://localhost:11434 (connection refused).',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/not reachable/i);
   });
@@ -148,7 +148,7 @@ describe('runStartup', () => {
       cobuildDir: '/home/testuser/.cobuild',
       message: 'failed to create directories: permission denied',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/permission denied/i);
   });

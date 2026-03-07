@@ -45,6 +45,8 @@ export interface PlanPhase {
   acceptanceCriteria: string;
 }
 
+export type ProviderName = 'ollama' | 'codex-cli';
+
 export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface Session {
@@ -57,6 +59,7 @@ export interface Session {
   stage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
   finishedEarly?: boolean;
   transcript: InterviewMessage[];
+  provider?: ProviderName;
   model?: string;
   lastError?: string;
   generationAttempts?: number;
@@ -117,6 +120,7 @@ export function migrateSession(raw: unknown): Session {
 
   // carry over optional fields if present
   if (data['finishedEarly'] !== undefined) migrated.finishedEarly = data['finishedEarly'] as boolean;
+  migrated.provider = (data['provider'] as ProviderName | undefined) ?? 'ollama';
   if (data['model'] !== undefined) migrated.model = data['model'] as string;
   if (data['lastError'] !== undefined) migrated.lastError = data['lastError'] as string;
   if (data['generationAttempts'] !== undefined) migrated.generationAttempts = data['generationAttempts'] as number;
@@ -140,7 +144,7 @@ export function migrateSession(raw: unknown): Session {
   return migrated;
 }
 
-export function createSession(): Session {
+export function createSession(provider: ProviderName = 'ollama'): Session {
   const now = new Date().toISOString();
   const session: Session = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -151,6 +155,7 @@ export function createSession(): Session {
     completed: false,
     stage: 'interview',
     transcript: [],
+    provider,
   };
   return session;
 }
@@ -255,10 +260,10 @@ export function loadSession(sessionId: string): Session | null {
 }
 
 
-export function createAndSaveSession(): Session {
-  const session = createSession();
+export function createAndSaveSession(provider: ProviderName = 'ollama'): Session {
+  const session = createSession(provider);
   saveSession(session);
-  getLogger().info(`session created: ${session.id}`);
+  getLogger().info(`session created: ${session.id} (provider=${provider})`);
   return session;
 }
 

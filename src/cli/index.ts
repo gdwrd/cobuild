@@ -30,20 +30,25 @@ program
   .version(version, '-v, --version', 'Print the current version')
   .option('--new-session', 'Start a new session, discarding any existing session')
   .option('--verbose', 'Enable verbose logging')
+  .option('--provider <provider>', 'AI provider to use: ollama (default) or codex-cli')
   .addHelpText(
     'after',
     `
 Examples:
-  cobuild                 Start cobuild, resuming the last session
-  cobuild --new-session   Start cobuild with a fresh session
-  cobuild --help          Show this help message
+  cobuild                           Start cobuild, resuming the last session
+  cobuild --new-session             Start cobuild with a fresh session
+  cobuild --provider codex-cli      Start cobuild using the Codex CLI provider
+  cobuild --help                    Show this help message
 `
   )
-  .action(async (opts: { newSession?: boolean; verbose?: boolean }) => {
+  .action(async (opts: { newSession?: boolean; verbose?: boolean; provider?: string }) => {
+    const rawProvider = opts.provider;
+    const provider = rawProvider === 'codex-cli' ? 'codex-cli' : 'ollama';
     const config = createConfig({
       version,
       newSession: opts.newSession ?? false,
       verbose: opts.verbose ?? false,
+      provider,
     });
 
     const startupPromise = runStartup(config);

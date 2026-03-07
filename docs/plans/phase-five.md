@@ -68,16 +68,16 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 3: Implement Dev Plan Prompt Builder
 
-- [ ] Create ralphex dev plan system prompt
-- [ ] Inject required context into prompt:
+- [x] Create ralphex dev plan system prompt
+- [x] Inject required context into prompt:
   - spec
   - architecture
   - high-level plan
   - previously generated dev plans
   - current phase metadata
-- [ ] Ensure clean AI generation context
-- [ ] Ensure prompt instructs model to produce only phase-specific work
-- [ ] Log prompt metadata
+- [x] Ensure clean AI generation context
+- [x] Ensure prompt instructs model to produce only phase-specific work
+- [x] Log prompt metadata
 
 ---
 

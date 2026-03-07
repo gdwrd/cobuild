@@ -56,11 +56,6 @@ jobs:
       - name: Install smoke test
         run: bash scripts/smoke-test.sh
 
-      - name: Publish to npm
-        run: npm publish --ignore-scripts --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,3 +68,8 @@ jobs:
               --notes "See RELEASE_NOTES.md for details." \
               --verify-tag
           fi
+
+      - name: Publish to npm
+        run: npm publish --ignore-scripts --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

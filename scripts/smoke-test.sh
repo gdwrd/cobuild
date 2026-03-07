@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "==> Packing tarball..."
-TARBALL=$(npm pack --silent 2>/dev/null)
+TARBALL=$(npm pack --silent)
 TARBALL_PATH="$(pwd)/$TARBALL"
 echo "    Packed: $TARBALL"
 

@@ -70,7 +70,7 @@ for (const file of files) {
   const isAllowedPrefix = ALLOWED_PREFIXES.some((p) => file.startsWith(p));
   const isDisallowed = DISALLOWED_PATTERNS.some((re) => re.test(file));
 
-  if (isDisallowed || (!isAllowedRoot && !isAllowedPrefix)) {
+  if (!isAllowedRoot && (isDisallowed || !isAllowedPrefix)) {
     unexpected.push(file);
   }
 }

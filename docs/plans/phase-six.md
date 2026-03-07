@@ -109,17 +109,17 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 8: Improve Logging Coverage
 
-- [ ] Ensure all major events are logged:
+- [x] Ensure all major events are logged:
   - stage transitions
   - slash command usage
   - model changes
   - file creation
   - retries
   - runtime errors
-- [ ] Verify logs contain timestamps
-- [ ] Verify logs contain session IDs
-- [ ] Verify raw provider requests and responses are captured
-- [ ] Add logging tests
+- [x] Verify logs contain timestamps
+- [x] Verify logs contain session IDs
+- [x] Verify raw provider requests and responses are captured
+- [x] Add logging tests
 
 ---
 

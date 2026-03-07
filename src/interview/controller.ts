@@ -56,22 +56,22 @@ export async function runInterviewTurn(
   const messages = buildModelMessages(systemPrompt, session);
 
   const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4) + 4, 0);
-  logger.info(`prompt orchestration: ${messages.length} messages, ~${estimatedTokens} estimated tokens`);
+  logger.info(`prompt orchestration: ${messages.length} messages, ~${estimatedTokens} estimated tokens (session ${session.id})`);
 
   if (isPromptTooLarge(messages)) {
     logger.error(
-      `prompt size: transcript too large (~${estimatedTokens} tokens > ${MAX_PROMPT_TOKENS}), aborting generation`,
+      `prompt size: transcript too large (~${estimatedTokens} tokens > ${MAX_PROMPT_TOKENS}), aborting generation (session ${session.id})`,
     );
     throw new PromptTooLargeError();
   }
 
-  logger.info(`interview turn: sending ${messages.length} messages to model`);
+  logger.info(`interview turn: sending ${messages.length} messages to model (session ${session.id})`);
 
   const rawResponse = await provider.generate(messages);
   const complete = detectCompletion(rawResponse);
   const response = stripCompletionMarker(rawResponse);
 
-  logger.info(`interview turn: received response (complete=${complete})`);
+  logger.info(`interview turn: received response (complete=${complete}, session ${session.id})`);
 
   const updatedSession = appendInterviewMessage(session, 'assistant', response);
 
@@ -91,20 +91,20 @@ export async function runInterviewLoop(
   let currentSession = session;
 
   if (getTranscript(currentSession).length === 0) {
-    logger.info('interview loop: starting with initial model prompt');
+    logger.info(`interview loop: starting with initial model prompt (session ${session.id})`);
     try {
       const result = await runInterviewTurn(currentSession, provider, systemPrompt);
       currentSession = result.session;
       await onAssistantResponse(result.response, result.complete);
 
       if (result.complete) {
-        logger.info('interview loop: completed after initial turn');
+        logger.info(`interview loop: completed after initial turn (session ${session.id})`);
         currentSession = completeInterview(currentSession, false);
         return currentSession;
       }
     } catch (err) {
       if (err instanceof PromptTooLargeError) {
-        logger.error('interview loop: prompt too large on initial turn, instructing user to finish');
+        logger.error(`interview loop: prompt too large on initial turn, instructing user to finish (session ${session.id})`);
         await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
         return currentSession;
       }
@@ -113,20 +113,20 @@ export async function runInterviewLoop(
   } else {
     const tx = getTranscript(currentSession);
     if (tx[tx.length - 1].role === 'user') {
-      logger.info('interview loop: resuming after incomplete turn, generating model response');
+      logger.info(`interview loop: resuming after incomplete turn, generating model response (session ${session.id})`);
       try {
         const result = await runInterviewTurn(currentSession, provider, systemPrompt);
         currentSession = result.session;
         await onAssistantResponse(result.response, result.complete);
 
         if (result.complete) {
-          logger.info('interview loop: completed after resumed turn');
+          logger.info(`interview loop: completed after resumed turn (session ${session.id})`);
           currentSession = completeInterview(currentSession, false);
           return currentSession;
         }
       } catch (err) {
         if (err instanceof PromptTooLargeError) {
-          logger.error('interview loop: prompt too large on resume, instructing user to finish');
+          logger.error(`interview loop: prompt too large on resume, instructing user to finish (session ${session.id})`);
           await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
           return currentSession;
         }
@@ -138,7 +138,7 @@ export async function runInterviewLoop(
   let complete = false;
   while (!complete) {
     const userInput = await onUserInput();
-    logger.info('interview loop: received user input');
+    logger.info(`interview loop: received user input (session ${session.id})`);
 
     if (isSlashCommand(userInput)) {
       const parsed = parseCommand(userInput);
@@ -148,12 +148,12 @@ export async function runInterviewLoop(
           await onAssistantResponse(cmdResult.message, false);
         }
         if (!cmdResult.continueInterview) {
-          logger.info('interview loop: command stopped interview');
+          logger.info(`interview loop: command stopped interview (session ${session.id})`);
           complete = true;
         }
         continue;
       }
-      logger.info(`interview loop: unrecognized slash command "${userInput.trim()}", ignoring`);
+      logger.info(`interview loop: unrecognized slash command "${userInput.trim()}", ignoring (session ${session.id})`);
       continue;
     }
 
@@ -164,7 +164,7 @@ export async function runInterviewLoop(
       result = await runInterviewTurn(currentSession, provider, systemPrompt);
     } catch (err) {
       if (err instanceof PromptTooLargeError) {
-        logger.error('interview loop: prompt too large, instructing user to finish');
+        logger.error(`interview loop: prompt too large, instructing user to finish (session ${session.id})`);
         await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
         return currentSession;
       }
@@ -176,7 +176,7 @@ export async function runInterviewLoop(
     complete = result.complete;
 
     if (complete) {
-      logger.info('interview loop: completed');
+      logger.info(`interview loop: completed (session ${session.id})`);
       currentSession = completeInterview(currentSession, false);
     }
   }

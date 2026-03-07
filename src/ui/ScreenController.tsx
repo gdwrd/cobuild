@@ -273,6 +273,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         getLogger().error(`generation screen: dev-plan resume failed: ${msg}`);
+        const s = loadSession(sessionId) ?? currentSessionRef.current;
+        if (s) {
+          try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
+        }
         setGenerationError(msg);
         setGenerationStatus('error');
       });

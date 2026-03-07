@@ -46,7 +46,13 @@ export async function runDevPlanLoop(
   }
 
   let previousDevPlans: string[] = completedArtifacts.map((a) => a.content);
-  let currentSession = persistDevPlanStage(initialSession);
+  // persistDevPlanStage is already called by workflow-controller on a fresh run; on resume the
+  // stage is already 'dev-plans'. Only call it here if the session is not yet in dev-plans stage
+  // (guards against the double-write on the normal path while still handling edge cases).
+  let currentSession =
+    initialSession.stage === 'dev-plans'
+      ? initialSession
+      : persistDevPlanStage(initialSession);
 
   let halted = false;
 

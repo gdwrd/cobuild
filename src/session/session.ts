@@ -377,6 +377,7 @@ export function persistCurrentDevPlanPhase(session: Session, phaseNumber: number
   const updated: Session = {
     ...session,
     currentDevPlanPhase: phaseNumber,
+    devPlanGenerationAttempts: undefined,
     updatedAt: new Date().toISOString(),
   };
   saveSession(updated);

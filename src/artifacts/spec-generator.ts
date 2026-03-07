@@ -5,6 +5,7 @@ import { getLogger } from '../logging/logger.js';
 import type { ArtifactGenerator, ArtifactResult } from './generator.js';
 import { buildSpecMessages, logSpecPromptMetadata } from './spec-prompt.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../interview/retry.js';
+import { assertValidSpec } from './spec-validator.js';
 
 export function normalizeSpecOutput(raw: string): string {
   return raw.trim();
@@ -49,6 +50,7 @@ export class SpecGenerator implements ArtifactGenerator {
     );
 
     const content = normalizeSpecOutput(raw);
+    assertValidSpec(content);
     return { type: 'spec', content };
   }
 }

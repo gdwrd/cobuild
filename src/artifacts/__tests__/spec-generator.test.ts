@@ -15,11 +15,37 @@ vi.mock('../../interview/retry.js', () => ({
   withRetry: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
+vi.mock('../spec-validator.js', () => ({
+  assertValidSpec: vi.fn(),
+  SpecValidationError: class SpecValidationError extends Error {
+    constructor(public readonly result: { valid: boolean; missingSections: string[] }) {
+      super(`Spec validation failed: missing sections — ${result.missingSections.join(', ')}`);
+      this.name = 'SpecValidationError';
+    }
+  },
+}));
+
 import { saveSession, getTranscript, persistErrorState } from '../../session/session.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../../interview/retry.js';
+import { assertValidSpec } from '../spec-validator.js';
 import { normalizeSpecOutput, incrementGenerationAttempts, SpecGenerator } from '../spec-generator.js';
 import type { Session } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
+
+const VALID_SPEC = `# Project Spec
+
+## Project Overview
+
+Test project description.
+
+## Functional Requirements
+
+- Feature A
+
+## Acceptance Criteria
+
+- All tests pass
+`;
 
 const makeSession = (overrides: Partial<Session> = {}): Session => ({
   id: 'sess-1',
@@ -32,7 +58,7 @@ const makeSession = (overrides: Partial<Session> = {}): Session => ({
   ...overrides,
 });
 
-const makeProvider = (response = '# Spec\n\n## Project Overview\nTest'): ModelProvider => ({
+const makeProvider = (response = VALID_SPEC): ModelProvider => ({
   generate: vi.fn(async () => response),
 });
 
@@ -40,6 +66,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getTranscript).mockReturnValue([]);
   vi.mocked(withRetry).mockImplementation(async (fn) => fn());
+  vi.mocked(assertValidSpec).mockImplementation(() => undefined);
 });
 
 describe('normalizeSpecOutput', () => {
@@ -112,23 +139,35 @@ describe('SpecGenerator', () => {
 
   it('returns an ArtifactResult with type spec', async () => {
     const session = makeSession();
-    const provider = makeProvider('  # My Spec\n\nContent  ');
+    const provider = makeProvider('  ' + VALID_SPEC + '  ');
     const generator = new SpecGenerator();
 
     const result = await generator.generate(session, provider);
 
     expect(result.type).toBe('spec');
-    expect(result.content).toBe('# My Spec\n\nContent');
+    expect(result.content).toBe(VALID_SPEC.trim());
   });
 
   it('normalizes whitespace in model response', async () => {
     const session = makeSession();
-    const provider = makeProvider('\n\n# Spec\n\nBody\n\n');
+    const provider = makeProvider('\n\n' + VALID_SPEC + '\n\n');
     const generator = new SpecGenerator();
 
     const result = await generator.generate(session, provider);
 
-    expect(result.content).toBe('# Spec\n\nBody');
+    expect(result.content).toBe(VALID_SPEC.trim());
+  });
+
+  it('throws SpecValidationError when provider returns content missing required sections', async () => {
+    const session = makeSession();
+    const provider = makeProvider('# Just a title\n\nSome content without required sections.');
+    const generator = new SpecGenerator();
+
+    vi.mocked(assertValidSpec).mockImplementationOnce(() => {
+      throw new Error('Spec validation failed: missing sections — project overview, functional requirements, acceptance criteria');
+    });
+
+    await expect(generator.generate(session, provider)).rejects.toThrow('Spec validation failed');
   });
 
   it('increments generation attempts in session', async () => {

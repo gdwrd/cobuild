@@ -143,12 +143,12 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 11: Add Integration Tests for Spec Pipeline
 
-- [ ] Test spec generation after interview completion
-- [ ] Test validator rejects invalid output
-- [ ] Test file naming and collision handling
-- [ ] Test sanitized filenames
-- [ ] Test retry behavior on provider failure
-- [ ] Test write failure behavior
+- [x] Test spec generation after interview completion
+- [x] Test validator rejects invalid output
+- [x] Test file naming and collision handling
+- [x] Test sanitized filenames
+- [x] Test retry behavior on provider failure
+- [x] Test write failure behavior
 
 ---
 

@@ -125,12 +125,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 9: Add End-to-End Integration Tests
 
-- [ ] Test fresh session workflow
-- [ ] Test restored session workflow
-- [ ] Test full artifact pipeline
-- [ ] Test dev plan resume after partial completion
-- [ ] Test retry exhaustion scenarios
-- [ ] Test prompt-too-large failure path
+- [x] Test fresh session workflow
+- [x] Test restored session workflow
+- [x] Test full artifact pipeline
+- [x] Test dev plan resume after partial completion
+- [x] Test retry exhaustion scenarios
+- [x] Test prompt-too-large failure path
 
 ---
 

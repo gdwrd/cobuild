@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:ci": "vitest run --reporter=verbose",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "integration-test": "npm run build && node scripts/verify-e2e.mjs"
   },
   "dependencies": {
     "commander": "^12.0.0",

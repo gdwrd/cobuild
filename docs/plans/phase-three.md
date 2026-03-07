@@ -114,11 +114,11 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 8: Implement Generation Retry Handling
 
-- [ ] Integrate retry executor with spec generation
-- [ ] Retry failed generation up to 5 times
-- [ ] Log retry attempts
-- [ ] Surface retry UI action on exhaustion
-- [ ] Persist failure state in session
+- [x] Integrate retry executor with spec generation
+- [x] Retry failed generation up to 5 times
+- [x] Log retry attempts
+- [x] Surface retry UI action on exhaustion
+- [x] Persist failure state in session
 
 ---
 

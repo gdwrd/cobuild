@@ -1,9 +1,10 @@
 import type { Session } from '../session/session.js';
 import type { ModelProvider } from '../interview/controller.js';
-import { saveSession } from '../session/session.js';
+import { saveSession, persistErrorState } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import type { ArtifactGenerator, ArtifactResult } from './generator.js';
 import { buildSpecMessages, logSpecPromptMetadata } from './spec-prompt.js';
+import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../interview/retry.js';
 
 export function normalizeSpecOutput(raw: string): string {
   return raw.trim();
@@ -31,7 +32,17 @@ export class SpecGenerator implements ArtifactGenerator {
 
     const updatedSession = incrementGenerationAttempts(session);
 
-    const raw = await provider.generate(messages);
+    logger.info(
+      `spec generator: starting provider call with up to ${DEFAULT_MAX_ATTEMPTS} retries (session ${updatedSession.id})`,
+    );
+    const raw = await withRetry(() => provider.generate(messages), {
+      maxAttempts: DEFAULT_MAX_ATTEMPTS,
+      onRetryExhausted: (err, attempts) => {
+        const errorMsg = `spec generation failed after ${attempts} attempts: ${err.message}`;
+        logger.error(`spec generator: ${errorMsg} (session ${updatedSession.id})`);
+        persistErrorState(updatedSession, errorMsg);
+      },
+    });
     logger.debug(`spec generator: raw response: ${JSON.stringify(raw)}`);
     logger.info(
       `spec generator: response received (length=${raw.length}, session ${updatedSession.id})`,

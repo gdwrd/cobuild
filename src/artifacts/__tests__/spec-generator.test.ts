@@ -7,9 +7,16 @@ vi.mock('../../logging/logger.js', () => ({
 vi.mock('../../session/session.js', () => ({
   saveSession: vi.fn(),
   getTranscript: vi.fn(() => []),
+  persistErrorState: vi.fn(),
 }));
 
-import { saveSession, getTranscript } from '../../session/session.js';
+vi.mock('../../interview/retry.js', () => ({
+  DEFAULT_MAX_ATTEMPTS: 5,
+  withRetry: vi.fn(async (fn: () => Promise<unknown>) => fn()),
+}));
+
+import { saveSession, getTranscript, persistErrorState } from '../../session/session.js';
+import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../../interview/retry.js';
 import { normalizeSpecOutput, incrementGenerationAttempts, SpecGenerator } from '../spec-generator.js';
 import type { Session } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
@@ -32,6 +39,7 @@ const makeProvider = (response = '# Spec\n\n## Project Overview\nTest'): ModelPr
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getTranscript).mockReturnValue([]);
+  vi.mocked(withRetry).mockImplementation(async (fn) => fn());
 });
 
 describe('normalizeSpecOutput', () => {
@@ -143,5 +151,48 @@ describe('SpecGenerator', () => {
     const generator = new SpecGenerator();
 
     await expect(generator.generate(session, provider)).rejects.toThrow('provider down');
+  });
+
+  it('uses withRetry for the provider call', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const generator = new SpecGenerator();
+
+    await generator.generate(session, provider);
+
+    expect(vi.mocked(withRetry)).toHaveBeenCalledOnce();
+    const [, options] = vi.mocked(withRetry).mock.calls[0];
+    expect(options?.maxAttempts).toBe(DEFAULT_MAX_ATTEMPTS);
+  });
+
+  it('calls persistErrorState via onRetryExhausted callback', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const generator = new SpecGenerator();
+
+    vi.mocked(withRetry).mockImplementationOnce(async (_fn, options) => {
+      options?.onRetryExhausted?.(new Error('timeout'), 5);
+      throw new Error('Model request failed after 5 attempt(s): timeout');
+    });
+
+    await expect(generator.generate(session, provider)).rejects.toThrow();
+    expect(vi.mocked(persistErrorState)).toHaveBeenCalledOnce();
+    const [, errorMsg] = vi.mocked(persistErrorState).mock.calls[0];
+    expect(errorMsg).toMatch(/spec generation failed after 5 attempts/);
+    expect(errorMsg).toMatch(/timeout/);
+  });
+
+  it('propagates RetryExhaustedError from withRetry', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const generator = new SpecGenerator();
+    const retryError = new Error('Model request failed after 5 attempt(s): provider down');
+    retryError.name = 'RetryExhaustedError';
+
+    vi.mocked(withRetry).mockRejectedValueOnce(retryError);
+
+    await expect(generator.generate(session, provider)).rejects.toThrow(
+      'Model request failed after 5 attempt(s): provider down',
+    );
   });
 });

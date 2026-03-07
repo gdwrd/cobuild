@@ -124,10 +124,13 @@ describe('loadSession', () => {
     };
     fsMock.readFileSync.mockReturnValue(JSON.stringify(mockSession));
 
-    const { loadSession } = await import('../session.js');
+    const { loadSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
     const result = loadSession('abc');
 
-    expect(result).toEqual(mockSession);
+    expect(result?.id).toBe('abc');
+    expect(result?.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(result?.completed).toBe(false);
+    expect(result?.workingDirectory).toBe('/work');
   });
 
   it('returns null when file does not exist', async () => {
@@ -1269,5 +1272,103 @@ describe('findLatestByWorkingDirectory (dev-plans resume)', () => {
     const result = findLatestByWorkingDirectory('/work');
 
     expect(result?.id).toBe('session-a');
+  });
+});
+
+describe('migrateSession', () => {
+  it('returns session with current schemaVersion when already up to date', async () => {
+    const { migrateSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
+    const raw = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      id: 'abc',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      stage: 'interview',
+      transcript: [],
+    };
+    const result = migrateSession(raw);
+    expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(result.id).toBe('abc');
+  });
+
+  it('upgrades legacy session without schemaVersion', async () => {
+    const { migrateSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
+    const legacy = {
+      id: 'legacy-1',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      workingDirectory: '/old-work',
+      completed: true,
+      stage: 'spec',
+      transcript: [],
+    };
+    const result = migrateSession(legacy);
+    expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(result.id).toBe('legacy-1');
+    expect(result.workingDirectory).toBe('/old-work');
+    expect(result.completed).toBe(true);
+    expect(result.stage).toBe('spec');
+  });
+
+  it('applies default values for required missing fields', async () => {
+    const { migrateSession } = await import('../session.js');
+    const sparse = {
+      id: 'sparse-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+    };
+    const result = migrateSession(sparse);
+    expect(result.completed).toBe(false);
+    expect(result.stage).toBe('interview');
+    expect(result.transcript).toEqual([]);
+  });
+
+  it('preserves optional artifact fields from raw data', async () => {
+    const { migrateSession } = await import('../session.js');
+    const raw = {
+      id: 'art-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: true,
+      stage: 'architecture',
+      transcript: [],
+      specArtifact: { content: 'spec content', filePath: '/docs/spec.md', generated: true },
+      architectureDecision: true,
+    };
+    const result = migrateSession(raw);
+    expect(result.specArtifact?.content).toBe('spec content');
+    expect(result.architectureDecision).toBe(true);
+  });
+});
+
+describe('createSession schemaVersion', () => {
+  it('includes current schemaVersion on new sessions', async () => {
+    const { createSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
+    const session = createSession();
+    expect(session.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+});
+
+describe('loadSession migration', () => {
+  it('returns migrated session with schemaVersion when file exists without it', async () => {
+    const legacy = JSON.stringify({
+      id: 'legacy-load',
+      createdAt: '2025-06-01T00:00:00.000Z',
+      updatedAt: '2025-06-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    });
+    fsMock.readFileSync.mockReturnValue(legacy);
+
+    const { loadSession, CURRENT_SCHEMA_VERSION } = await import('../session.js');
+    const session = loadSession('legacy-load');
+
+    expect(session?.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(session?.id).toBe('legacy-load');
   });
 });

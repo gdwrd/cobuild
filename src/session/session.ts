@@ -45,7 +45,10 @@ export interface PlanPhase {
   acceptanceCriteria: string;
 }
 
+export const CURRENT_SCHEMA_VERSION = 1;
+
 export interface Session {
+  schemaVersion?: number;
   id: string;
   createdAt: string;
   updatedAt: string;
@@ -85,9 +88,56 @@ export function getSessionFilePath(sessionId: string): string {
   return path.join(getSessionsDir(), `${sessionId}.json`);
 }
 
+export function migrateSession(raw: unknown): Session {
+  const data = raw as Record<string, unknown>;
+  const logger = getLogger();
+
+  const fromVersion = typeof data['schemaVersion'] === 'number' ? data['schemaVersion'] : 0;
+  if (fromVersion !== CURRENT_SCHEMA_VERSION) {
+    logger.info(
+      `session migration: upgrading schema from version ${fromVersion} to ${CURRENT_SCHEMA_VERSION} (session ${data['id'] ?? 'unknown'})`,
+    );
+  }
+
+  const migrated: Session = {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    id: (data['id'] as string) ?? '',
+    createdAt: (data['createdAt'] as string) ?? new Date().toISOString(),
+    updatedAt: (data['updatedAt'] as string) ?? new Date().toISOString(),
+    workingDirectory: (data['workingDirectory'] as string) ?? '',
+    completed: typeof data['completed'] === 'boolean' ? data['completed'] : false,
+    stage: (data['stage'] as Session['stage']) ?? 'interview',
+    transcript: Array.isArray(data['transcript']) ? (data['transcript'] as Session['transcript']) : [],
+  };
+
+  // carry over optional fields if present
+  if (data['finishedEarly'] !== undefined) migrated.finishedEarly = data['finishedEarly'] as boolean;
+  if (data['model'] !== undefined) migrated.model = data['model'] as string;
+  if (data['lastError'] !== undefined) migrated.lastError = data['lastError'] as string;
+  if (data['generationAttempts'] !== undefined) migrated.generationAttempts = data['generationAttempts'] as number;
+  if (data['specArtifact'] !== undefined) migrated.specArtifact = data['specArtifact'] as Session['specArtifact'];
+  if (data['architectureDecision'] !== undefined) migrated.architectureDecision = data['architectureDecision'] as boolean;
+  if (data['planDecision'] !== undefined) migrated.planDecision = data['planDecision'] as boolean;
+  if (data['devPlansDecision'] !== undefined) migrated.devPlansDecision = data['devPlansDecision'] as boolean;
+  if (data['architectureArtifact'] !== undefined) migrated.architectureArtifact = data['architectureArtifact'] as Session['architectureArtifact'];
+  if (data['planArtifact'] !== undefined) migrated.planArtifact = data['planArtifact'] as Session['planArtifact'];
+  if (data['architectureGenerationAttempts'] !== undefined) migrated.architectureGenerationAttempts = data['architectureGenerationAttempts'] as number;
+  if (data['planGenerationAttempts'] !== undefined) migrated.planGenerationAttempts = data['planGenerationAttempts'] as number;
+  if (data['devPlanGenerationAttempts'] !== undefined) migrated.devPlanGenerationAttempts = data['devPlanGenerationAttempts'] as number;
+  if (data['extractedPhases'] !== undefined) migrated.extractedPhases = data['extractedPhases'] as Session['extractedPhases'];
+  if (data['devPlanArtifacts'] !== undefined) migrated.devPlanArtifacts = data['devPlanArtifacts'] as Session['devPlanArtifacts'];
+  if (data['completedPhaseCount'] !== undefined) migrated.completedPhaseCount = data['completedPhaseCount'] as number;
+  if (data['currentDevPlanPhase'] !== undefined) migrated.currentDevPlanPhase = data['currentDevPlanPhase'] as number;
+  if (data['devPlanHalted'] !== undefined) migrated.devPlanHalted = data['devPlanHalted'] as boolean;
+  if (data['devPlansComplete'] !== undefined) migrated.devPlansComplete = data['devPlansComplete'] as boolean;
+
+  return migrated;
+}
+
 export function createSession(): Session {
   const now = new Date().toISOString();
   const session: Session = {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: uuidv4(),
     createdAt: now,
     updatedAt: now,
@@ -186,7 +236,8 @@ export function loadSession(sessionId: string): Session | null {
   const filePath = getSessionFilePath(sessionId);
   try {
     const raw = fs.readFileSync(filePath, { encoding: 'utf8' });
-    return JSON.parse(raw) as Session;
+    const parsed = JSON.parse(raw) as unknown;
+    return migrateSession(parsed);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;

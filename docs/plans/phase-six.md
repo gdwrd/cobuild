@@ -136,12 +136,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 10: Validate npm Packaging
 
-- [ ] Build distributable package
-- [ ] Test `npm pack` output
-- [ ] Install package globally via npm
-- [ ] Verify `cobuild` command works globally
-- [ ] Verify required dependencies are bundled correctly
-- [ ] Test uninstall and reinstall behavior
+- [x] Build distributable package
+- [x] Test `npm pack` output
+- [x] Install package globally via npm
+- [x] Verify `cobuild` command works globally
+- [x] Verify required dependencies are bundled correctly
+- [x] Test uninstall and reinstall behavior
 
 ---
 

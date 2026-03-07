@@ -1,0 +1,5 @@
+**/__tests__/**
+**/*.test.js
+**/*.test.js.map
+**/*.test.d.ts
+**/*.test.d.ts.map

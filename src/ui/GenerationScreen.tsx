@@ -29,19 +29,13 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
     return () => clearTimeout(timer);
   }, [status, exit]);
 
-  useEffect(() => {
-    if (status !== 'error') return;
-    const timer = setTimeout(() => {
+  useInput((char, key) => {
+    if (status === 'error') {
       exit();
       process.exit(1);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [status, exit]);
-
-  useInput((char, key) => {
+    }
     if (key.ctrl && char === 'c') {
       exit();
-      if (status === 'error') process.exit(1);
     }
   });
 
@@ -72,6 +66,8 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
       {status === 'error' && (
         <Box flexDirection="column">
           <Text color="red">{'Error: '}{errorMessage ?? 'Spec generation failed.'}</Text>
+          <Text> </Text>
+          <Text dimColor>Press any key to exit.</Text>
         </Box>
       )}
     </Box>

@@ -202,10 +202,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   useEffect(() => {
     if (!interviewComplete) return;
     if (pipelineStartedRef.current) return;
-    pipelineStartedRef.current = true;
     const session = currentSessionRef.current;
     const provider = providerRef.current;
     if (!session || !provider) return;
+    pipelineStartedRef.current = true;
 
     setScreen('generating');
 

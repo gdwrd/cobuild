@@ -6,7 +6,6 @@ export const PLAN_SYSTEM_PROMPT = `You are an expert software architect writing 
 You will be given a project specification and an architecture document, and must produce a comprehensive Markdown development plan.
 
 The plan MUST contain between 4 and 8 sequential phases. Each phase MUST include these fields (use these exact headings within each phase section):
-- ### Title
 - ### Goal
 - ### Scope
 - ### Deliverables

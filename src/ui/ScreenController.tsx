@@ -21,7 +21,7 @@ import { runArtifactPipeline } from '../artifacts/generator.js';
 import { SpecGenerator } from '../artifacts/spec-generator.js';
 import { ArchGenerator } from '../artifacts/arch-generator.js';
 import { PlanGenerator } from '../artifacts/plan-generator.js';
-import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile, sanitizeFilename } from '../artifacts/file-output.js';
+import { ensureDocsDir, generateFilename, generateArchitectureFilename, generatePlanFilename, resolveOutputPath, writeArtifactFile } from '../artifacts/file-output.js';
 import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { getLogger } from '../logging/logger.js';
 
@@ -228,9 +228,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const makeWriteArtifact = (content: string, workingDirectory: string, type: 'architecture' | 'plan'): string => {
       const dir = ensureDocsDir(workingDirectory);
       const projectName = path.basename(workingDirectory) || 'project';
-      const slug = sanitizeFilename(projectName).toLowerCase().replace(/\s+/g, '-') || 'project';
-      const suffix = type === 'architecture' ? '-architecture' : '-high-level-plan';
-      const artifactFilename = `${slug}${suffix}.md`;
+      const artifactFilename = type === 'architecture'
+        ? generateArchitectureFilename(projectName)
+        : generatePlanFilename(projectName);
       const artifactPath = resolveOutputPath(dir, artifactFilename);
       writeArtifactFile(artifactPath, content);
       getLogger().info(`generation screen: ${type} saved to ${artifactPath}`);
@@ -287,11 +287,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (workflowResult === null || workflowResult === undefined) return;
         if (workflowResult.terminatedAt) {
           getLogger().info(`generation screen: workflow terminated at ${workflowResult.terminatedAt}, exiting`);
-          setGenerationStatus('success');
-          setTimeout(() => exit(), 1500);
-        } else {
-          setGenerationStatus('success');
         }
+        setGenerationStatus('success');
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);

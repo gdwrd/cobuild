@@ -38,8 +38,8 @@ describe('PLAN_SYSTEM_PROMPT', () => {
     expect(PLAN_SYSTEM_PROMPT).toContain('4 and 8');
   });
 
-  it('requires Title field in each phase', () => {
-    expect(PLAN_SYSTEM_PROMPT).toContain('Title');
+  it('specifies phase title in the phase heading format', () => {
+    expect(PLAN_SYSTEM_PROMPT).toContain('## Phase N: <title>');
   });
 
   it('requires Goal field in each phase', () => {

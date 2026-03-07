@@ -50,6 +50,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const providerRef = useRef<OllamaProvider | null>(null);
   const currentModelRef = useRef<string>('llama3');
   const interviewStartedRef = useRef(false);
+  const pipelineStartedRef = useRef(false);
   const isSelectingModelRef = useRef(false);
 
   useEffect(() => {
@@ -198,6 +199,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
   useEffect(() => {
     if (!interviewComplete) return;
+    if (pipelineStartedRef.current) return;
+    pipelineStartedRef.current = true;
     const session = currentSessionRef.current;
     const provider = providerRef.current;
     if (!session || !provider) return;
@@ -207,8 +210,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const specGenerator = new SpecGenerator();
     runArtifactPipeline(session, provider, specGenerator, 'spec')
       .then(({ session: updatedSession, result }) => {
-        const projectName = path.basename(updatedSession.workingDirectory) || 'project';
-        const docsDir = ensureDocsDir(updatedSession.workingDirectory);
+        // Reload session from disk to pick up fields written by the generator (e.g. generationAttempts)
+        const freshSession = loadSession(updatedSession.id) ?? updatedSession;
+        const projectName = path.basename(freshSession.workingDirectory) || 'project';
+        const docsDir = ensureDocsDir(freshSession.workingDirectory);
         const filename = generateFilename(projectName);
         const filePath = resolveOutputPath(docsDir, filename);
         try {
@@ -216,12 +221,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           getLogger().error(`generation screen: file write failed for ${filePath}: ${msg}`);
-          try { persistErrorState(updatedSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
+          try { persistErrorState(freshSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           setGenerationError(`File write failed: ${msg}`);
           setGenerationStatus('error');
           return;
         }
-        const afterArtifact = persistSpecArtifact(updatedSession, result.content, filePath);
+        const afterArtifact = persistSpecArtifact(freshSession, result.content, filePath);
         completeSpecStage(afterArtifact);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);

@@ -3,7 +3,7 @@ import type { ModelProvider } from '../interview/controller.js';
 import { saveSession } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 
-export type ArtifactType = 'spec';
+export type ArtifactType = 'spec' | 'architecture' | 'plan';
 
 export interface ArtifactResult {
   type: ArtifactType;

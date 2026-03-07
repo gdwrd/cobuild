@@ -33,7 +33,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [screen, setScreen] = useState<Screen>('startup');
   const [statusMessage] = useState('Starting cobuild...');
   const [sessionId, setSessionId] = useState('');
-  const [sessionStage, setSessionStage] = useState<'interview' | 'spec' | 'architecture'>('interview');
+  const [sessionStage, setSessionStage] = useState<'interview' | 'spec' | 'architecture' | 'plan'>('interview');
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<InterviewMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);

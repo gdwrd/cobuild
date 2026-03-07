@@ -576,6 +576,240 @@ describe('completeSpecStage', () => {
   });
 });
 
+describe('persistWorkflowDecision', () => {
+  const baseSession = {
+    id: 'sess-wd',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'spec' as const,
+    transcript: [],
+  };
+
+  it('sets architectureDecision=true on session and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistWorkflowDecision } = await import('../session.js');
+    const updated = persistWorkflowDecision(baseSession, 'architecture', true);
+
+    expect(updated.architectureDecision).toBe(true);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('sets planDecision=false on session and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistWorkflowDecision } = await import('../session.js');
+    const updated = persistWorkflowDecision(baseSession, 'plan', false);
+
+    expect(updated.planDecision).toBe(false);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistWorkflowDecision } = await import('../session.js');
+    persistWorkflowDecision(baseSession, 'architecture', true);
+
+    expect((baseSession as Record<string, unknown>)['architectureDecision']).toBeUndefined();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistWorkflowDecision } = await import('../session.js');
+    const updated = persistWorkflowDecision(baseSession, 'plan', true);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+});
+
+describe('persistArchitectureArtifact', () => {
+  const baseSession = {
+    id: 'sess-arch',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'architecture' as const,
+    transcript: [],
+  };
+
+  it('stores content, filePath, and generated=true', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistArchitectureArtifact } = await import('../session.js');
+    const updated = persistArchitectureArtifact(baseSession, '# Architecture', '/work/docs/arch.md');
+
+    expect(updated.architectureArtifact).toEqual({
+      content: '# Architecture',
+      filePath: '/work/docs/arch.md',
+      generated: true,
+    });
+  });
+
+  it('saves session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistArchitectureArtifact } = await import('../session.js');
+    persistArchitectureArtifact(baseSession, '# Architecture', '/work/docs/arch.md');
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistArchitectureArtifact } = await import('../session.js');
+    persistArchitectureArtifact(baseSession, '# Architecture', '/work/docs/arch.md');
+
+    expect((baseSession as Record<string, unknown>)['architectureArtifact']).toBeUndefined();
+  });
+});
+
+describe('completeArchitectureStage', () => {
+  const baseSession = {
+    id: 'sess-arch-complete',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'architecture' as const,
+    transcript: [],
+  };
+
+  it('sets stage to plan', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeArchitectureStage } = await import('../session.js');
+    const updated = completeArchitectureStage(baseSession);
+
+    expect(updated.stage).toBe('plan');
+  });
+
+  it('persists session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeArchitectureStage } = await import('../session.js');
+    completeArchitectureStage(baseSession);
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeArchitectureStage } = await import('../session.js');
+    completeArchitectureStage(baseSession);
+
+    expect(baseSession.stage).toBe('architecture');
+  });
+});
+
+describe('persistPlanArtifact', () => {
+  const baseSession = {
+    id: 'sess-plan',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'plan' as const,
+    transcript: [],
+  };
+
+  it('stores content, filePath, and generated=true', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistPlanArtifact } = await import('../session.js');
+    const updated = persistPlanArtifact(baseSession, '# Plan', '/work/docs/plan.md');
+
+    expect(updated.planArtifact).toEqual({
+      content: '# Plan',
+      filePath: '/work/docs/plan.md',
+      generated: true,
+    });
+  });
+
+  it('saves session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistPlanArtifact } = await import('../session.js');
+    persistPlanArtifact(baseSession, '# Plan', '/work/docs/plan.md');
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistPlanArtifact } = await import('../session.js');
+    persistPlanArtifact(baseSession, '# Plan', '/work/docs/plan.md');
+
+    expect((baseSession as Record<string, unknown>)['planArtifact']).toBeUndefined();
+  });
+});
+
+describe('completePlanStage', () => {
+  const baseSession = {
+    id: 'sess-plan-complete',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'plan' as const,
+    transcript: [],
+  };
+
+  it('persists session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completePlanStage } = await import('../session.js');
+    completePlanStage(baseSession);
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completePlanStage } = await import('../session.js');
+    const updated = completePlanStage(baseSession);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completePlanStage } = await import('../session.js');
+    completePlanStage(baseSession);
+
+    expect(baseSession.stage).toBe('plan');
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

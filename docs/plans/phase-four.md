@@ -38,13 +38,13 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 1: Implement Post-Spec Workflow Controller
 
-- [ ] Extend artifact pipeline to support post-spec decision flow
-- [ ] Implement architecture generation prompt step
-- [ ] Implement high-level plan generation prompt step
-- [ ] Enforce fixed order of stages
-- [ ] Ensure CLI controls stage transitions
-- [ ] Persist workflow decisions in session
-- [ ] Log workflow decision events
+- [x] Extend artifact pipeline to support post-spec decision flow
+- [x] Implement architecture generation prompt step
+- [x] Implement high-level plan generation prompt step
+- [x] Enforce fixed order of stages
+- [x] Ensure CLI controls stage transitions
+- [x] Persist workflow decisions in session
+- [x] Log workflow decision events
 
 ---
 

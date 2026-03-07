@@ -16,19 +16,37 @@ export interface SpecArtifact {
   generated: boolean;
 }
 
+export interface ArchitectureArtifact {
+  content: string;
+  filePath: string;
+  generated: boolean;
+}
+
+export interface PlanArtifact {
+  content: string;
+  filePath: string;
+  generated: boolean;
+}
+
 export interface Session {
   id: string;
   createdAt: string;
   updatedAt: string;
   workingDirectory: string;
   completed: boolean;
-  stage?: 'interview' | 'spec' | 'architecture';
+  stage?: 'interview' | 'spec' | 'architecture' | 'plan';
   finishedEarly?: boolean;
   transcript: InterviewMessage[];
   model?: string;
   lastError?: string;
   generationAttempts?: number;
   specArtifact?: SpecArtifact;
+  architectureDecision?: boolean;
+  planDecision?: boolean;
+  architectureArtifact?: ArchitectureArtifact;
+  planArtifact?: PlanArtifact;
+  architectureGenerationAttempts?: number;
+  planGenerationAttempts?: number;
 }
 
 export function getSessionsDir(): string {
@@ -186,6 +204,82 @@ export function completeSpecStage(session: Session): Session {
   };
   saveSession(updated);
   getLogger().info(`spec stage complete: transitioning to architecture stage (session ${session.id})`);
+  return updated;
+}
+
+export function persistWorkflowDecision(
+  session: Session,
+  stage: 'architecture' | 'plan',
+  decision: boolean,
+): Session {
+  const field = stage === 'architecture' ? 'architectureDecision' : 'planDecision';
+  const updated: Session = {
+    ...session,
+    [field]: decision,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `workflow decision: ${stage}=${decision} (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function persistArchitectureArtifact(
+  session: Session,
+  content: string,
+  filePath: string,
+): Session {
+  const updated: Session = {
+    ...session,
+    architectureArtifact: { content, filePath, generated: true },
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `artifact persistence: architecture artifact saved to ${filePath} (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function completeArchitectureStage(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    stage: 'plan',
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `architecture stage complete: transitioning to plan stage (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function persistPlanArtifact(
+  session: Session,
+  content: string,
+  filePath: string,
+): Session {
+  const updated: Session = {
+    ...session,
+    planArtifact: { content, filePath, generated: true },
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `artifact persistence: plan artifact saved to ${filePath} (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function completePlanStage(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    stage: 'plan',
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`plan stage complete (session ${session.id})`);
   return updated;
 }
 

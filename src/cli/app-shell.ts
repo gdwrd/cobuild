@@ -11,7 +11,7 @@ export interface StartupResult {
   message: string;
   sessionId?: string;
   sessionResolution?: SessionResolution;
-  sessionStage?: 'interview' | 'spec' | 'architecture';
+  sessionStage?: 'interview' | 'spec' | 'architecture' | 'plan';
 }
 
 export async function runStartup(config: RuntimeConfig): Promise<StartupResult> {
@@ -44,7 +44,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
 
   let sessionId: string;
   let sessionResolution: SessionResolution;
-  let sessionStage: 'interview' | 'spec' | 'architecture' | undefined;
+  let sessionStage: 'interview' | 'spec' | 'architecture' | 'plan' | undefined;
   try {
     if (config.newSession) {
       logger.info('--new-session flag set, forcing new session');

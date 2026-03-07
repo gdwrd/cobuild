@@ -147,7 +147,7 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
       if (!session || session.workingDirectory !== workingDirectory) continue;
       const isResumeableInterview = !session.completed;
       const isResumeableDevPlan =
-        session.stage === 'dev-plans' && !session.devPlansComplete && !session.devPlanHalted;
+        session.stage === 'dev-plans' && !session.devPlansComplete;
       if (isResumeableInterview || isResumeableDevPlan) {
         sessions.push(session);
       }
@@ -388,6 +388,7 @@ export function persistDevPlanStage(session: Session): Session {
   const updated: Session = {
     ...session,
     stage: 'dev-plans',
+    devPlanHalted: undefined,
     updatedAt: new Date().toISOString(),
   };
   saveSession(updated);

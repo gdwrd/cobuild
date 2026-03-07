@@ -1108,6 +1108,17 @@ describe('persistDevPlanStage', () => {
 
     expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
   });
+
+  it('clears devPlanHalted so a halted session can resume cleanly', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanStage } = await import('../session.js');
+    const haltedSession = { ...baseSession, devPlanHalted: true };
+    const updated = persistDevPlanStage(haltedSession);
+
+    expect(updated.devPlanHalted).toBeUndefined();
+  });
 });
 
 describe('completeDevPlanStage', () => {
@@ -1248,7 +1259,7 @@ describe('findLatestByWorkingDirectory (dev-plans resume)', () => {
     expect(result).toBeNull();
   });
 
-  it('skips dev-plans session when devPlanHalted is true', async () => {
+  it('returns halted dev-plans session so it can be resumed', async () => {
     fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
     fsMock.readFileSync.mockReturnValue(
       makeDevPlanSession('session-a', '/work', '2026-01-01T00:00:00.000Z', undefined, true),
@@ -1257,6 +1268,6 @@ describe('findLatestByWorkingDirectory (dev-plans resume)', () => {
     const { findLatestByWorkingDirectory } = await import('../session.js');
     const result = findLatestByWorkingDirectory('/work');
 
-    expect(result).toBeNull();
+    expect(result?.id).toBe('session-a');
   });
 });

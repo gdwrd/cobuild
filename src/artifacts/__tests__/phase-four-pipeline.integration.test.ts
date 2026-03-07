@@ -13,6 +13,7 @@ vi.mock('../../session/session.js', () => ({
   persistErrorState: vi.fn(),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),
   persistDevPlansDecision: vi.fn((session, _decision) => ({ ...session, updatedAt: 'now' })),
+  persistDevPlanStage: vi.fn((session) => ({ ...session, stage: 'dev-plans', updatedAt: 'now' })),
   persistArchitectureArtifact: vi.fn((session) => ({ ...session, updatedAt: 'now' })),
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),
   persistPlanArtifact: vi.fn((session) => ({ ...session, updatedAt: 'now' })),

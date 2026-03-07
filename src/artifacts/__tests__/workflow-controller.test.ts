@@ -8,6 +8,7 @@ vi.mock('../../session/session.js', () => ({
   loadSession: vi.fn(() => null),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),
   persistDevPlansDecision: vi.fn((session, _decision) => ({ ...session, updatedAt: 'now' })),
+  persistDevPlanStage: vi.fn((session) => ({ ...session, stage: 'dev-plans', updatedAt: 'now' })),
   persistArchitectureArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),
   persistPlanArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
@@ -26,6 +27,7 @@ vi.mock('../plan-parser.js', () => ({
 import {
   persistWorkflowDecision,
   persistDevPlansDecision,
+  persistDevPlanStage,
   persistArchitectureArtifact,
   completeArchitectureStage,
   persistPlanArtifact,
@@ -96,6 +98,11 @@ beforeEach(() => {
   }));
   vi.mocked(persistDevPlansDecision).mockImplementation((session) => ({
     ...session,
+    updatedAt: 'now',
+  }));
+  vi.mocked(persistDevPlanStage).mockImplementation((session) => ({
+    ...session,
+    stage: 'dev-plans' as const,
     updatedAt: 'now',
   }));
   vi.mocked(extractPhases).mockReturnValue([]);
@@ -387,5 +394,31 @@ describe('runPostSpecWorkflow', () => {
 
     expect(stages).toContain('terminated');
     expect(stages).not.toContain('complete');
+  });
+
+  it('persists dev-plans stage before returning when user accepts dev plans', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const options = makeOptions({ onDecision: vi.fn(async () => true) });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(persistDevPlanStage)).toHaveBeenCalledOnce();
+  });
+
+  it('does not persist dev-plans stage when user declines dev plans', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    let callCount = 0;
+    const options = makeOptions({
+      onDecision: vi.fn(async () => {
+        callCount++;
+        return callCount <= 2;
+      }),
+    });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(persistDevPlanStage)).not.toHaveBeenCalled();
   });
 });

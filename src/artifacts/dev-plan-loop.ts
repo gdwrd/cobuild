@@ -81,8 +81,10 @@ export async function runDevPlanLoop(
     }
 
     const { filePath } = writeDevPlanFile(currentSession.workingDirectory, phase, result.content);
+    // Reload from disk to pick up devPlanGenerationAttempts written by the generator
+    const latestSession = loadSession(currentSession.id) ?? currentSession;
     currentSession = persistDevPlanPhaseCompletion(
-      currentSession,
+      latestSession,
       phase.number,
       result.content,
       filePath,

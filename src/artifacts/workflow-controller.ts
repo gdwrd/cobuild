@@ -5,6 +5,7 @@ import {
   loadSession,
   persistWorkflowDecision,
   persistDevPlansDecision,
+  persistDevPlanStage,
   persistArchitectureArtifact,
   completeArchitectureStage,
   persistPlanArtifact,
@@ -137,6 +138,9 @@ export async function runPostSpecWorkflow(
   }
 
   logger.info(`post-spec workflow: dev plan generation stage starting (session ${session.id})`);
+  // Persist dev-plans stage immediately so the session is resumable if the process exits
+  // before the dev-plan loop starts.
+  currentSession = persistDevPlanStage(currentSession);
   notifyStage(options, 'complete');
   return {
     architectureFilePath,

@@ -265,8 +265,13 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         setWorkflowTerminatedEarly(true);
       },
     })
-      .then(() => {
-        setGenerationStatus('success');
+      .then((resultSession) => {
+        if (resultSession.devPlanHalted) {
+          setGenerationError('Dev plan generation stopped after repeated failures. Resume cobuild in this directory to retry from the failed phase.');
+          setGenerationStatus('error');
+        } else {
+          setGenerationStatus('success');
+        }
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -363,7 +368,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         }
         // User accepted dev plan generation — run the sequential phase loop
         const devPlanSession = workflowResult.finalSession;
-        await runDevPlanLoop(devPlanSession, provider, {
+        const devPlanResult = await runDevPlanLoop(devPlanSession, provider, {
           onPhaseStart: (phaseNumber, total) => {
             setGenerationStage('dev-plan');
             setDevPlanProgress({ current: phaseNumber, total });
@@ -379,7 +384,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
             setWorkflowTerminatedEarly(true);
           },
         });
-        setGenerationStatus('success');
+        if (devPlanResult.devPlanHalted) {
+          setGenerationError('Dev plan generation stopped after repeated failures. Resume cobuild in this directory to retry from the failed phase.');
+          setGenerationStatus('error');
+        } else {
+          setGenerationStatus('success');
+        }
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);

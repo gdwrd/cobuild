@@ -57,7 +57,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
       const isResumeableExisting =
         existing &&
         (!existing.completed ||
-          (existing.stage === 'dev-plans' && !existing.devPlansComplete && !existing.devPlanHalted));
+          (existing.stage === 'dev-plans' && !existing.devPlansComplete));
       if (isResumeableExisting) {
         logger.info(`resuming existing session: ${existing.id}`);
         sessionId = existing.id;

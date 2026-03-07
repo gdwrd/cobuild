@@ -36,21 +36,26 @@ export class SpecGenerator implements ArtifactGenerator {
     logger.info(
       `spec generator: starting provider call with up to ${DEFAULT_MAX_ATTEMPTS} retries (session ${updatedSession.id})`,
     );
-    const raw = await withRetry(() => provider.generate(messages), {
-      maxAttempts: DEFAULT_MAX_ATTEMPTS,
-      onRetryExhausted: (err, attempts) => {
-        const errorMsg = `spec generation failed after ${attempts} attempts: ${err.message}`;
-        logger.error(`spec generator: ${errorMsg} (session ${updatedSession.id})`);
-        persistErrorState(updatedSession, errorMsg);
+    const content = await withRetry(
+      async () => {
+        const raw = await provider.generate(messages);
+        logger.debug(`spec generator: raw response: ${JSON.stringify(raw)}`);
+        logger.info(
+          `spec generator: response received (length=${raw.length}, session ${updatedSession.id})`,
+        );
+        const normalized = normalizeSpecOutput(raw);
+        assertValidSpec(normalized);
+        return normalized;
       },
-    });
-    logger.debug(`spec generator: raw response: ${JSON.stringify(raw)}`);
-    logger.info(
-      `spec generator: response received (length=${raw.length}, session ${updatedSession.id})`,
+      {
+        maxAttempts: DEFAULT_MAX_ATTEMPTS,
+        onRetryExhausted: (err, attempts) => {
+          const errorMsg = `spec generation failed after ${attempts} attempts: ${err.message}`;
+          logger.error(`spec generator: ${errorMsg} (session ${updatedSession.id})`);
+          persistErrorState(updatedSession, errorMsg);
+        },
+      },
     );
-
-    const content = normalizeSpecOutput(raw);
-    assertValidSpec(content);
     return { type: 'spec', content };
   }
 }

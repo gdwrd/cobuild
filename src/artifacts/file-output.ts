@@ -21,7 +21,7 @@ export function ensureDocsDir(projectDir: string): string {
  * Uses safeFilename for sanitization, lowercases, and replaces spaces with hyphens.
  */
 export function generateFilename(projectName: string): string {
-  const sanitized = safeFilename(projectName).toLowerCase().replace(/\s+/g, '-');
+  const sanitized = safeFilename(projectName).toLowerCase().replace(/\s+/g, '-') || 'project';
   return `${sanitized}-spec.md`;
 }
 

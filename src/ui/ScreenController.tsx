@@ -205,7 +205,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setScreen('generating');
 
     const specGenerator = new SpecGenerator();
-    runArtifactPipeline(session, provider, specGenerator, 'spec')
+    runArtifactPipeline(session, providerRef.current!, specGenerator, 'spec')
       .then(({ session: updatedSession, result }) => {
         const projectName = path.basename(updatedSession.workingDirectory) || 'project';
         const docsDir = ensureDocsDir(updatedSession.workingDirectory);
@@ -230,6 +230,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         getLogger().error(`generation screen: spec generation failed: ${msg}`);
+        const s = currentSessionRef.current;
+        if (s) {
+          persistErrorState(s, msg);
+        }
         setGenerationError(msg);
         setGenerationStatus('error');
       });

@@ -17,7 +17,6 @@ import { saveSession, getTranscript } from '../../session/session.js';
 import { SpecGenerator } from '../spec-generator.js';
 import { runArtifactPipeline } from '../generator.js';
 import { generateFilename, resolveOutputPath, writeArtifactFile } from '../file-output.js';
-import { SpecValidationError } from '../spec-validator.js';
 import { RetryExhaustedError, DEFAULT_MAX_ATTEMPTS } from '../../interview/retry.js';
 import type { Session } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
@@ -104,19 +103,28 @@ describe('spec generation after interview completion', () => {
 // ─── validator rejects invalid output ────────────────────────────────────────
 
 describe('validator rejects invalid output', () => {
-  it('throws SpecValidationError when provider returns content without required sections', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('throws RetryExhaustedError when provider consistently returns content without required sections', async () => {
+    vi.useFakeTimers();
     const session = makeSession();
     const provider: ModelProvider = {
       generate: vi.fn(async () => '# My Project\n\nSome content without proper sections.'),
     };
     const generator = new SpecGenerator();
 
-    await expect(
-      runArtifactPipeline(session, provider, generator, 'spec'),
-    ).rejects.toThrow(SpecValidationError);
+    const promise = runArtifactPipeline(session, provider, generator, 'spec');
+    // Suppress unhandled-rejection warning while timers are advanced
+    promise.catch(() => {});
+    await vi.runAllTimersAsync();
+    await expect(promise).rejects.toThrow(RetryExhaustedError);
+    expect(vi.mocked(provider.generate)).toHaveBeenCalledTimes(DEFAULT_MAX_ATTEMPTS);
   });
 
-  it('validation error includes names of missing sections', async () => {
+  it('validation error cause includes names of missing sections', async () => {
+    vi.useFakeTimers();
     const session = makeSession();
     const provider: ModelProvider = {
       // Has overview but missing functional requirements and acceptance criteria
@@ -124,15 +132,19 @@ describe('validator rejects invalid output', () => {
     };
     const generator = new SpecGenerator();
 
+    const promise = runArtifactPipeline(session, provider, generator, 'spec');
+    // Suppress unhandled-rejection warning while timers are advanced
+    promise.catch(() => {});
+    await vi.runAllTimersAsync();
+
     try {
-      await runArtifactPipeline(session, provider, generator, 'spec');
-      expect.fail('should have thrown SpecValidationError');
+      await promise;
+      expect.fail('should have thrown RetryExhaustedError');
     } catch (err) {
-      expect(err).toBeInstanceOf(SpecValidationError);
-      const validationErr = err as SpecValidationError;
-      expect(validationErr.result.valid).toBe(false);
-      expect(validationErr.result.missingSections).toContain('functional requirements');
-      expect(validationErr.result.missingSections).toContain('acceptance criteria');
+      expect(err).toBeInstanceOf(RetryExhaustedError);
+      const retryErr = err as RetryExhaustedError;
+      expect(retryErr.cause.message).toContain('functional requirements');
+      expect(retryErr.cause.message).toContain('acceptance criteria');
     }
   });
 

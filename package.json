@@ -2,6 +2,25 @@
   "name": "cobuild",
   "version": "0.1.0",
   "description": "Interactive AI-powered CLI build assistant",
+  "author": "d0p3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/d0p3/cobuild.git"
+  },
+  "homepage": "https://github.com/d0p3/cobuild#readme",
+  "bugs": {
+    "url": "https://github.com/d0p3/cobuild/issues"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "build-assistant",
+    "ollama",
+    "codex",
+    "planning",
+    "developer-tools"
+  ],
   "type": "module",
   "bin": {
     "cobuild": "./dist/cli/index.js"
@@ -19,7 +38,8 @@
     "test:ci": "vitest run --reporter=verbose",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "integration-test": "npm run build && node scripts/verify-e2e.mjs"
+    "integration-test": "npm run build && node scripts/verify-e2e.mjs",
+    "prepublishOnly": "npm run build && npm test && npm run lint && npm run typecheck && npm pack --dry-run --cache /tmp/cobuild-npm-cache"
   },
   "dependencies": {
     "commander": "^12.0.0",

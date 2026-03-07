@@ -28,10 +28,10 @@
 - [x] Update `RELEASE_NOTES.md` so it reflects current multi-provider functionality instead of the older Ollama-only release description.
 
 ### Task 4: Clean up repository and publish-surface hygiene
-- [ ] Decide whether `CLAUDE.md`, `skills/`, and tracked `docs/plans/completed/` content should remain in the public repository.
-- [ ] Reconcile `.gitignore` with the current tracking of `docs/`.
-- [ ] Decide whether `RELEASE_NOTES.md` should be renamed or complemented with a conventional `CHANGELOG.md`.
-- [ ] Verify the publish surface using `package.json`, `.npmignore`, and `npm pack --dry-run`, and remove any unintended package contents.
+- [x] Decide whether `CLAUDE.md`, `skills/`, and tracked `docs/plans/completed/` content should remain in the public repository.
+- [x] Reconcile `.gitignore` with the current tracking of `docs/`.
+- [x] Decide whether `RELEASE_NOTES.md` should be renamed or complemented with a conventional `CHANGELOG.md`.
+- [x] Verify the publish surface using `package.json`, `.npmignore`, and `npm pack --dry-run`, and remove any unintended package contents.
 
 ### Task 5: Add continuous integration for pull requests and pushes
 - [ ] Add a GitHub Actions workflow under `.github/workflows/` that runs `npm ci`, `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck`.

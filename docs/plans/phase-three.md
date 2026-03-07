@@ -93,11 +93,11 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 6: Persist Generated Artifact to Session
 
-- [ ] Store generated spec Markdown in session
-- [ ] Store file output path in session
-- [ ] Mark spec artifact as generated
-- [ ] Persist updated session state
-- [ ] Log artifact persistence event
+- [x] Store generated spec Markdown in session
+- [x] Store file output path in session
+- [x] Mark spec artifact as generated
+- [x] Persist updated session state
+- [x] Log artifact persistence event
 
 ---
 

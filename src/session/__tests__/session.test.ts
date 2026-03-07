@@ -440,6 +440,77 @@ describe('completeInterview', () => {
   });
 });
 
+describe('persistSpecArtifact', () => {
+  const baseSession = {
+    id: 'sess-spec',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'spec' as const,
+    transcript: [],
+  };
+
+  it('stores content, filePath, and generated=true on session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistSpecArtifact } = await import('../session.js');
+    const updated = persistSpecArtifact(baseSession, '# Spec\n## Overview\nFoo', '/work/docs/my-spec.md');
+
+    expect(updated.specArtifact).toEqual({
+      content: '# Spec\n## Overview\nFoo',
+      filePath: '/work/docs/my-spec.md',
+      generated: true,
+    });
+  });
+
+  it('saves session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistSpecArtifact } = await import('../session.js');
+    persistSpecArtifact(baseSession, '# Spec', '/work/docs/my-spec.md');
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistSpecArtifact } = await import('../session.js');
+    const updated = persistSpecArtifact(baseSession, '# Spec', '/work/docs/my-spec.md');
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistSpecArtifact } = await import('../session.js');
+    persistSpecArtifact(baseSession, '# Spec', '/work/docs/my-spec.md');
+
+    expect((baseSession as Record<string, unknown>)['specArtifact']).toBeUndefined();
+  });
+
+  it('preserves other session fields', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistSpecArtifact } = await import('../session.js');
+    const updated = persistSpecArtifact(baseSession, '# Spec', '/work/docs/my-spec.md');
+
+    expect(updated.id).toBe(baseSession.id);
+    expect(updated.workingDirectory).toBe(baseSession.workingDirectory);
+    expect(updated.completed).toBe(baseSession.completed);
+    expect(updated.stage).toBe(baseSession.stage);
+    expect(updated.transcript).toEqual(baseSession.transcript);
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

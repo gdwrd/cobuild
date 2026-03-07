@@ -10,6 +10,12 @@ export interface InterviewMessage {
   timestamp: string;
 }
 
+export interface SpecArtifact {
+  content: string;
+  filePath: string;
+  generated: boolean;
+}
+
 export interface Session {
   id: string;
   createdAt: string;
@@ -22,6 +28,7 @@ export interface Session {
   model?: string;
   lastError?: string;
   generationAttempts?: number;
+  specArtifact?: SpecArtifact;
 }
 
 export function getSessionsDir(): string {
@@ -163,6 +170,17 @@ export function persistErrorState(session: Session, error: string): Session {
   };
   saveSession(updated);
   getLogger().error(`session error persisted (session ${session.id}): ${error}`);
+  return updated;
+}
+
+export function persistSpecArtifact(session: Session, content: string, filePath: string): Session {
+  const updated: Session = {
+    ...session,
+    specArtifact: { content, filePath, generated: true },
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`artifact persistence: spec artifact saved to ${filePath} (session ${session.id})`);
   return updated;
 }
 

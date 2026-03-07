@@ -1,19 +1,50 @@
 # cobuild
 
-Interactive AI-powered CLI build assistant.
+Interactive AI-powered CLI build assistant for turning a project idea into planning documents from your terminal.
+
+`cobuild` runs a structured interview against a local Ollama model, saves the transcript as a resumable session, and then generates a specification plus optional follow-on artifacts for architecture and implementation planning.
+
+## What It Does
+
+Given a project directory, `cobuild` can generate:
+
+1. A project specification
+2. An architecture document
+3. A high-level development plan
+4. Per-phase development plans
+
+The workflow is interactive and stateful:
+
+1. Start `cobuild` inside the project directory you want to plan.
+2. Answer a guided interview in the terminal.
+3. Let `cobuild` generate the spec.
+4. Choose whether to continue into architecture, high-level planning, and per-phase plans.
+5. Re-run `cobuild` later to resume the latest unfinished session for that same directory.
 
 ## Requirements
 
-- Node.js >= 18.0.0
+- Node.js `>= 18.0.0`
+- A real interactive terminal (`TTY`) for the full session
 - [Ollama](https://ollama.com) running locally at `http://localhost:11434`
+- At least one Ollama model installed locally
+
+Example model setup:
+
+```sh
+ollama pull llama3
+```
+
+`cobuild` defaults to the `llama3` model unless the session already has a different model saved or you switch models during the interview with `/model`.
 
 ## Installation
+
+Install from the package:
 
 ```sh
 npm install -g cobuild
 ```
 
-For development:
+Install for local development:
 
 ```sh
 npm install
@@ -23,84 +54,276 @@ npm link
 
 ## Usage
 
+Run inside the project directory you want to document:
+
 ```sh
-cobuild                 # Start cobuild, resuming the last session
-cobuild --new-session   # Start cobuild with a fresh session
-cobuild --help          # Show help
+cobuild
+```
+
+Common commands:
+
+```sh
+cobuild                 # Start or resume the latest unfinished session in this directory
+cobuild --new-session   # Ignore the latest unfinished session and create a new one
+cobuild --verbose       # Enable verbose startup logging marker
+cobuild --help          # Show CLI help
 cobuild -v              # Print version
 ```
 
 ## CLI Flags
 
-| Flag            | Description                                        |
-|-----------------|----------------------------------------------------|
-| `--new-session` | Discard any existing session and start a fresh one |
-| `--verbose`     | Enable verbose logging                             |
-| `-v, --version` | Print the current version                          |
+| Flag | Description |
+| --- | --- |
+| `--new-session` | Start a fresh session instead of resuming the latest unfinished session for the current working directory |
+| `--verbose` | Enable verbose startup logging marker |
+| `-v, --version` | Print the current version |
 
-## What cobuild generates
+## Runtime Flow
 
-After the interview completes, cobuild runs a multi-stage generation pipeline:
+On startup, `cobuild`:
 
-1. **Project specification** — always generated; saved to `docs/<project>-spec.md`
-2. **Architecture document** — generated if you answer yes when prompted; saved to `docs/<project>-architecture.md`
-3. **High-level development plan** — generated if you answer yes when prompted (requires architecture); saved to `docs/<project>-high-level-plan.md`
-4. **Per-phase dev plans** — generated if you answer yes when prompted (requires high-level plan); one file per phase, saved to `docs/plans/YYYY-MM-DD-phase-<N>-<title>.md`
+1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
+2. Verifies that stdin is attached to a TTY.
+3. Verifies that Ollama responds at `http://localhost:11434/api/tags`.
+4. Resolves the active session for the current working directory.
 
-All files are written to a `docs/` directory under your current working directory.
+Session resolution behavior:
 
-> **Note:** cobuild requires an interactive terminal throughout the full session, including during the generation prompts. Non-interactive (piped or scripted) invocations will fail immediately.
+- If `--new-session` is set, a new session is always created.
+- Otherwise, `cobuild` resumes the latest unfinished session for the current working directory.
+- If the latest session is already complete, `cobuild` starts a new one.
+- Dev-plan generation is also resumable. If a previous run stopped mid-phase, `cobuild` resumes from the first incomplete phase.
 
-## Slash Commands
+## Interview Experience
 
-During the interview, you can type the following slash commands:
+The interview is driven by a system prompt that instructs the model to:
+
+- Ask exactly one question per response
+- Gather enough detail for a technical specification
+- Cover goals, users, features, preferences, constraints, integrations, and success criteria
+- Finish when it has enough information, usually after roughly 8 to 15 questions
+
+The transcript is persisted after every user and assistant message.
+
+If you stop the process and run `cobuild` again in the same directory, the session resumes from the last saved point.
+
+### Slash Commands
+
+These commands are available during the interview:
 
 | Command | Description |
-|---------|-------------|
-| `/finish-now` | End the interview immediately and proceed to generation |
-| `/model <name>` | Switch to a different Ollama model for the rest of the session |
-| `/provider` | Display the current provider and model |
+| --- | --- |
+| `/finish-now` | End the interview immediately and ask the model to infer missing details so generation can begin |
+| `/model` | List installed Ollama models and switch the session to a different model by number or exact name |
+| `/provider` | Show the currently supported provider information |
 
-These commands are only available during the interview phase. Generation runs automatically once the interview is complete.
+Unknown slash commands are ignored.
 
-## Startup Behavior
+### Prompt Size Guardrail
 
-cobuild validates the environment before starting:
+`cobuild` estimates prompt size with a simple `chars / 4` heuristic and stops sending interview turns once the transcript grows past the configured limit of about `8000` estimated tokens.
 
-- Requires an interactive terminal (TTY). Piped or scripted invocations will fail immediately.
-- Requires Ollama to be reachable at `http://localhost:11434`. If Ollama is not running, cobuild exits with a clear error message.
+When that happens, the UI tells you to use `/finish-now` so it can generate the spec from the transcript collected so far.
 
-## Local Data
+## Generation Workflow
 
-cobuild writes to `~/.cobuild/` and to your project directory:
+After the interview completes, `cobuild` always generates the spec first. The rest of the workflow is decision-driven:
 
-| Path | Contents |
-|------|----------|
-| `~/.cobuild/sessions/` | JSON session files (UUID-named, one per session) |
-| `~/.cobuild/logs/` | Daily log files (`cobuild-YYYY-MM-DD.log`) |
-| `<project>/docs/` | Generated artifacts: spec, architecture, and high-level plan Markdown files |
-| `<project>/docs/plans/` | Per-phase dev plan Markdown files (one per phase) |
+1. Generate project specification
+2. Ask whether to generate an architecture document
+3. If yes, generate architecture document
+4. Ask whether to generate a high-level development plan
+5. If yes, generate the high-level plan and extract its phases
+6. Ask whether to generate per-phase dev plans
+7. If yes, generate each phase plan sequentially
 
-Sessions are automatically resumed when you run cobuild in the same directory. To start fresh, use `--new-session`.
+The yes/no prompts are interactive and support `y`, `n`, arrow keys, and Enter.
 
-## Known Limitations
+If you decline any optional stage, the workflow stops cleanly and keeps the artifacts already generated.
 
-- **Ollama only**: cobuild currently supports only local Ollama models. Remote or cloud-hosted LLM providers are not supported in v0.1.
-- **Single provider per session**: You cannot switch providers mid-session. Model switching (`/model`) works within Ollama only.
-- **No streaming display**: Generation output is shown as a spinner with status messages; streaming token display is not implemented.
-- **Token estimation is approximate**: cobuild estimates prompt sizes using a character-count heuristic (`chars / 4`). The actual token count depends on the model's tokenizer and may differ.
-- **No Windows support**: cobuild relies on POSIX TTY detection and has not been tested on Windows. Linux and macOS are the supported platforms.
-- **Interactive terminal required**: cobuild cannot be run in piped, CI, or scripted environments. All input and output requires a real TTY.
-- **No multi-project concurrency**: Running two cobuild instances in the same project directory simultaneously may cause session conflicts.
+## Generated Files
+
+All generated artifacts are written under the current working directory.
+
+### Spec
+
+- Path: `docs/<project>-spec.md`
+- Filename source: basename of the current working directory
+- Validation requirements:
+  - Project overview
+  - Functional requirements
+  - Acceptance criteria
+
+### Architecture
+
+- Path: `docs/<project>-architecture.md`
+- Generated only if you opt in after spec creation
+- Validation requirements:
+  - System components
+  - Data flow
+  - External integrations
+  - Storage choices
+  - Deployment/runtime model
+  - Security considerations
+  - Failure handling
+
+### High-Level Plan
+
+- Path: `docs/<project>-high-level-plan.md`
+- Generated only if you opt in after architecture
+- Validation requirements:
+  - Between 4 and 8 phases
+  - Sequentially numbered phases starting at 1
+  - Each phase must include:
+    - Goal
+    - Scope
+    - Deliverables
+    - Dependencies
+    - Acceptance criteria
+
+### Per-Phase Dev Plans
+
+- Path: `docs/plans/YYYY-MM-DD-phase-<N>-<title>.md`
+- Generated only if you opt in after the high-level plan
+- Generated sequentially, one file per extracted phase
+- Validation requirements:
+  - `# Plan:` title
+  - `## Overview`
+  - `## Validation Commands`
+  - At least one `### Task N:` or `### Iteration N:` section
+  - Markdown checkbox tasks
+  - No fenced code blocks
+  - The current phase number must appear in the title or opening
+
+### File Writing Behavior
+
+- `docs/` and `docs/plans/` are created automatically when needed.
+- Artifact writes are atomic via temp-file plus rename.
+- Existing files are never overwritten directly.
+- If a target filename already exists, `cobuild` appends `-2`, `-3`, and so on until it finds a free path.
+
+## Session Persistence
+
+Sessions are stored as JSON files in:
+
+```txt
+~/.cobuild/sessions/
+```
+
+Each session records:
+
+- Session ID
+- Working directory
+- Interview transcript
+- Current stage
+- Selected model
+- Generation attempt counters
+- Generated artifact metadata
+- Extracted plan phases
+- Dev-plan completion progress
+- Last error and retry-exhaustion state
+
+Sessions use a schema version field and are migrated on load with best-effort field mapping.
+
+## Logging
+
+Daily log files are written to:
+
+```txt
+~/.cobuild/logs/cobuild-YYYY-MM-DD.log
+```
+
+The logger writes debug, info, warning, and error entries, including session IDs and generation-stage details where available.
+
+## Retry and Failure Handling
+
+Model-backed generation stages use retry logic:
+
+- Default max attempts: `5`
+- Delay between attempts: `2000ms`
+
+This applies to:
+
+- Spec generation
+- Architecture generation
+- High-level plan generation
+- Per-phase dev-plan generation
+
+Behavior on failure:
+
+- Non-recoverable generation failures are persisted into the session as `lastError`.
+- If retries are exhausted during spec, architecture, or high-level plan generation, the UI offers:
+  - `R` to retry the pipeline
+  - Any other key to exit
+- If retries are exhausted during per-phase dev-plan generation, the session is marked halted and can be resumed later by running `cobuild` again in the same directory.
+
+## Local Storage Layout
+
+| Path | Purpose |
+| --- | --- |
+| `~/.cobuild/` | Application home directory |
+| `~/.cobuild/sessions/` | Session JSON files |
+| `~/.cobuild/logs/` | Daily log files |
+| `<project>/docs/` | Generated spec, architecture, and high-level plan |
+| `<project>/docs/plans/` | Generated per-phase dev plans |
+
+## Provider Support
+
+Current provider support is intentionally narrow:
+
+- Supported provider: Ollama only
+- Supported endpoint: local Ollama HTTP API
+- `cobuild` checks `/api/tags` on startup and uses `/api/chat` for generation
+- Responses are non-streaming
+
+There is no support yet for:
+
+- Remote hosted providers
+- API-key based provider configuration
+- Multi-provider routing
+
+## Limitations
+
+- Interactive terminal required. Piped or scripted use is rejected.
+- Ollama must be running locally at `http://localhost:11434`.
+- The only provider currently implemented is Ollama.
+- Prompt size estimation is heuristic, not tokenizer-accurate.
+- Generation output is not streamed token-by-token.
+- Running multiple `cobuild` processes in the same project directory can create session conflicts.
+- The `--verbose` flag currently records a startup log entry but does not change logger filtering.
+- Windows support is not documented or tested in the codebase.
 
 ## Development
 
+Available scripts:
+
 ```sh
-npm run build        # Compile TypeScript to dist/
-npm run build:watch  # Watch mode
-npm test             # Run tests
-npm run test:ci      # Run tests with verbose output
-npm run lint         # ESLint
-npm run format       # Prettier
-npm run typecheck    # Type-check without emitting
+npm run build             # Compile TypeScript to dist/
+npm run build:watch       # Rebuild on change
+npm run lint              # Run ESLint on src/
+npm run format            # Run Prettier on src/
+npm run test              # Run Vitest
+npm run test:ci           # Run Vitest with verbose reporter
+npm run test:watch        # Run Vitest in watch mode
+npm run typecheck         # Type-check without emitting
+npm run integration-test  # Build, then run the end-to-end verification script
 ```
+
+## Project Structure
+
+| Path | Purpose |
+| --- | --- |
+| `src/cli/` | CLI entrypoint, config, and startup orchestration |
+| `src/ui/` | Ink UI screens for interview, restore, yes/no prompts, and generation |
+| `src/interview/` | Interview loop, prompts, slash commands, and retry logic |
+| `src/providers/` | Model provider implementations |
+| `src/artifacts/` | Artifact prompts, generators, validators, file output, and dev-plan workflow |
+| `src/session/` | Session schema, persistence, resume logic, and workflow state |
+| `src/logging/` | File-based logger |
+| `src/fs/` | Application directory bootstrap |
+| `src/validation/` | Environment validation |
+| `scripts/` | End-to-end verification utilities |
+
+## Release
+
+The current package version is `0.1.0`. Release notes are in `RELEASE_NOTES.md`.

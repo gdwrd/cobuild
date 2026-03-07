@@ -158,12 +158,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 12: Prepare Release Documentation
 
-- [ ] Write README with installation instructions
-- [ ] Document CLI usage and workflow
-- [ ] Document supported slash commands
-- [ ] Document session and log locations
-- [ ] Document known limitations of v1
-- [ ] Prepare initial release notes
+- [x] Write README with installation instructions
+- [x] Document CLI usage and workflow
+- [x] Document supported slash commands
+- [x] Document session and log locations
+- [x] Document known limitations of v1
+- [x] Prepare initial release notes
 
 ---
 

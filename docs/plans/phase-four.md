@@ -223,11 +223,11 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 17: Verify End-to-End Phase 4 Workflow
 
-- [ ] Run cobuild from a fresh project directory
-- [ ] Complete interview and spec generation
-- [ ] Select "yes" for architecture generation
-- [ ] Verify architecture file appears in `docs/`
-- [ ] Select "yes" for high-level plan generation
-- [ ] Verify plan file appears in `docs/`
-- [ ] Confirm phases are correctly extracted and stored
-- [ ] Verify logs contain stage transitions
+- [x] Run cobuild from a fresh project directory
+- [x] Complete interview and spec generation
+- [x] Select "yes" for architecture generation
+- [x] Verify architecture file appears in `docs/`
+- [x] Select "yes" for high-level plan generation
+- [x] Verify plan file appears in `docs/`
+- [x] Confirm phases are correctly extracted and stored
+- [x] Verify logs contain stage transitions

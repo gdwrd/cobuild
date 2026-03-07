@@ -44,12 +44,22 @@ function check(condition, passMsg, failMsg) {
 
 // ─── imports ────────────────────────────────────────────────────────────────
 
-const { createSession, saveSession, loadSession, persistSpecArtifact, completeSpecStage, findLatestByWorkingDirectory } =
-  await import(`${distDir}/session/session.js`);
+const {
+  createSession, saveSession, loadSession,
+  persistSpecArtifact, completeSpecStage,
+  persistArchitectureArtifact, completeArchitectureStage,
+  persistPlanArtifact, persistExtractedPhases, completePlanStage,
+  findLatestByWorkingDirectory,
+} = await import(`${distDir}/session/session.js`);
 const { SpecGenerator } = await import(`${distDir}/artifacts/spec-generator.js`);
+const { ArchGenerator } = await import(`${distDir}/artifacts/arch-generator.js`);
+const { PlanGenerator } = await import(`${distDir}/artifacts/plan-generator.js`);
 const { runArtifactPipeline } = await import(`${distDir}/artifacts/generator.js`);
-const { generateFilename, ensureDocsDir, resolveOutputPath, writeArtifactFile } =
-  await import(`${distDir}/artifacts/file-output.js`);
+const { extractPhases } = await import(`${distDir}/artifacts/plan-parser.js`);
+const {
+  generateFilename, generateArchitectureFilename, generatePlanFilename,
+  ensureDocsDir, resolveOutputPath, writeArtifactFile,
+} = await import(`${distDir}/artifacts/file-output.js`);
 const { getLogger } = await import(`${distDir}/logging/logger.js`);
 
 // ─── valid spec content ──────────────────────────────────────────────────────
@@ -289,6 +299,281 @@ if (fs.existsSync(logFile)) {
   } else {
     fail('No log files found in logs directory');
   }
+}
+
+// ─── phase 4 artifact content ─────────────────────────────────────────────────
+
+const VALID_ARCHITECTURE = `# My Test Project Architecture
+
+## System Components
+
+- CLI: commander-based entrypoint
+- Interview Engine: multi-turn conversation loop
+- Artifact Pipeline: spec, architecture, and plan generators
+- Session Store: UUID-named JSON files in ~/.cobuild/sessions/
+
+## Data Flow
+
+User input flows through the CLI to the interview engine, which persists transcript
+entries in the session. After interview completion, the artifact pipeline runs each
+generator in sequence and writes output to docs/.
+
+## External Integrations
+
+- Ollama: local LLM provider accessed via HTTP at /api/chat and /api/tags
+- Filesystem: docs/ output, ~/.cobuild/ for sessions and logs
+
+## Storage Choices
+
+- Session state: JSON files (atomic write via tmp+rename)
+- Log files: daily-rotated text files under ~/.cobuild/logs/
+- Artifact output: Markdown files under docs/ in the project directory
+
+## Deployment and Runtime Model
+
+Single-user CLI tool. Runs in a Node.js process with Ink terminal UI.
+No server or daemon. Ollama must be running locally before invoking cobuild.
+
+## Security Considerations
+
+- No network egress beyond localhost (Ollama)
+- Session files written with mode 0o600
+- No user credentials stored
+
+## Failure Handling
+
+- Retry up to 5 times per generator on transient errors
+- Atomic writes prevent partial artifact files
+- Errors persisted in session lastError field and shown in UI
+`;
+
+const VALID_PLAN = `# My Test Project High-Level Development Plan
+
+## Phase 1: Foundation and CLI Scaffold
+
+### Goal
+Establish the project skeleton with CLI entrypoint, dependency configuration, and TypeScript build.
+
+### Scope
+Set up package.json, tsconfig.json, ESLint, Prettier, and the src/cli/index.ts entrypoint.
+
+### Deliverables
+- Working npm run build, npm test, and npm run lint commands
+- CLI skeleton that exits with a help message
+
+### Dependencies
+None — this is the initial phase.
+
+### Acceptance Criteria
+- npm run build produces dist/ without errors
+- npm test passes with zero failing tests
+- CLI prints usage and exits cleanly
+
+## Phase 2: Session Management
+
+### Goal
+Implement persistent session storage so that interrupted runs can be resumed.
+
+### Scope
+Session schema, UUID generation, atomic JSON writes to ~/.cobuild/sessions/, and session resolution logic.
+
+### Deliverables
+- createSession, saveSession, loadSession functions
+- findLatestByWorkingDirectory for session resumption
+- Atomic write via tmp+rename
+
+### Dependencies
+Phase 1 (project scaffold and TypeScript build)
+
+### Acceptance Criteria
+- Sessions written and readable
+- Atomic writes prevent partial files
+- Existing session resumed on next run in same directory
+
+## Phase 3: Interview Engine
+
+### Goal
+Implement a multi-turn interview loop that collects project requirements from the user.
+
+### Scope
+Controller loop, COMPLETION_MARKER detection, transcript persistence, and Ollama integration.
+
+### Deliverables
+- Interview controller with model provider interface
+- Ollama provider implementation
+- Transcript append with timestamps
+
+### Dependencies
+Phase 2 (session management)
+
+### Acceptance Criteria
+- Interview runs to completion and persists transcript
+- COMPLETION_MARKER ends the interview
+- Ollama provider communicates with local LLM
+
+## Phase 4: Artifact Pipeline
+
+### Goal
+Generate spec, architecture, and high-level plan documents from the interview transcript.
+
+### Scope
+Spec generator, architecture generator, plan generator, validators, file output, and phase extraction.
+
+### Deliverables
+- Spec, architecture, and plan generator modules
+- Validators for each artifact type
+- File output with collision handling
+- Phase extraction and session persistence
+
+### Dependencies
+Phase 3 (interview engine and completed session)
+
+### Acceptance Criteria
+- All three artifacts written to docs/
+- Validators reject malformed output
+- Phases extracted and stored in session
+`;
+
+// ─── test 8: architecture generation ─────────────────────────────────────────
+
+console.log('\n[8] Select "yes" for architecture generation and verify file appears in docs/');
+
+// Prepare a session with specArtifact already set (as if spec stage just completed)
+const archSession = {
+  ...updatedSession,
+  stage: 'architecture',
+  specArtifact: { content: VALID_SPEC.trim(), filePath: outputPath, generated: true },
+};
+// Write it so ArchGenerator's saveSession calls work
+fs.writeFileSync(sessionFile, JSON.stringify(archSession, null, 2), { encoding: 'utf8', mode: 0o600 });
+
+const archMockProvider = { generate: async (_messages) => VALID_ARCHITECTURE };
+const archGenerator = new ArchGenerator();
+
+let archPipelineSession;
+let archArtifactResult;
+try {
+  const archPipelineResult = await runArtifactPipeline(archSession, archMockProvider, archGenerator, 'architecture');
+  archPipelineSession = archPipelineResult.session;
+  archArtifactResult = archPipelineResult.result;
+
+  check(archArtifactResult.type === 'architecture', 'Artifact type is architecture', `Wrong artifact type: ${archArtifactResult.type}`);
+} catch (err) {
+  fail(`Architecture pipeline threw unexpected error: ${err.message}`);
+  process.exit(1);
+}
+
+// Write architecture file
+const archFilename = generateArchitectureFilename(projectName);
+const archOutputPath = resolveOutputPath(docsDir, archFilename);
+writeArtifactFile(archOutputPath, archArtifactResult.content);
+
+check(fs.existsSync(archOutputPath), `Architecture file created at ${path.basename(archOutputPath)}`, 'Architecture file not found');
+check(archFilename.endsWith('-architecture.md'), `Arch filename ends with -architecture.md: ${archFilename}`, `Arch filename format wrong: ${archFilename}`);
+
+// Persist architecture artifact and advance stage
+let currentSession = persistArchitectureArtifact(archPipelineSession, archArtifactResult.content, archOutputPath);
+currentSession = completeArchitectureStage(currentSession);
+
+const rawArchSession = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+check(rawArchSession.architectureArtifact !== undefined, 'Session has architectureArtifact field', 'Session missing architectureArtifact');
+check(rawArchSession.architectureArtifact?.generated === true, 'architectureArtifact.generated is true', 'architectureArtifact.generated is not true');
+check(rawArchSession.stage === 'plan', `Session stage is 'plan' after arch completion`, `Session stage wrong: ${rawArchSession.stage}`);
+
+// ─── test 9: high-level plan generation ──────────────────────────────────────
+
+console.log('\n[9] Select "yes" for high-level plan generation and verify file appears in docs/');
+
+// Prepare session with architectureArtifact set
+const planSession = {
+  ...currentSession,
+  architectureArtifact: { content: VALID_ARCHITECTURE.trim(), filePath: archOutputPath, generated: true },
+};
+fs.writeFileSync(sessionFile, JSON.stringify(planSession, null, 2), { encoding: 'utf8', mode: 0o600 });
+
+const planMockProvider = { generate: async (_messages) => VALID_PLAN };
+const planGenerator = new PlanGenerator();
+
+let planPipelineSession;
+let planArtifactResult;
+try {
+  const planPipelineResult = await runArtifactPipeline(planSession, planMockProvider, planGenerator, 'plan');
+  planPipelineSession = planPipelineResult.session;
+  planArtifactResult = planPipelineResult.result;
+
+  check(planArtifactResult.type === 'plan', 'Artifact type is plan', `Wrong artifact type: ${planArtifactResult.type}`);
+} catch (err) {
+  fail(`Plan pipeline threw unexpected error: ${err.message}`);
+  process.exit(1);
+}
+
+// Write plan file
+const planFilename = generatePlanFilename(projectName);
+const planOutputPath = resolveOutputPath(docsDir, planFilename);
+writeArtifactFile(planOutputPath, planArtifactResult.content);
+
+check(fs.existsSync(planOutputPath), `Plan file created at ${path.basename(planOutputPath)}`, 'Plan file not found');
+check(planFilename.endsWith('-high-level-plan.md'), `Plan filename ends with -high-level-plan.md: ${planFilename}`, `Plan filename format wrong: ${planFilename}`);
+
+// ─── test 10: phase extraction and persistence ────────────────────────────────
+
+console.log('\n[10] Confirm phases are correctly extracted and stored');
+
+const extractedPhases = extractPhases(planArtifactResult.content);
+check(extractedPhases.length === 4, `Extracted 4 phases from plan (got ${extractedPhases.length})`, `Phase count wrong: ${extractedPhases.length}`);
+check(extractedPhases[0].number === 1, 'Phase 1 has correct number', `Phase 1 number wrong: ${extractedPhases[0].number}`);
+check(extractedPhases[0].title.length > 0, 'Phase 1 has a title', 'Phase 1 title is empty');
+check(extractedPhases[0].goal.length > 0, 'Phase 1 has a goal', 'Phase 1 goal is empty');
+check(extractedPhases[0].scope.length > 0, 'Phase 1 has scope', 'Phase 1 scope is empty');
+check(extractedPhases[0].deliverables.length > 0, 'Phase 1 has deliverables', 'Phase 1 deliverables empty');
+check(extractedPhases[0].dependencies.length > 0, 'Phase 1 has dependencies', 'Phase 1 dependencies empty');
+check(extractedPhases[0].acceptanceCriteria.length > 0, 'Phase 1 has acceptance criteria', 'Phase 1 acceptance criteria empty');
+check(extractedPhases[3].number === 4, 'Phase 4 has correct number', `Phase 4 number wrong: ${extractedPhases[3].number}`);
+
+// Persist plan artifact and extracted phases
+let finalSession = persistPlanArtifact(planPipelineSession, planArtifactResult.content, planOutputPath);
+finalSession = persistExtractedPhases(finalSession, extractedPhases);
+finalSession = completePlanStage(finalSession);
+
+const rawPlanSession = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+check(rawPlanSession.planArtifact !== undefined, 'Session has planArtifact field', 'Session missing planArtifact');
+check(rawPlanSession.planArtifact?.generated === true, 'planArtifact.generated is true', 'planArtifact.generated not true');
+check(Array.isArray(rawPlanSession.extractedPhases), 'Session has extractedPhases array', 'Session missing extractedPhases');
+check(rawPlanSession.extractedPhases?.length === 4, `extractedPhases has 4 entries`, `extractedPhases count wrong: ${rawPlanSession.extractedPhases?.length}`);
+check(rawPlanSession.stage === 'plan', `Session stage is 'plan' after plan completion`, `Session stage wrong: ${rawPlanSession.stage}`);
+
+// ─── test 11: verify logs contain stage transitions ───────────────────────────
+
+console.log('\n[11] Verify logs contain stage transitions');
+
+const logsDir2 = path.join(os.homedir(), '.cobuild', 'logs');
+const today2 = new Date().toISOString().slice(0, 10);
+const logFile2 = path.join(logsDir2, `cobuild-${today2}.log`);
+
+const logFiles2 = fs.existsSync(logsDir2)
+  ? fs.readdirSync(logsDir2).filter((f) => f.startsWith('cobuild-')).sort().reverse()
+  : [];
+
+if (logFiles2.length > 0) {
+  const latestLogPath = path.join(logsDir2, logFiles2[0]);
+  const logContent = fs.readFileSync(latestLogPath, 'utf8');
+  check(
+    logContent.includes('arch generator:'),
+    'Log contains arch generator events',
+    'Log missing arch generator events',
+  );
+  check(
+    logContent.includes('plan generator:'),
+    'Log contains plan generator events',
+    'Log missing plan generator events',
+  );
+  check(
+    logContent.includes('plan parser:'),
+    'Log contains plan parser events',
+    'Log missing plan parser events',
+  );
+} else {
+  fail('No log files found — cannot verify stage transition logs');
 }
 
 // ─── cleanup ─────────────────────────────────────────────────────────────────

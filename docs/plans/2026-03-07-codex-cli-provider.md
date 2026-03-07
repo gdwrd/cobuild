@@ -19,10 +19,10 @@
 - [x] Add tests covering successful and failing startup for both providers, including resumed Codex CLI sessions.
 
 ### Task 3: Add a Codex CLI provider implementation behind a shared provider factory
-- [ ] Introduce a provider factory or equivalent abstraction that constructs the active provider instance from session/config state instead of instantiating `OllamaProvider` directly in the UI flow.
-- [ ] Implement a `CodexCliProvider` in `src/providers/` that satisfies the existing generation interface and shells out to the Codex CLI for interview and artifact generation requests.
-- [ ] Define a narrow provider capability surface so command/UI logic can distinguish between providers that support in-app model listing and providers that do not.
-- [ ] Add focused tests for the provider factory and the Codex CLI provider success, failure, timeout, and output parsing paths.
+- [x] Introduce a provider factory or equivalent abstraction that constructs the active provider instance from session/config state instead of instantiating `OllamaProvider` directly in the UI flow.
+- [x] Implement a `CodexCliProvider` in `src/providers/` that satisfies the existing generation interface and shells out to the Codex CLI for interview and artifact generation requests.
+- [x] Define a narrow provider capability surface so command/UI logic can distinguish between providers that support in-app model listing and providers that do not.
+- [x] Add focused tests for the provider factory and the Codex CLI provider success, failure, timeout, and output parsing paths.
 
 ### Task 4: Preserve interview and artifact generation flows across providers
 - [ ] Update `ScreenController` and any related orchestration code to hold the active provider through the new factory/capability layer rather than through an `OllamaProvider`-typed ref.

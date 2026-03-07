@@ -204,4 +204,109 @@ describe('GenerationScreen', () => {
     expect(output).not.toContain('## System Components');
     expect(output).not.toContain('## Phase 1');
   });
+
+  // Task 11: Dev Plan Generation UI
+
+  it('shows dev plan generation header when currentStage is dev-plan', () => {
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+    });
+    unmount();
+    expect(output).toContain('Dev Plan Generation');
+  });
+
+  it('displays phase progress indicator with current and total when generating dev-plan', () => {
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+      devPlanProgress: { current: 2, total: 5 },
+    });
+    unmount();
+    expect(output).toContain('phase 2 of 5');
+  });
+
+  it('displays fallback dev-plan spinner text when no devPlanProgress provided', () => {
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+    });
+    unmount();
+    expect(output).toContain('Creating per-phase dev plan');
+  });
+
+  it('shows generation animation spinner for dev-plan stage', () => {
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+      devPlanProgress: { current: 1, total: 3 },
+    });
+    unmount();
+    // Spinner text confirms the generating animation branch is active
+    expect(output).toContain('phase 1 of 3');
+    expect(output).not.toContain('All artifacts generated');
+  });
+
+  it('displays file creation confirmation for completed dev plan phases', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Dev plan — phase 1', filePath: '/tmp/docs/plans/phase-1.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+      devPlanProgress: { current: 2, total: 3 },
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).toContain('Dev plan — phase 1');
+    expect(output).toContain('done');
+  });
+
+  it('displays saved file path for completed dev plan phases', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Dev plan — phase 1', filePath: '/tmp/docs/plans/phase-1-setup.md' },
+      { label: 'Dev plan — phase 2', filePath: '/tmp/docs/plans/phase-2-core.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'success',
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).toContain('/tmp/docs/plans/phase-1-setup.md');
+    expect(output).toContain('/tmp/docs/plans/phase-2-core.md');
+  });
+
+  it('does not print dev plan markdown content in terminal', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Dev plan — phase 1', filePath: '/tmp/docs/plans/phase-1.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'dev-plan',
+      devPlanProgress: { current: 2, total: 3 },
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).not.toContain('### Task 1:');
+    expect(output).not.toContain('- [ ]');
+    expect(output).not.toContain('## Overview');
+  });
+
+  it('shows all completed dev plan stages in final success state', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+      { label: 'Architecture document', filePath: '/tmp/docs/arch.md' },
+      { label: 'High-level development plan', filePath: '/tmp/docs/plan.md' },
+      { label: 'Dev plan — phase 1', filePath: '/tmp/docs/plans/phase-1.md' },
+      { label: 'Dev plan — phase 2', filePath: '/tmp/docs/plans/phase-2.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'success',
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).toContain('/tmp/docs/plans/phase-1.md');
+    expect(output).toContain('/tmp/docs/plans/phase-2.md');
+    expect(output).toContain('All artifacts generated successfully');
+  });
 });

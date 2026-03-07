@@ -120,13 +120,13 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 8: Implement High-Level Plan Prompt Builder
 
-- [ ] Create high-level plan system prompt
-- [ ] Ensure prompt uses clean AI session
-- [ ] Include spec document
-- [ ] Include architecture document
-- [ ] Ensure no interview transcript contamination
-- [ ] Log prompt orchestration metadata
-- [ ] Add prompt builder tests
+- [x] Create high-level plan system prompt
+- [x] Ensure prompt uses clean AI session
+- [x] Include spec document
+- [x] Include architecture document
+- [x] Ensure no interview transcript contamination
+- [x] Log prompt orchestration metadata
+- [x] Add prompt builder tests
 
 ---
 

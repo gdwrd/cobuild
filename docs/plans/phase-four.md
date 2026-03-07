@@ -169,11 +169,11 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 12: Implement High-Level Plan File Output
 
-- [ ] Generate filename `<project>-high-level-plan.md`
-- [ ] Apply filename sanitization
-- [ ] Detect collisions and apply numeric suffix
-- [ ] Write Markdown file under `docs/`
-- [ ] Log file creation events
+- [x] Generate filename `<project>-high-level-plan.md`
+- [x] Apply filename sanitization
+- [x] Detect collisions and apply numeric suffix
+- [x] Write Markdown file under `docs/`
+- [x] Log file creation events
 
 ---
 

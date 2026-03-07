@@ -13,6 +13,7 @@ import {
   ensureDocsDir,
   generateFilename,
   generateArchitectureFilename,
+  generatePlanFilename,
   sanitizeFilename,
   resolveOutputPath,
   writeArtifactFile,
@@ -106,6 +107,36 @@ describe('generateArchitectureFilename', () => {
 
   it('falls back to project-architecture.md for empty input', () => {
     expect(generateArchitectureFilename('')).toBe('project-architecture.md');
+  });
+});
+
+// ─── generatePlanFilename ─────────────────────────────────────────────────────
+
+describe('generatePlanFilename', () => {
+  it('generates a kebab-case high-level-plan filename from a project name', () => {
+    expect(generatePlanFilename('My Cool Project')).toBe('my-cool-project-high-level-plan.md');
+  });
+
+  it('lowercases the filename', () => {
+    expect(generatePlanFilename('UPPERCASE')).toBe('uppercase-high-level-plan.md');
+  });
+
+  it('collapses multiple spaces into a single hyphen', () => {
+    expect(generatePlanFilename('foo   bar')).toBe('foo-bar-high-level-plan.md');
+  });
+
+  it('sanitizes unsafe characters', () => {
+    const result = generatePlanFilename('Project: Alpha/Beta');
+    expect(result).toMatch(/\.md$/);
+    expect(result).not.toMatch(/[:/]/);
+  });
+
+  it('appends -high-level-plan.md suffix', () => {
+    expect(generatePlanFilename('widget')).toBe('widget-high-level-plan.md');
+  });
+
+  it('falls back to project-high-level-plan.md for empty input', () => {
+    expect(generatePlanFilename('')).toBe('project-high-level-plan.md');
   });
 });
 

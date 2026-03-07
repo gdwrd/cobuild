@@ -50,12 +50,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 2: Implement Yes/No Prompt UI
 
-- [ ] Create reusable yes/no prompt component
-- [ ] Display question after spec generation
-- [ ] Handle user keyboard input for selection
-- [ ] Return boolean decision to workflow controller
-- [ ] Display confirmation feedback
-- [ ] Log user decision events
+- [x] Create reusable yes/no prompt component
+- [x] Display question after spec generation
+- [x] Handle user keyboard input for selection
+- [x] Return boolean decision to workflow controller
+- [x] Display confirmation feedback
+- [x] Log user decision events
 
 ---
 

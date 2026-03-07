@@ -8,6 +8,7 @@ import { runInterviewLoop } from '../../interview/controller.js';
 import { runArtifactPipeline } from '../../artifacts/generator.js';
 import { writeArtifactFile } from '../../artifacts/file-output.js';
 import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession } from '../../session/session.js';
+import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 
 vi.mock('../App.js', () => ({
   App: function MockApp() {
@@ -27,6 +28,16 @@ vi.mock('../GenerationScreen.js', () => ({
   },
 }));
 
+vi.mock('../YesNoPrompt.js', () => ({
+  YesNoPrompt: function MockYesNoPrompt() {
+    return null;
+  },
+}));
+
+vi.mock('../../artifacts/workflow-controller.js', () => ({
+  runPostSpecWorkflow: vi.fn(() => Promise.resolve({ terminatedAt: 'architecture-decision', finalSession: {} })),
+}));
+
 vi.mock('../../artifacts/generator.js', () => ({
   runArtifactPipeline: vi.fn(() => new Promise(() => {})),
 }));
@@ -39,6 +50,7 @@ vi.mock('../../artifacts/file-output.js', () => ({
   ensureDocsDir: vi.fn(() => '/tmp/docs'),
   generateFilename: vi.fn(() => 'project-spec.md'),
   resolveOutputPath: vi.fn(() => '/tmp/docs/project-spec.md'),
+  sanitizeFilename: vi.fn((name: string) => name),
   writeArtifactFile: vi.fn(),
 }));
 
@@ -193,6 +205,7 @@ describe('ScreenController write failure handling', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(loadSession).mockReturnValue(mockSession);
+    vi.mocked(runPostSpecWorkflow).mockResolvedValue({ terminatedAt: 'architecture-decision' as const, finalSession: mockSession });
   });
 
   it('persists error state to session when file write fails', async () => {

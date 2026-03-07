@@ -6,6 +6,7 @@ import { App } from './App.js';
 import { RestoredSession } from './RestoredSession.js';
 import { GenerationScreen } from './GenerationScreen.js';
 import type { GenerationStatus } from './GenerationScreen.js';
+import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
 import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage } from '../session/session.js';
 import { OllamaProvider } from '../providers/ollama.js';
@@ -17,11 +18,13 @@ import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
 import { withRetry, RetryExhaustedError } from '../interview/retry.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
+import type { ArtifactGenerator } from '../artifacts/generator.js';
 import { SpecGenerator } from '../artifacts/spec-generator.js';
-import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile } from '../artifacts/file-output.js';
+import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile, sanitizeFilename } from '../artifacts/file-output.js';
+import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { getLogger } from '../logging/logger.js';
 
-type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'error';
+type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'yesno' | 'error';
 
 export interface ScreenControllerProps {
   startupPromise: Promise<StartupResult>;
@@ -45,7 +48,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [generationFilePath, setGenerationFilePath] = useState<string | undefined>(undefined);
   const [generationError, setGenerationError] = useState<string | undefined>(undefined);
 
+  const [yesNoQuestion, setYesNoQuestion] = useState('');
+
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
+  const yesNoResolverRef = useRef<((answer: boolean) => void) | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
   const providerRef = useRef<OllamaProvider | null>(null);
   const currentModelRef = useRef<string>('llama3');
@@ -209,6 +215,33 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
     setScreen('generating');
 
+    const makeOnDecision = (question: string): Promise<boolean> =>
+      new Promise<boolean>((resolve) => {
+        setYesNoQuestion(question);
+        yesNoResolverRef.current = resolve;
+        setScreen('yesno');
+      });
+
+    const makeWriteArtifact = (content: string, workingDirectory: string, type: 'architecture' | 'plan'): string => {
+      const dir = ensureDocsDir(workingDirectory);
+      const projectName = path.basename(workingDirectory) || 'project';
+      const slug = sanitizeFilename(projectName).toLowerCase().replace(/\s+/g, '-') || 'project';
+      const suffix = type === 'architecture' ? '-architecture' : '-high-level-plan';
+      const artifactFilename = `${slug}${suffix}.md`;
+      const artifactPath = resolveOutputPath(dir, artifactFilename);
+      writeArtifactFile(artifactPath, content);
+      getLogger().info(`generation screen: ${type} saved to ${artifactPath}`);
+      return artifactPath;
+    };
+
+    // Stub generators — replaced in Tasks 4 and 9 with real implementations
+    const stubArchitectureGenerator: ArtifactGenerator = {
+      generate: async () => ({ type: 'architecture' as const, content: '# Architecture\n\n(Not yet generated)' }),
+    };
+    const stubPlanGenerator: ArtifactGenerator = {
+      generate: async () => ({ type: 'plan' as const, content: '# High-Level Plan\n\n(Not yet generated)' }),
+    };
+
     const specGenerator = new SpecGenerator();
     runArtifactPipeline(session, provider, specGenerator, 'spec')
       .then(({ session: updatedSession, result }) => {
@@ -226,17 +259,38 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           try { persistErrorState(freshSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           setGenerationError(`File write failed: ${msg}`);
           setGenerationStatus('error');
-          return;
+          return null;
         }
         const afterArtifact = persistSpecArtifact(freshSession, result.content, filePath);
         completeSpecStage(afterArtifact);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);
-        setGenerationStatus('success');
+
+        const specSession = loadSession(afterArtifact.id) ?? afterArtifact;
+        return runPostSpecWorkflow(specSession, provider, {
+          architectureGenerator: stubArchitectureGenerator,
+          planGenerator: stubPlanGenerator,
+          onDecision: makeOnDecision,
+          writeArtifactFile: makeWriteArtifact,
+          onStageUpdate: (stage) => {
+            if (stage === 'generating-architecture' || stage === 'generating-plan') {
+              setScreen('generating');
+            }
+          },
+        });
+      })
+      .then((workflowResult) => {
+        if (workflowResult === null || workflowResult === undefined) return;
+        if (workflowResult.terminatedAt) {
+          getLogger().info(`generation screen: workflow terminated at ${workflowResult.terminatedAt}, exiting`);
+          exit();
+        } else {
+          setGenerationStatus('success');
+        }
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
-        getLogger().error(`generation screen: spec generation failed: ${msg}`);
+        getLogger().error(`generation screen: pipeline failed: ${msg}`);
         // RetryExhaustedError: onRetryExhausted already persisted error state inside the generator
         if (!(err instanceof RetryExhaustedError)) {
           const s = loadSession(sessionId) ?? currentSessionRef.current;
@@ -248,6 +302,13 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         setGenerationStatus('error');
       });
   }, [interviewComplete]);
+
+  const handleYesNoAnswer = useCallback((answer: boolean) => {
+    if (!yesNoResolverRef.current) return;
+    yesNoResolverRef.current(answer);
+    yesNoResolverRef.current = null;
+    setScreen('generating');
+  }, []);
 
   const handleSubmit = useCallback(
     (input: string) => {
@@ -302,6 +363,15 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         status={generationStatus}
         filePath={generationFilePath}
         errorMessage={generationError}
+      />
+    );
+  }
+
+  if (screen === 'yesno') {
+    return (
+      <YesNoPrompt
+        question={yesNoQuestion}
+        onAnswer={handleYesNoAnswer}
       />
     );
   }

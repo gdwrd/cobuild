@@ -110,11 +110,11 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 7: Persist Architecture Artifact in Session
 
-- [ ] Store architecture Markdown in session
-- [ ] Store artifact file path
-- [ ] Mark architecture artifact as generated
-- [ ] Persist session state
-- [ ] Log artifact persistence event
+- [x] Store architecture Markdown in session
+- [x] Store artifact file path
+- [x] Mark architecture artifact as generated
+- [x] Persist session state
+- [x] Log artifact persistence event
 
 ---
 

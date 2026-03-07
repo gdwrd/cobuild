@@ -59,7 +59,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         (!existing.completed ||
           (existing.stage === 'dev-plans' && !existing.devPlansComplete));
       if (isResumeableExisting) {
-        logger.info(`resuming existing session: ${existing.id}`);
+        logger.info(`resuming existing session: ${existing.id} at stage ${existing.stage ?? 'interview'}`);
         sessionId = existing.id;
         sessionResolution = 'resumed';
         sessionStage = existing.stage;

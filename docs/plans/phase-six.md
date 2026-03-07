@@ -98,12 +98,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 7: Finalize Restored Session UX
 
-- [ ] Improve restored-session screen layout
-- [ ] Display current stage clearly
-- [ ] Display dev plan progress when applicable
-- [ ] Ensure previous transcript is not rendered
-- [ ] Ensure Enter continues session
-- [ ] Log restore events
+- [x] Improve restored-session screen layout
+- [x] Display current stage clearly
+- [x] Display dev plan progress when applicable
+- [x] Ensure previous transcript is not rendered
+- [x] Ensure Enter continues session
+- [x] Log restore events
 
 ---
 

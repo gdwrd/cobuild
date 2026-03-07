@@ -5,15 +5,40 @@ import { getLogger } from '../logging/logger.js';
 export interface RestoredSessionProps {
   sessionId: string;
   stage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
+  devPlanProgress?: { completed: number; total: number };
   onContinue: () => void;
 }
 
-export function RestoredSession({ sessionId, stage = 'interview', onContinue }: RestoredSessionProps) {
+function stageLabel(stage: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans'): string {
+  switch (stage) {
+    case 'interview':
+      return 'Interview in progress';
+    case 'spec':
+      return 'Spec generation';
+    case 'architecture':
+      return 'Architecture generation';
+    case 'plan':
+      return 'Plan generation';
+    case 'dev-plans':
+      return 'Dev plan generation';
+  }
+}
+
+export function RestoredSession({
+  sessionId,
+  stage = 'interview',
+  devPlanProgress,
+  onContinue,
+}: RestoredSessionProps) {
   const { exit } = useApp();
 
   useEffect(() => {
-    getLogger().info(`restoring session: ${sessionId}`);
-  }, [sessionId]);
+    const progressNote =
+      devPlanProgress
+        ? ` (${devPlanProgress.completed}/${devPlanProgress.total} phases complete)`
+        : '';
+    getLogger().info(`restoring session: ${sessionId} at stage ${stage}${progressNote}`);
+  }, [sessionId, stage, devPlanProgress]);
 
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
@@ -34,7 +59,13 @@ export function RestoredSession({ sessionId, stage = 'interview', onContinue }: 
       <Text> </Text>
       <Text>Resuming previous session:</Text>
       <Text dimColor>{'  Session: '}{sessionId.slice(0, 8)}</Text>
-      <Text dimColor>{'  Stage:   '}{stage}</Text>
+      <Text dimColor>{'  Stage:   '}{stageLabel(stage)}</Text>
+      {devPlanProgress !== undefined && (
+        <Text dimColor>
+          {'  Progress: '}
+          {devPlanProgress.completed} of {devPlanProgress.total} phases complete
+        </Text>
+      )}
       <Text> </Text>
       <Text dimColor>Press Enter to continue...</Text>
     </Box>

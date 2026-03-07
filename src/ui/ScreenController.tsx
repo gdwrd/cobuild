@@ -56,6 +56,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [devPlanProgress, setDevPlanProgress] = useState<{ current: number; total: number } | undefined>(undefined);
 
   const [retryTrigger, setRetryTrigger] = useState(0);
+  const [restoredDevPlanProgress, setRestoredDevPlanProgress] = useState<
+    { completed: number; total: number } | undefined
+  >(undefined);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -75,6 +78,18 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           setSessionId(result.sessionId ?? '');
           setSessionStage(result.sessionStage ?? 'interview');
           if (result.sessionResolution === 'resumed') {
+            const resumeStage = result.sessionStage ?? 'interview';
+            getLogger().info(`screen: restoring session ${result.sessionId} at stage ${resumeStage}`);
+            if (resumeStage === 'dev-plans' && result.sessionId) {
+              const s = loadSession(result.sessionId);
+              if (s) {
+                const completed = s.completedPhaseCount ?? (s.devPlanArtifacts?.length ?? 0);
+                const total = s.extractedPhases?.length ?? 0;
+                if (total > 0) {
+                  setRestoredDevPlanProgress({ completed, total });
+                }
+              }
+            }
             setScreen('restored');
           } else {
             setScreen('main');
@@ -460,6 +475,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       <RestoredSession
         sessionId={sessionId}
         stage={sessionStage}
+        devPlanProgress={restoredDevPlanProgress}
         onContinue={() => setScreen('main')}
       />
     );

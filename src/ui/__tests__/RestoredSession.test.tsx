@@ -1,19 +1,40 @@
-import { describe, it, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
+import type { RestoredSessionProps } from '../RestoredSession.js';
+
+const mockLogger = {
+  info: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  log: vi.fn(),
+};
 
 vi.mock('../../logging/logger.js', () => ({
-  getLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-    log: vi.fn(),
-  }),
+  getLogger: () => mockLogger,
 }));
 
 import { RestoredSession } from '../RestoredSession.js';
+
+function renderRestored(props: RestoredSessionProps): string {
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+  const { unmount } = render(React.createElement(RestoredSession, props), {
+    stdout: stream as unknown as NodeJS.WriteStream,
+  });
+
+  unmount();
+  const raw = Buffer.concat(chunks).toString();
+  /* eslint-disable no-control-regex */
+  return raw
+    .replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '')
+    .replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
+  /* eslint-enable no-control-regex */
+}
 
 describe('RestoredSession', () => {
   beforeEach(() => {
@@ -44,5 +65,101 @@ describe('RestoredSession', () => {
       { stdout: stream as unknown as NodeJS.WriteStream },
     );
     unmount();
+  });
+
+  it('renders with stage=interview and shows Interview in progress label', () => {
+    const output = renderRestored({
+      sessionId: 'test-session-id',
+      stage: 'interview',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Interview in progress');
+  });
+
+  it('renders with stage=dev-plans and shows Dev plan generation label', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'dev-plans',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Dev plan generation');
+  });
+
+  it('renders with stage=spec and shows Spec generation label', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'spec',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Spec generation');
+  });
+
+  it('renders with stage=architecture and shows Architecture generation label', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'architecture',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Architecture generation');
+  });
+
+  it('renders with stage=plan and shows Plan generation label', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'plan',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Plan generation');
+  });
+
+  it('renders dev plan progress when provided', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'dev-plans',
+      devPlanProgress: { completed: 3, total: 7 },
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('3');
+    expect(output).toContain('7');
+    expect(output).toContain('phases complete');
+  });
+
+  it('does not render progress line when devPlanProgress is not provided', () => {
+    const output = renderRestored({
+      sessionId: 'session-xyz',
+      stage: 'dev-plans',
+      onContinue: vi.fn(),
+    });
+    expect(output).not.toContain('phases complete');
+  });
+
+  it('renders with devPlanProgress and stage without throwing', () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(RestoredSession, {
+        sessionId: 'log-test-id',
+        stage: 'dev-plans',
+        devPlanProgress: { completed: 2, total: 5 },
+        onContinue: vi.fn(),
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    unmount();
+  });
+
+  it('shows truncated session ID prefix', () => {
+    const output = renderRestored({
+      sessionId: 'abcdef12-1234-5678-abcd-ef1234567890',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('abcdef12');
+  });
+
+  it('renders Press Enter to continue prompt', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Press Enter to continue');
   });
 });

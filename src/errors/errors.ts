@@ -6,7 +6,6 @@ import type { Logger } from '../logging/logger.js';
 export type CobuildErrorCode =
   | 'NETWORK'
   | 'FILE_SYSTEM'
-  | 'SESSION'
   | 'VALIDATION'
   | 'RETRY_EXHAUSTED'
   | 'UNKNOWN';
@@ -82,8 +81,6 @@ function buildUserMessage(code: CobuildErrorCode, err: Error): string {
       return `Network error: ${err.message}`;
     case 'FILE_SYSTEM':
       return `File system error: ${err.message}`;
-    case 'SESSION':
-      return `Session error: ${err.message}`;
     case 'VALIDATION':
       return `Validation failed: ${err.message}`;
     case 'RETRY_EXHAUSTED':

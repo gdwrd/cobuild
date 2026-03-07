@@ -53,8 +53,9 @@ vi.mock('../../session/session.js', () => ({
     currentDevPlanPhase: phaseNumber,
     updatedAt: 'now',
   })),
-  persistDevPlanPhaseCompletion: vi.fn((session) => ({
+  persistDevPlanPhaseCompletion: vi.fn((session, phaseNumber, content, filePath) => ({
     ...session,
+    devPlanArtifacts: [...(session.devPlanArtifacts ?? []), { phaseNumber, content, filePath, generated: true }],
     completedPhaseCount: (session.completedPhaseCount ?? 0) + 1,
     updatedAt: 'now',
   })),
@@ -286,8 +287,9 @@ beforeEach(() => {
     currentDevPlanPhase: phaseNumber,
     updatedAt: 'now',
   }));
-  vi.mocked(persistDevPlanPhaseCompletion).mockImplementation((session) => ({
+  vi.mocked(persistDevPlanPhaseCompletion).mockImplementation((session, phaseNumber, content, filePath) => ({
     ...session,
+    devPlanArtifacts: [...(session.devPlanArtifacts ?? []), { phaseNumber, content, filePath, generated: true }],
     completedPhaseCount: (session.completedPhaseCount ?? 0) + 1,
     updatedAt: 'now',
   }));

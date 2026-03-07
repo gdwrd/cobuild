@@ -422,40 +422,55 @@ describe('runInterviewLoop', () => {
     expect(provider.generate).toHaveBeenCalledTimes(1);
   });
 
-  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when initial turn (empty transcript) prompt is too large', async () => {
+  it('sends PROMPT_TOO_LARGE_MESSAGE and continues loop when initial turn prompt is too large', async () => {
     // Empty transcript — initial turn path. Make the system prompt huge.
+    // After showing the message the loop continues; user types /finish-now to exit.
     const session = makeSession();
     const largeSystemPrompt = 'a'.repeat(MAX_PROMPT_TOKENS * 4 + 1000);
     const provider = makeProvider('Should not be called');
-    const onUserInput = vi.fn(async () => 'answer');
+    const finishHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: false });
+    const onUserInput = vi.fn(async () => '/finish-now');
     const onAssistantResponse = vi.fn(async () => {});
 
-    await runInterviewLoop(session, provider, largeSystemPrompt, onUserInput, onAssistantResponse);
+    await runInterviewLoop(session, provider, largeSystemPrompt, onUserInput, onAssistantResponse, {
+      '/finish-now': finishHandler,
+    });
 
     expect(provider.generate).not.toHaveBeenCalled();
     expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
-    expect(onUserInput).not.toHaveBeenCalled();
+    expect(onUserInput).toHaveBeenCalledTimes(1);
   });
 
-  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when resume turn (transcript ends with user) prompt is too large', async () => {
+  it('sends PROMPT_TOO_LARGE_MESSAGE and continues loop when resume turn prompt is too large', async () => {
     // Transcript ends with user — resume path. Large content in transcript.
+    // After showing the message the loop continues; user types /finish-now to exit.
     const session = makeLargeSession();
     const provider = makeProvider('Should not be called');
-    const onUserInput = vi.fn(async () => 'answer');
+    const finishHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: false });
+    const onUserInput = vi.fn(async () => '/finish-now');
     const onAssistantResponse = vi.fn(async () => {});
 
-    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse, {
+      '/finish-now': finishHandler,
+    });
 
     expect(provider.generate).not.toHaveBeenCalled();
     expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
-    expect(onUserInput).not.toHaveBeenCalled();
+    expect(onUserInput).toHaveBeenCalledTimes(1);
   });
 
-  it('sends PROMPT_TOO_LARGE_MESSAGE and returns when main-loop turn prompt is too large', async () => {
-    // Transcript ends with assistant so interview waits for user input
+  it('sends PROMPT_TOO_LARGE_MESSAGE and continues loop when main-loop turn prompt is too large', async () => {
+    // Transcript ends with assistant so interview waits for user input.
+    // generate always throws PromptTooLargeError; user sends 'answer' (triggers error),
+    // then '/finish-now' to terminate.
     const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
     const provider = makeProvider('Answer');
-    const onUserInput = vi.fn(async () => 'answer');
+    const finishHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: false });
+    let inputCount = 0;
+    const onUserInput = vi.fn(async () => {
+      inputCount++;
+      return inputCount === 1 ? 'answer' : '/finish-now';
+    });
     const onAssistantResponse = vi.fn(async () => {});
 
     // Make generate throw PromptTooLargeError to simulate oversized prompt in main loop
@@ -467,18 +482,26 @@ describe('runInterviewLoop', () => {
       updatedAt: '2026-01-01T00:00:01.000Z',
     }));
 
-    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse, {
+      '/finish-now': finishHandler,
+    });
 
     expect(onAssistantResponse).toHaveBeenCalledWith(PROMPT_TOO_LARGE_MESSAGE, false);
+    expect(onUserInput).toHaveBeenCalledTimes(2);
   });
 
-  it('does not call completeInterview when prompt is too large on resume', async () => {
+  it('does not auto-call completeInterview when prompt is too large on resume', async () => {
+    // After PromptTooLargeError the loop continues; user uses /finish-now (mocked without
+    // calling completeInterview) to stop. No automatic completeInterview call should occur.
     const session = makeLargeSession();
     const provider = makeProvider('Should not be called');
-    const onUserInput = vi.fn(async () => 'answer');
+    const finishHandler = vi.fn().mockResolvedValue({ handled: true, continueInterview: false });
+    const onUserInput = vi.fn(async () => '/finish-now');
     const onAssistantResponse = vi.fn(async () => {});
 
-    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse, {
+      '/finish-now': finishHandler,
+    });
 
     expect(completeInterview).not.toHaveBeenCalled();
   });

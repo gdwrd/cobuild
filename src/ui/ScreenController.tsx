@@ -345,8 +345,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         try {
           writeArtifactFile(filePath, result.content);
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          getLogger().error(`generation screen: file write failed for ${filePath}: ${msg}`);
+          logFullError(getLogger(), `generation screen: file write failed for ${filePath}`, err);
+          const msg = formatUserMessage(err);
           try { persistErrorState(freshSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           setGenerationError(`File write failed: ${msg}`);
           setGenerationStatus('error');
@@ -431,6 +431,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     pipelineStartedRef.current = false;
     setGenerationStatus('generating');
     setGenerationError(undefined);
+    setGenerationStage('spec');
+    setCompletedStages([]);
     setRetryTrigger((n) => n + 1);
   }, []);
 

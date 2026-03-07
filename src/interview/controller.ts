@@ -106,9 +106,10 @@ export async function runInterviewLoop(
       if (err instanceof PromptTooLargeError) {
         logger.error(`interview loop: prompt too large on initial turn, instructing user to finish (session ${session.id})`);
         await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
-        return currentSession;
+        // fall through to the while loop so the user can type /finish-now
+      } else {
+        throw err;
       }
-      throw err;
     }
   } else {
     const tx = getTranscript(currentSession);
@@ -128,9 +129,10 @@ export async function runInterviewLoop(
         if (err instanceof PromptTooLargeError) {
           logger.error(`interview loop: prompt too large on resume, instructing user to finish (session ${session.id})`);
           await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
-          return currentSession;
+          // fall through to the while loop so the user can type /finish-now
+        } else {
+          throw err;
         }
-        throw err;
       }
     }
   }
@@ -166,7 +168,7 @@ export async function runInterviewLoop(
       if (err instanceof PromptTooLargeError) {
         logger.error(`interview loop: prompt too large, instructing user to finish (session ${session.id})`);
         await onAssistantResponse(PROMPT_TOO_LARGE_MESSAGE, false);
-        return currentSession;
+        continue;
       }
       throw err;
     }

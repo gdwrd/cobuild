@@ -422,6 +422,51 @@ describe('persistErrorState', () => {
   });
 });
 
+describe('persistRetryExhaustedState', () => {
+  it('saves session with retryExhausted set to true', async () => {
+    const { persistRetryExhaustedState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-retry',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: true,
+      stage: 'spec' as const,
+      transcript: [],
+    };
+
+    const updated = persistRetryExhaustedState(session);
+    expect(updated.retryExhausted).toBe(true);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('preserves all other session fields when persisting retry exhaustion', async () => {
+    const { persistRetryExhaustedState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-retry2',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: true,
+      stage: 'architecture' as const,
+      transcript: [],
+    };
+
+    const updated = persistRetryExhaustedState(session);
+    expect(updated.id).toBe('sess-retry2');
+    expect(updated.retryExhausted).toBe(true);
+    expect(updated.completed).toBe(true);
+    expect(updated.stage).toBe('architecture');
+    expect(updated.transcript).toEqual([]);
+  });
+});
+
 describe('completeInterview', () => {
   const baseSession = {
     id: 'sess-c',

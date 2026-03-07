@@ -2,9 +2,9 @@ import type { ModelMessage } from '../interview/controller.js';
 import type { Session, PlanPhase } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 
-export const DEV_PLAN_SYSTEM_PROMPT = `You are an expert software engineer writing a detailed ralphex development plan for a single phase of a larger project.
+export const DEV_PLAN_SYSTEM_PROMPT = `You are an expert software engineer writing a detailed development plan for a single phase of a larger project.
 You will be given a project specification, architecture document, high-level plan, any previously generated phase plans, and the metadata for the current phase.
-Your task is to produce a complete, actionable ralphex development plan for ONLY the current phase.
+Your task is to produce a complete, actionable development plan for ONLY the current phase.
 
 The plan MUST follow this exact structure:
 
@@ -70,7 +70,7 @@ export function buildDevPlanMessages(
 
   userMessage +=
     `Here is the metadata for the current phase:\n\n${phaseMetadata}\n\n` +
-    `Please write the ralphex development plan for Phase ${phase.number}: ${phase.title} now.`;
+    `Please write the development plan for Phase ${phase.number}: ${phase.title} now.`;
 
   return [
     { role: 'system', content: DEV_PLAN_SYSTEM_PROMPT },

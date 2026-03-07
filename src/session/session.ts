@@ -47,7 +47,7 @@ export interface PlanPhase {
 
 export type ProviderName = 'ollama' | 'codex-cli';
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface Session {
   schemaVersion?: number;

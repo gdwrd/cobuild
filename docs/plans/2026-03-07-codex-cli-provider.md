@@ -44,10 +44,10 @@
 - [x] Add tests for the new provider-specific user messages and logging-sensitive branches where practical.
 
 ### Task 7: Document Codex CLI setup and revised command behavior
-- [ ] Update `README.md` requirements, installation, usage, startup flow, and slash-command sections to describe both Ollama and Codex CLI providers.
-- [ ] Document how a user selects Codex CLI, any prerequisites for authenticating/configuring Codex outside `cobuild`, and the fact that `/model` is unavailable for that provider.
-- [ ] Update any provider limitation or roadmap sections so they no longer claim Ollama is the only supported provider.
-- [ ] Review any generated help text or inline descriptions that still imply single-provider support.
+- [x] Update `README.md` requirements, installation, usage, startup flow, and slash-command sections to describe both Ollama and Codex CLI providers.
+- [x] Document how a user selects Codex CLI, any prerequisites for authenticating/configuring Codex outside `cobuild`, and the fact that `/model` is unavailable for that provider.
+- [x] Update any provider limitation or roadmap sections so they no longer claim Ollama is the only supported provider.
+- [x] Review any generated help text or inline descriptions that still imply single-provider support.
 
 ### Task 8: Run full verification for both provider modes
 - [ ] Run the build, lint, unit test, and integration test commands after the implementation is complete.

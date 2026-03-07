@@ -2,7 +2,7 @@
 
 Interactive AI-powered CLI build assistant for turning a project idea into planning documents from your terminal.
 
-`cobuild` runs a structured interview against a local Ollama model, saves the transcript as a resumable session, and then generates a specification plus optional follow-on artifacts for architecture and implementation planning.
+`cobuild` runs a structured interview against a local AI model, saves the transcript as a resumable session, and then generates a specification plus optional follow-on artifacts for architecture and implementation planning. It supports multiple AI providers: Ollama (default) and Codex CLI.
 
 ## What It Does
 
@@ -25,6 +25,10 @@ The workflow is interactive and stateful:
 
 - Node.js `>= 18.0.0`
 - A real interactive terminal (`TTY`) for the full session
+- One of the following AI providers:
+
+### Ollama (default)
+
 - [Ollama](https://ollama.com) running locally at `http://localhost:11434`
 - At least one Ollama model installed locally
 
@@ -35,6 +39,19 @@ ollama pull llama3
 ```
 
 `cobuild` defaults to the `llama3` model unless the session already has a different model saved or you switch models during the interview with `/model`.
+
+### Codex CLI
+
+- The `codex` binary installed and available on your `PATH`
+- Any authentication or configuration required by Codex CLI must be completed before running `cobuild` — `cobuild` does not manage Codex credentials or settings
+
+To use Codex CLI, pass `--provider codex-cli` when starting a new session:
+
+```sh
+cobuild --provider codex-cli
+```
+
+Model selection for Codex CLI is managed externally in Codex itself. The `/model` command is not available for Codex CLI sessions.
 
 ## Installation
 
@@ -63,11 +80,12 @@ cobuild
 Common commands:
 
 ```sh
-cobuild                 # Start or resume the latest unfinished session in this directory
-cobuild --new-session   # Ignore the latest unfinished session and create a new one
-cobuild --verbose       # Enable verbose startup logging marker
-cobuild --help          # Show CLI help
-cobuild -v              # Print version
+cobuild                         # Start or resume the latest unfinished session in this directory
+cobuild --new-session           # Ignore the latest unfinished session and create a new one
+cobuild --provider codex-cli    # Start a new session using Codex CLI as the AI provider
+cobuild --verbose               # Enable verbose startup logging marker
+cobuild --help                  # Show CLI help
+cobuild -v                      # Print version
 ```
 
 ## CLI Flags
@@ -75,6 +93,7 @@ cobuild -v              # Print version
 | Flag | Description |
 | --- | --- |
 | `--new-session` | Start a fresh session instead of resuming the latest unfinished session for the current working directory |
+| `--provider <provider>` | AI provider to use for a new session: `ollama` (default) or `codex-cli`. Ignored when resuming an existing session (the saved provider is used instead) |
 | `--verbose` | Enable verbose startup logging marker |
 | `-v, --version` | Print the current version |
 
@@ -84,8 +103,12 @@ On startup, `cobuild`:
 
 1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
 2. Verifies that stdin is attached to a TTY.
-3. Verifies that Ollama responds at `http://localhost:11434/api/tags`.
+3. Runs a provider readiness check for the selected or resumed provider:
+   - Ollama: verifies Ollama responds at `http://localhost:11434/api/tags`
+   - Codex CLI: verifies the `codex` binary is available on your `PATH`
 4. Resolves the active session for the current working directory.
+
+When resuming a session, the provider saved in the session is used regardless of any `--provider` flag passed on the command line.
 
 Session resolution behavior:
 
@@ -114,8 +137,8 @@ These commands are available during the interview:
 | Command | Description |
 | --- | --- |
 | `/finish-now` | End the interview immediately and ask the model to infer missing details so generation can begin |
-| `/model` | List installed Ollama models and switch the session to a different model by number or exact name |
-| `/provider` | Show the currently supported provider information |
+| `/model` | List installed Ollama models and switch the session to a different model by number or exact name. Not available for Codex CLI sessions — model selection for Codex CLI is managed externally in Codex itself |
+| `/provider` | Show the active provider. For Codex CLI sessions, also notes that model selection is managed externally |
 
 Unknown slash commands are ignored.
 
@@ -216,7 +239,8 @@ Each session records:
 - Working directory
 - Interview transcript
 - Current stage
-- Selected model
+- Active provider (`ollama` or `codex-cli`)
+- Selected model (Ollama sessions)
 - Generation attempt counters
 - Generated artifact metadata
 - Extracted plan phases
@@ -269,24 +293,33 @@ Behavior on failure:
 
 ## Provider Support
 
-Current provider support is intentionally narrow:
+`cobuild` supports two providers:
 
-- Supported provider: Ollama only
-- Supported endpoint: local Ollama HTTP API
+### Ollama (default)
+
+- Runs locally at `http://localhost:11434`
 - `cobuild` checks `/api/tags` on startup and uses `/api/chat` for generation
 - Responses are non-streaming
+- Supports in-app model switching via `/model`
+
+### Codex CLI
+
+- Invokes the `codex` binary on your `PATH` with `--quiet` and the conversation prompt
+- Authentication, model selection, and Codex configuration are managed externally in Codex itself
+- The `/model` command is disabled for Codex CLI sessions
+- A 120-second per-call timeout applies
 
 There is no support yet for:
 
-- Remote hosted providers
-- API-key based provider configuration
-- Multi-provider routing
+- Remote hosted providers accessed directly via API key
+- Multi-provider routing within a single session
 
 ## Limitations
 
 - Interactive terminal required. Piped or scripted use is rejected.
-- Ollama must be running locally at `http://localhost:11434`.
-- The only provider currently implemented is Ollama.
+- Ollama sessions require Ollama to be running locally at `http://localhost:11434`.
+- Codex CLI sessions require the `codex` binary to be installed and on your `PATH`. Authentication and model configuration must be set up in Codex before running `cobuild`.
+- The `/model` command is only available for Ollama sessions. Codex CLI sessions do not support in-app model switching.
 - Prompt size estimation is heuristic, not tokenizer-accurate.
 - Generation output is not streamed token-by-token.
 - Running multiple `cobuild` processes in the same project directory can create session conflicts.

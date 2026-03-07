@@ -15,7 +15,7 @@ export function YesNoPrompt({ question, onAnswer }: YesNoPromptProps) {
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
       exit();
-      return;
+      process.exit(1);
     }
 
     if (confirmed) return;

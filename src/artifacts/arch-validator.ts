@@ -29,7 +29,7 @@ const REQUIRED_SECTIONS: RequiredSection[] = [
   },
   {
     name: 'deployment/runtime model',
-    patterns: [/^#{1,3}\s+(deployment(\/runtime\s+model|\s+model|\s+&\s+runtime)?|runtime\s+model|infrastructure)/im],
+    patterns: [/^#{1,3}\s+(deployment(\/runtime\s+model|\s+(and|&)\s+runtime(\s+model)?|\s+model)?|runtime\s+model|infrastructure)/im],
   },
   {
     name: 'security considerations',

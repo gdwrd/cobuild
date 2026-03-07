@@ -32,7 +32,7 @@ const DISALLOWED_PATTERNS = [
 
 let raw;
 try {
-  raw = execSync('npm pack --dry-run --json 2>/dev/null', {
+  raw = execSync('npm pack --dry-run --json', {
     cwd: ROOT,
     encoding: 'utf-8',
   });

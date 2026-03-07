@@ -9,6 +9,7 @@ import { runArtifactPipeline } from '../../artifacts/generator.js';
 import { writeArtifactFile } from '../../artifacts/file-output.js';
 import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession } from '../../session/session.js';
 import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
+import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
 
 vi.mock('../App.js', () => ({
   App: function MockApp() {
@@ -116,6 +117,10 @@ vi.mock('../../interview/retry.js', () => ({
 
 vi.mock('../../artifacts/arch-generator.js', () => ({
   ArchGenerator: vi.fn().mockImplementation(() => ({})),
+}));
+
+vi.mock('../../artifacts/dev-plan-loop.js', () => ({
+  runDevPlanLoop: vi.fn(() => new Promise(() => {})),
 }));
 
 vi.mock('../../artifacts/plan-generator.js', () => ({
@@ -319,6 +324,77 @@ describe('ScreenController write failure handling', () => {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(completeSpecStage).not.toHaveBeenCalled();
+
+    unmount();
+  });
+});
+
+describe('ScreenController dev-plans resume', () => {
+  const devPlanSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: true,
+    stage: 'dev-plans' as const,
+    devPlansDecision: true,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(loadSession).mockReturnValue(devPlanSession);
+    vi.mocked(runDevPlanLoop).mockReturnValue(new Promise(() => {}));
+  });
+
+  it('does not start the interview loop when sessionStage is dev-plans', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          sessionResolution: 'resumed' as const,
+          sessionStage: 'dev-plans' as const,
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    // Simulate user clicking continue on the RestoredSession screen by waiting for effects
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(runInterviewLoop).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('calls runDevPlanLoop when sessionStage is dev-plans and user continues', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          sessionStage: 'dev-plans' as const,
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(runDevPlanLoop).toHaveBeenCalledWith(
+      devPlanSession,
+      expect.anything(),
+      expect.objectContaining({
+        onPhaseStart: expect.any(Function),
+        onPhaseComplete: expect.any(Function),
+        onHalt: expect.any(Function),
+      }),
+    );
 
     unmount();
   });

@@ -170,11 +170,11 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 12: Implement Resume Logic for Dev Plans
 
-- [ ] Detect incomplete dev plan generation during resume
-- [ ] Resume generation from first incomplete phase
-- [ ] Load previously generated plans
-- [ ] Continue sequential loop from stored phase
-- [ ] Log resume event
+- [x] Detect incomplete dev plan generation during resume
+- [x] Resume generation from first incomplete phase
+- [x] Load previously generated plans
+- [x] Continue sequential loop from stored phase
+- [x] Log resume event
 
 ---
 

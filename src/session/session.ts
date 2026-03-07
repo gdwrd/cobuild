@@ -71,6 +71,7 @@ export interface Session {
   completedPhaseCount?: number;
   currentDevPlanPhase?: number;
   devPlanHalted?: boolean;
+  devPlansComplete?: boolean;
 }
 
 export function getSessionsDir(): string {
@@ -143,7 +144,11 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
     if (sessionId.includes(path.sep) || sessionId.includes('/')) continue;
     try {
       const session = loadSession(sessionId);
-      if (session && session.workingDirectory === workingDirectory && !session.completed) {
+      if (!session || session.workingDirectory !== workingDirectory) continue;
+      const isResumeableInterview = !session.completed;
+      const isResumeableDevPlan =
+        session.stage === 'dev-plans' && !session.devPlansComplete && !session.devPlanHalted;
+      if (isResumeableInterview || isResumeableDevPlan) {
         sessions.push(session);
       }
     } catch (err) {
@@ -376,6 +381,28 @@ export function persistCurrentDevPlanPhase(session: Session, phaseNumber: number
   };
   saveSession(updated);
   getLogger().info(`dev-plan loop: current phase set to ${phaseNumber} (session ${session.id})`);
+  return updated;
+}
+
+export function persistDevPlanStage(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    stage: 'dev-plans',
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`dev-plan loop: stage set to dev-plans (session ${session.id})`);
+  return updated;
+}
+
+export function completeDevPlanStage(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    devPlansComplete: true,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`dev-plan stage complete (session ${session.id})`);
   return updated;
 }
 

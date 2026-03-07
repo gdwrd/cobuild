@@ -54,13 +54,17 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
       logger.info(`new session created: ${session.id}`);
     } else {
       const existing = findLatestByWorkingDirectory(process.cwd());
-      if (existing && !existing.completed) {
+      const isResumeableExisting =
+        existing &&
+        (!existing.completed ||
+          (existing.stage === 'dev-plans' && !existing.devPlansComplete));
+      if (isResumeableExisting) {
         logger.info(`resuming existing session: ${existing.id}`);
         sessionId = existing.id;
         sessionResolution = 'resumed';
         sessionStage = existing.stage;
       } else {
-        if (existing && existing.completed) {
+        if (existing && (existing.completed || existing.devPlansComplete)) {
           logger.info(`latest session completed, starting new session (was: ${existing.id})`);
         } else {
           logger.info('no existing session found for working directory, starting new session');

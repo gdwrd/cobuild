@@ -98,6 +98,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
   useEffect(() => {
     if (screen !== 'main' || interviewStartedRef.current || !sessionId) return;
+    if (sessionStage === 'dev-plans') return;
     interviewStartedRef.current = true;
 
     const session = loadSession(sessionId);
@@ -210,6 +211,70 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         setIsThinking(false);
       });
   }, [screen, sessionId]);
+
+  useEffect(() => {
+    if (screen !== 'main' || sessionStage !== 'dev-plans' || !sessionId) return;
+    if (pipelineStartedRef.current) return;
+    pipelineStartedRef.current = true;
+
+    const session = loadSession(sessionId);
+    if (!session) {
+      setErrorMessage(`Failed to load session ${sessionId}`);
+      setScreen('error');
+      setTimeout(() => {
+        exit();
+        process.exit(1);
+      }, 100);
+      return;
+    }
+
+    getLogger().info(`dev-plan resume: resuming dev plan generation from session ${sessionId}`);
+    currentSessionRef.current = session;
+
+    // Populate completed stages from existing session artifacts
+    const resumeStages: CompletedStage[] = [];
+    if (session.specArtifact) {
+      resumeStages.push({ label: 'Project specification', filePath: session.specArtifact.filePath });
+    }
+    if (session.architectureArtifact) {
+      resumeStages.push({ label: 'Architecture document', filePath: session.architectureArtifact.filePath });
+    }
+    if (session.planArtifact) {
+      resumeStages.push({ label: 'High-level development plan', filePath: session.planArtifact.filePath });
+    }
+    setCompletedStages(resumeStages);
+
+    const model = session.model ?? 'llama3';
+    providerRef.current = new OllamaProvider({ model });
+    const provider = providerRef.current;
+
+    setGenerationStage('dev-plan');
+    setScreen('generating');
+
+    runDevPlanLoop(session, provider, {
+      onPhaseStart: (phaseNumber, total) => {
+        setDevPlanProgress({ current: phaseNumber, total });
+      },
+      onPhaseComplete: (phaseNumber, filePath) => {
+        setCompletedStages((prev) => [
+          ...prev,
+          { label: `Dev plan — phase ${phaseNumber}`, filePath },
+        ]);
+      },
+      onHalt: () => {
+        setWorkflowTerminatedEarly(true);
+      },
+    })
+      .then(() => {
+        setGenerationStatus('success');
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        getLogger().error(`generation screen: dev-plan resume failed: ${msg}`);
+        setGenerationError(msg);
+        setGenerationStatus('error');
+      });
+  }, [screen, sessionId, sessionStage]);
 
   useEffect(() => {
     if (!interviewComplete) return;

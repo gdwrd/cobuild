@@ -1,6 +1,12 @@
 import type { Session } from '../session/session.js';
 import type { ModelProvider } from '../interview/controller.js';
-import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion, persistDevPlanHalt } from '../session/session.js';
+import {
+  persistCurrentDevPlanPhase,
+  persistDevPlanPhaseCompletion,
+  persistDevPlanHalt,
+  persistDevPlanStage,
+  completeDevPlanStage,
+} from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import { RetryExhaustedError } from '../interview/retry.js';
 import { loadAndValidatePhases } from './dev-plan-phases.js';
@@ -25,12 +31,28 @@ export async function runDevPlanLoop(
     `dev-plan loop: starting sequential generation for ${totalCount} phases (session ${initialSession.id})`,
   );
 
-  let previousDevPlans: string[] = [];
-  let currentSession = initialSession;
+  // Detect already-completed phases for resume
+  const completedArtifacts = initialSession.devPlanArtifacts ?? [];
+  const completedPhaseNumbers = new Set(completedArtifacts.map((a) => a.phaseNumber));
+
+  if (completedArtifacts.length > 0) {
+    logger.info(
+      `dev-plan loop: resuming — ${completedArtifacts.length} phase(s) already complete, continuing from phase ${completedArtifacts.length + 1} (session ${initialSession.id})`,
+    );
+    for (const artifact of completedArtifacts) {
+      options.onPhaseComplete(artifact.phaseNumber, artifact.filePath);
+    }
+  }
+
+  let previousDevPlans: string[] = completedArtifacts.map((a) => a.content);
+  let currentSession = persistDevPlanStage(initialSession);
 
   let halted = false;
 
   for (const phase of phases) {
+    if (completedPhaseNumbers.has(phase.number)) {
+      continue;
+    }
     logger.info(
       `dev-plan loop: starting phase ${phase.number} of ${totalCount} (session ${currentSession.id})`,
     );
@@ -71,6 +93,7 @@ export async function runDevPlanLoop(
   }
 
   if (!halted) {
+    currentSession = completeDevPlanStage(currentSession);
     logger.info(
       `dev-plan loop: all ${totalCount} phases generated successfully (session ${currentSession.id})`,
     );

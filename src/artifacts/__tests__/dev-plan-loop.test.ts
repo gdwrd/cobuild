@@ -20,6 +20,16 @@ vi.mock('../../session/session.js', () => ({
     devPlanHalted: true,
     updatedAt: 'now',
   })),
+  persistDevPlanStage: vi.fn((session) => ({
+    ...session,
+    stage: 'dev-plans',
+    updatedAt: 'now',
+  })),
+  completeDevPlanStage: vi.fn((session) => ({
+    ...session,
+    devPlansComplete: true,
+    updatedAt: 'now',
+  })),
 }));
 
 vi.mock('../dev-plan-phases.js', () => ({
@@ -39,7 +49,13 @@ vi.mock('../dev-plan-file-writer.js', () => ({
   })),
 }));
 
-import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion, persistDevPlanHalt } from '../../session/session.js';
+import {
+  persistCurrentDevPlanPhase,
+  persistDevPlanPhaseCompletion,
+  persistDevPlanHalt,
+  persistDevPlanStage,
+  completeDevPlanStage,
+} from '../../session/session.js';
 import { loadAndValidatePhases } from '../dev-plan-phases.js';
 import { DevPlanGenerator } from '../dev-plan-generator.js';
 import { writeDevPlanFile } from '../dev-plan-file-writer.js';
@@ -92,6 +108,16 @@ beforeEach(() => {
   vi.mocked(persistDevPlanHalt).mockImplementation((session, _failedPhaseNumber) => ({
     ...session,
     devPlanHalted: true,
+    updatedAt: 'now',
+  }));
+  vi.mocked(persistDevPlanStage).mockImplementation((session) => ({
+    ...session,
+    stage: 'dev-plans' as const,
+    updatedAt: 'now',
+  }));
+  vi.mocked(completeDevPlanStage).mockImplementation((session) => ({
+    ...session,
+    devPlansComplete: true,
     updatedAt: 'now',
   }));
   mockGeneratorGenerate.mockImplementation(async (_session, _provider, phase, _prev) => ({
@@ -353,5 +379,99 @@ describe('runDevPlanLoop', () => {
     await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete });
 
     expect(onPhaseComplete).not.toHaveBeenCalled();
+  });
+
+  it('calls persistDevPlanStage at the start of the loop', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    expect(vi.mocked(persistDevPlanStage)).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1' }));
+  });
+
+  it('calls completeDevPlanStage after all phases complete', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    expect(vi.mocked(completeDevPlanStage)).toHaveBeenCalled();
+  });
+
+  it('does not call completeDevPlanStage when halted', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate.mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    expect(vi.mocked(completeDevPlanStage)).not.toHaveBeenCalled();
+  });
+
+  it('skips already-completed phases when resuming', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession({
+      devPlanArtifacts: [
+        { phaseNumber: 1, content: '# Plan: Phase 1', filePath: '/work/docs/plans/phase-1.md', generated: true },
+        { phaseNumber: 2, content: '# Plan: Phase 2', filePath: '/work/docs/plans/phase-2.md', generated: true },
+      ],
+    });
+    const provider = makeProvider();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    // Only phases 3 and 4 should be generated
+    expect(mockGeneratorGenerate).toHaveBeenCalledTimes(2);
+    expect(mockGeneratorGenerate).toHaveBeenNthCalledWith(1, expect.anything(), provider, phases[2], expect.anything());
+    expect(mockGeneratorGenerate).toHaveBeenNthCalledWith(2, expect.anything(), provider, phases[3], expect.anything());
+  });
+
+  it('seeds previousDevPlans from already-completed artifacts when resuming', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession({
+      devPlanArtifacts: [
+        { phaseNumber: 1, content: 'plan 1 content', filePath: '/work/docs/plans/phase-1.md', generated: true },
+        { phaseNumber: 2, content: 'plan 2 content', filePath: '/work/docs/plans/phase-2.md', generated: true },
+      ],
+    });
+    const provider = makeProvider();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    // Phase 3 should receive the already-completed plans as previousDevPlans
+    expect(mockGeneratorGenerate).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      provider,
+      phases[2],
+      ['plan 1 content', 'plan 2 content'],
+    );
+  });
+
+  it('calls onPhaseComplete for already-completed phases on resume', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession({
+      devPlanArtifacts: [
+        { phaseNumber: 1, content: 'plan 1 content', filePath: '/work/docs/plans/phase-1.md', generated: true },
+      ],
+    });
+    const provider = makeProvider();
+    const onPhaseComplete = vi.fn();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete });
+
+    // Should be called for the pre-existing phase 1 AND newly generated phases 2, 3, 4
+    expect(onPhaseComplete).toHaveBeenCalledWith(1, '/work/docs/plans/phase-1.md');
+    expect(onPhaseComplete).toHaveBeenCalledTimes(4);
   });
 });

@@ -810,6 +810,71 @@ describe('completePlanStage', () => {
   });
 });
 
+describe('persistExtractedPhases', () => {
+  const baseSession = {
+    id: 'sess-phases',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'plan' as const,
+    transcript: [],
+  };
+
+  const phases = [
+    {
+      number: 1,
+      title: 'Phase One',
+      goal: 'goal text',
+      scope: 'scope text',
+      deliverables: 'deliverables text',
+      dependencies: 'none',
+      acceptanceCriteria: 'criteria',
+    },
+  ];
+
+  it('stores extracted phases in the returned session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistExtractedPhases } = await import('../session.js');
+    const updated = persistExtractedPhases(baseSession, phases);
+
+    expect(updated.extractedPhases).toEqual(phases);
+  });
+
+  it('persists session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistExtractedPhases } = await import('../session.js');
+    persistExtractedPhases(baseSession, phases);
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistExtractedPhases } = await import('../session.js');
+    const updated = persistExtractedPhases(baseSession, phases);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistExtractedPhases } = await import('../session.js');
+    persistExtractedPhases(baseSession, phases);
+
+    expect((baseSession as { extractedPhases?: unknown }).extractedPhases).toBeUndefined();
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

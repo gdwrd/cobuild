@@ -179,12 +179,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 13: Persist High-Level Plan Artifact in Session
 
-- [ ] Store generated plan Markdown in session
-- [ ] Store output file path
-- [ ] Persist extracted phase metadata
-- [ ] Mark artifact generation status
-- [ ] Persist session state
-- [ ] Log artifact persistence
+- [x] Store generated plan Markdown in session
+- [x] Store output file path
+- [x] Persist extracted phase metadata
+- [x] Mark artifact generation status
+- [x] Persist session state
+- [x] Log artifact persistence
 
 ---
 

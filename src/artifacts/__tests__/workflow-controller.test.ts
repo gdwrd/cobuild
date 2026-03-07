@@ -10,10 +10,15 @@ vi.mock('../../session/session.js', () => ({
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),
   persistPlanArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
   completePlanStage: vi.fn((session) => ({ ...session, updatedAt: 'now' })),
+  persistExtractedPhases: vi.fn((session, _phases) => ({ ...session, updatedAt: 'now' })),
 }));
 
 vi.mock('../generator.js', () => ({
   runArtifactPipeline: vi.fn(),
+}));
+
+vi.mock('../plan-parser.js', () => ({
+  extractPhases: vi.fn(() => []),
 }));
 
 import {
@@ -22,8 +27,10 @@ import {
   completeArchitectureStage,
   persistPlanArtifact,
   completePlanStage,
+  persistExtractedPhases,
 } from '../../session/session.js';
 import { runArtifactPipeline } from '../generator.js';
+import { extractPhases } from '../plan-parser.js';
 import { runPostSpecWorkflow } from '../workflow-controller.js';
 import type { PostSpecWorkflowOptions } from '../workflow-controller.js';
 import type { Session } from '../../session/session.js';
@@ -80,6 +87,11 @@ beforeEach(() => {
     ...session,
     updatedAt: 'now',
   }));
+  vi.mocked(persistExtractedPhases).mockImplementation((session) => ({
+    ...session,
+    updatedAt: 'now',
+  }));
+  vi.mocked(extractPhases).mockReturnValue([]);
   vi.mocked(runArtifactPipeline).mockImplementation(async (session, _provider, generator, _type) => {
     const result = await generator.generate(session, _provider);
     return { session, result };
@@ -238,6 +250,47 @@ describe('runPostSpecWorkflow', () => {
 
     expect(stages).toContain('terminated');
     expect(stages).not.toContain('generating-architecture');
+  });
+
+  it('extracts phases from plan content after generation', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const options = makeOptions({ onDecision: vi.fn(async () => true) });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(extractPhases)).toHaveBeenCalledOnce();
+    expect(vi.mocked(extractPhases)).toHaveBeenCalledWith('# Plan');
+  });
+
+  it('persists extracted phases after plan generation', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const phases = [{ number: 1, title: 'Phase 1', goal: 'g', scope: 's', deliverables: 'd', dependencies: 'dep', acceptanceCriteria: 'ac' }];
+    vi.mocked(extractPhases).mockReturnValue(phases);
+    const options = makeOptions({ onDecision: vi.fn(async () => true) });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(persistExtractedPhases)).toHaveBeenCalledOnce();
+    expect(vi.mocked(persistExtractedPhases)).toHaveBeenCalledWith(expect.anything(), phases);
+  });
+
+  it('does not extract phases when user declines plan generation', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    let callCount = 0;
+    const options = makeOptions({
+      onDecision: vi.fn(async () => {
+        callCount++;
+        return callCount === 1; // yes to architecture, no to plan
+      }),
+    });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(extractPhases)).not.toHaveBeenCalled();
+    expect(vi.mocked(persistExtractedPhases)).not.toHaveBeenCalled();
   });
 
   it('propagates pipeline errors', async () => {

@@ -7,8 +7,10 @@ import {
   completeArchitectureStage,
   persistPlanArtifact,
   completePlanStage,
+  persistExtractedPhases,
 } from '../session/session.js';
 import { runArtifactPipeline } from './generator.js';
+import { extractPhases } from './plan-parser.js';
 import { getLogger } from '../logging/logger.js';
 
 export type PostSpecStage =
@@ -106,6 +108,8 @@ export async function runPostSpecWorkflow(
     'plan',
   );
   currentSession = persistPlanArtifact(afterPlanPipeline, planResult.content, planFilePath);
+  const phases = extractPhases(planResult.content);
+  currentSession = persistExtractedPhases(currentSession, phases);
   currentSession = completePlanStage(currentSession);
   logger.info(`post-spec workflow: plan generation complete, saved to ${planFilePath} (session ${session.id})`);
 

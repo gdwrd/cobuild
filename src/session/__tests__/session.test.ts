@@ -885,6 +885,105 @@ describe('persistExtractedPhases', () => {
   });
 });
 
+describe('persistDevPlanPhaseCompletion', () => {
+  const baseSession = {
+    id: 'sess-devplan',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'dev-plans' as const,
+    transcript: [],
+  };
+
+  it('appends dev plan artifact to devPlanArtifacts and sets completedPhaseCount=1', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    const updated = persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/phase-1.md');
+
+    expect(updated.devPlanArtifacts).toHaveLength(1);
+    expect(updated.devPlanArtifacts![0]).toEqual({
+      phaseNumber: 1,
+      content: '# Plan: Phase 1',
+      filePath: '/work/docs/plans/phase-1.md',
+      generated: true,
+    });
+    expect(updated.completedPhaseCount).toBe(1);
+  });
+
+  it('accumulates artifacts across multiple calls', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    const after1 = persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/p1.md');
+    const after2 = persistDevPlanPhaseCompletion(after1, 2, '# Plan: Phase 2', '/work/docs/plans/p2.md');
+
+    expect(after2.devPlanArtifacts).toHaveLength(2);
+    expect(after2.completedPhaseCount).toBe(2);
+    expect(after2.devPlanArtifacts![1].phaseNumber).toBe(2);
+  });
+
+  it('increments completedPhaseCount from existing value', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    const sessionWithCount = { ...baseSession, completedPhaseCount: 3 };
+    const updated = persistDevPlanPhaseCompletion(sessionWithCount, 4, '# Plan: Phase 4', '/work/docs/plans/p4.md');
+
+    expect(updated.completedPhaseCount).toBe(4);
+  });
+
+  it('saves session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/p1.md');
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    const updated = persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/p1.md');
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/p1.md');
+
+    expect((baseSession as Record<string, unknown>)['devPlanArtifacts']).toBeUndefined();
+    expect((baseSession as Record<string, unknown>)['completedPhaseCount']).toBeUndefined();
+  });
+
+  it('preserves other session fields', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanPhaseCompletion } = await import('../session.js');
+    const updated = persistDevPlanPhaseCompletion(baseSession, 1, '# Plan: Phase 1', '/work/docs/plans/p1.md');
+
+    expect(updated.id).toBe(baseSession.id);
+    expect(updated.workingDirectory).toBe(baseSession.workingDirectory);
+    expect(updated.completed).toBe(baseSession.completed);
+    expect(updated.stage).toBe(baseSession.stage);
+    expect(updated.transcript).toEqual(baseSession.transcript);
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

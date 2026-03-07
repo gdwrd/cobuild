@@ -28,6 +28,13 @@ export interface PlanArtifact {
   generated: boolean;
 }
 
+export interface DevPlanArtifact {
+  phaseNumber: number;
+  content: string;
+  filePath: string;
+  generated: boolean;
+}
+
 export interface PlanPhase {
   number: number;
   title: string;
@@ -60,6 +67,8 @@ export interface Session {
   planGenerationAttempts?: number;
   devPlanGenerationAttempts?: number;
   extractedPhases?: PlanPhase[];
+  devPlanArtifacts?: DevPlanArtifact[];
+  completedPhaseCount?: number;
 }
 
 export function getSessionsDir(): string {
@@ -318,6 +327,28 @@ export function persistExtractedPhases(session: Session, phases: PlanPhase[]): S
   saveSession(updated);
   getLogger().info(
     `artifact persistence: ${phases.length} extracted phases saved (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function persistDevPlanPhaseCompletion(
+  session: Session,
+  phaseNumber: number,
+  content: string,
+  filePath: string,
+): Session {
+  const existing = session.devPlanArtifacts ?? [];
+  const artifact: DevPlanArtifact = { phaseNumber, content, filePath, generated: true };
+  const completedPhaseCount = (session.completedPhaseCount ?? 0) + 1;
+  const updated: Session = {
+    ...session,
+    devPlanArtifacts: [...existing, artifact],
+    completedPhaseCount,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `dev-plan phase completion: phase ${phaseNumber} saved to ${filePath}, completedPhaseCount=${completedPhaseCount} (session ${session.id})`,
   );
   return updated;
 }

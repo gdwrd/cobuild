@@ -99,12 +99,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 6: Implement Architecture File Output
 
-- [ ] Generate architecture filename using project name
-- [ ] Apply filename sanitization
-- [ ] Detect filename collisions
-- [ ] Apply numeric suffix if needed
-- [ ] Write Markdown file under `docs/`
-- [ ] Log file write operations
+- [x] Generate architecture filename using project name
+- [x] Apply filename sanitization
+- [x] Detect filename collisions
+- [x] Apply numeric suffix if needed
+- [x] Write Markdown file under `docs/`
+- [x] Log file write operations
 
 ---
 

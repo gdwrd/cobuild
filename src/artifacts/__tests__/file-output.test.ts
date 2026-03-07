@@ -12,6 +12,7 @@ vi.mock('../../logging/logger.js', () => ({
 import {
   ensureDocsDir,
   generateFilename,
+  generateArchitectureFilename,
   sanitizeFilename,
   resolveOutputPath,
   writeArtifactFile,
@@ -75,6 +76,36 @@ describe('generateFilename', () => {
 
   it('appends -spec.md suffix', () => {
     expect(generateFilename('widget')).toBe('widget-spec.md');
+  });
+});
+
+// ─── generateArchitectureFilename ────────────────────────────────────────────
+
+describe('generateArchitectureFilename', () => {
+  it('generates a kebab-case architecture filename from a project name', () => {
+    expect(generateArchitectureFilename('My Cool Project')).toBe('my-cool-project-architecture.md');
+  });
+
+  it('lowercases the filename', () => {
+    expect(generateArchitectureFilename('UPPERCASE')).toBe('uppercase-architecture.md');
+  });
+
+  it('collapses multiple spaces into a single hyphen', () => {
+    expect(generateArchitectureFilename('foo   bar')).toBe('foo-bar-architecture.md');
+  });
+
+  it('sanitizes unsafe characters', () => {
+    const result = generateArchitectureFilename('Project: Alpha/Beta');
+    expect(result).toMatch(/\.md$/);
+    expect(result).not.toMatch(/[:/]/);
+  });
+
+  it('appends -architecture.md suffix', () => {
+    expect(generateArchitectureFilename('widget')).toBe('widget-architecture.md');
+  });
+
+  it('falls back to project-architecture.md for empty input', () => {
+    expect(generateArchitectureFilename('')).toBe('project-architecture.md');
   });
 });
 

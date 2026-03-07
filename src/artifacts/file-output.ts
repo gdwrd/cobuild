@@ -26,6 +26,14 @@ export function generateFilename(projectName: string): string {
 }
 
 /**
+ * Generates a Markdown filename for the architecture document from a project name.
+ */
+export function generateArchitectureFilename(projectName: string): string {
+  const sanitized = safeFilename(projectName).toLowerCase().replace(/\s+/g, '-') || 'project';
+  return `${sanitized}-architecture.md`;
+}
+
+/**
  * Sanitizes a raw project name string into a safe filename component.
  * Delegates to safeFilename from utils/paths.
  */

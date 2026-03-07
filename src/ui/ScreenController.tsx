@@ -186,7 +186,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       '/provider': createProviderHandler(),
     })
       .then((finalSession) => {
-        currentSessionRef.current = finalSession;
+        // Reload from disk so that session state written by command handlers (e.g. /finish-now
+        // calling completeInterview) is not overwritten by the stale local session from the loop.
+        currentSessionRef.current = loadSession(finalSession.id) ?? finalSession;
         setIsThinking(false);
         setInterviewComplete(true);
       })

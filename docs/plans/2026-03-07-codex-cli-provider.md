@@ -50,7 +50,7 @@
 - [x] Review any generated help text or inline descriptions that still imply single-provider support.
 
 ### Task 8: Run full verification for both provider modes
-- [ ] Run the build, lint, unit test, and integration test commands after the implementation is complete.
-- [ ] Manually verify a fresh Ollama session still supports `/model` and `/provider` with no regression in generation flow.
-- [ ] Manually verify a fresh Codex CLI session can complete the same workflow and that `/model` returns the expected “change it in Codex” guidance.
-- [ ] Confirm resumed sessions preserve provider identity and do not cross wires between Ollama and Codex CLI runs.
+- [x] Run the build, lint, unit test, and integration test commands after the implementation is complete.
+- [x] Manually verify a fresh Ollama session still supports `/model` and `/provider` with no regression in generation flow.
+- [x] Manually verify a fresh Codex CLI session can complete the same workflow and that `/model` returns the expected “change it in Codex” guidance.
+- [x] Confirm resumed sessions preserve provider identity and do not cross wires between Ollama and Codex CLI runs.

@@ -49,6 +49,7 @@ const {
   persistSpecArtifact, completeSpecStage,
   persistArchitectureArtifact, completeArchitectureStage,
   persistPlanArtifact, persistExtractedPhases, completePlanStage,
+  persistDevPlansDecision,
   findLatestByWorkingDirectory,
 } = await import(`${distDir}/session/session.js`);
 const { SpecGenerator } = await import(`${distDir}/artifacts/spec-generator.js`);
@@ -61,6 +62,9 @@ const {
   ensureDocsDir, resolveOutputPath, writeArtifactFile,
 } = await import(`${distDir}/artifacts/file-output.js`);
 const { getLogger } = await import(`${distDir}/logging/logger.js`);
+const { runDevPlanLoop } = await import(`${distDir}/artifacts/dev-plan-loop.js`);
+const { ensurePlansDir, generateDevPlanFilename } = await import(`${distDir}/artifacts/dev-plan-file-writer.js`);
+const { validateDevPlanStructure } = await import(`${distDir}/artifacts/dev-plan-validator.js`);
 
 // ─── valid spec content ──────────────────────────────────────────────────────
 
@@ -90,6 +94,40 @@ It tests the full spec generation pipeline end-to-end.
 const mockProvider = {
   generate: async (_messages) => VALID_SPEC,
 };
+
+// ─── dev plan content generator ──────────────────────────────────────────────
+
+function makeValidDevPlan(phaseNumber) {
+  return `# Plan: Phase ${phaseNumber} Implementation
+
+## Overview
+
+This plan covers Phase ${phaseNumber} of the project implementation, delivering the core work
+items for this stage of the build.
+
+## Validation Commands
+
+- npm run build
+- npm test
+- npm run lint
+
+### Task 1: Set up module structure
+
+- [ ] Create source directory layout for this phase
+- [ ] Add module entry point
+- [ ] Wire up exports
+
+### Task 2: Implement core logic
+
+- [ ] Build primary components for this phase
+- [ ] Add error handling
+- [ ] Verify integration with prior phases
+
+### Task 3: Write tests
+
+- [ ] Add unit tests for each component
+- [ ] Ensure all tests pass`;
+}
 
 // ─── test 1: run from a fresh folder ─────────────────────────────────────────
 
@@ -574,6 +612,233 @@ if (logFiles2.length > 0) {
   );
 } else {
   fail('No log files found — cannot verify stage transition logs');
+}
+
+// ─── test 12: dev plan generation ────────────────────────────────────────────
+
+console.log('\n[12] Select "yes" for dev plan generation and run dev plan loop');
+
+// Persist dev plan decision ("yes") in session
+let devPlanLoopSession = persistDevPlansDecision(finalSession, true);
+
+// Mock provider: returns a valid dev plan based on call order (one per phase)
+let devPlanCallIndex = 0;
+const devPlanMockProvider = {
+  generate: async (_messages) => {
+    devPlanCallIndex++;
+    return makeValidDevPlan(devPlanCallIndex);
+  },
+};
+
+// Track phase events
+const phasesStarted = [];
+const phasesCompleted = [];
+
+let loopResultSession;
+try {
+  loopResultSession = await runDevPlanLoop(devPlanLoopSession, devPlanMockProvider, {
+    onPhaseStart: (phaseNumber, total) => {
+      phasesStarted.push({ phaseNumber, total });
+    },
+    onPhaseComplete: (phaseNumber, filePath) => {
+      phasesCompleted.push({ phaseNumber, filePath });
+    },
+  });
+  check(true, 'Dev plan loop completed without error', 'Dev plan loop threw an error');
+} catch (err) {
+  fail(`Dev plan loop threw unexpected error: ${err.message}`);
+  process.exit(1);
+}
+
+check(phasesStarted.length === 4, `onPhaseStart called for all 4 phases (got ${phasesStarted.length})`, `onPhaseStart call count wrong: ${phasesStarted.length}`);
+check(phasesCompleted.length === 4, `onPhaseComplete called for all 4 phases (got ${phasesCompleted.length})`, `onPhaseComplete call count wrong: ${phasesCompleted.length}`);
+check(devPlanCallIndex === 4, `Mock provider called 4 times (got ${devPlanCallIndex})`, `Provider call count wrong: ${devPlanCallIndex}`);
+
+// ─── test 13: verify phase plan files under docs/plans/ ──────────────────────
+
+console.log('\n[13] Verify each phase plan appears under docs/plans/');
+
+const plansDir = path.join(projectDir, 'docs', 'plans');
+check(fs.existsSync(plansDir), `docs/plans/ directory created at ${plansDir}`, 'docs/plans/ directory not found');
+
+const planFiles = fs.readdirSync(plansDir).filter((f) => f.endsWith('.md'));
+check(planFiles.length === 4, `4 dev plan files created under docs/plans/ (got ${planFiles.length})`, `Dev plan file count wrong: ${planFiles.length}`);
+
+for (const completed of phasesCompleted) {
+  check(
+    fs.existsSync(completed.filePath),
+    `Phase ${completed.phaseNumber} plan file exists at ${path.basename(completed.filePath)}`,
+    `Phase ${completed.phaseNumber} plan file missing: ${completed.filePath}`,
+  );
+  check(
+    completed.filePath.startsWith(plansDir),
+    `Phase ${completed.phaseNumber} plan file is under docs/plans/`,
+    `Phase ${completed.phaseNumber} plan file not under docs/plans/: ${completed.filePath}`,
+  );
+  const filename = path.basename(completed.filePath);
+  check(
+    /\d{4}-\d{2}-\d{2}-phase-\d+-/.test(filename),
+    `Phase ${completed.phaseNumber} filename matches YYYY-MM-DD-phase-N- format: ${filename}`,
+    `Phase ${completed.phaseNumber} filename format wrong: ${filename}`,
+  );
+}
+
+// ─── test 14: verify plan structure matches ralphex format ────────────────────
+
+console.log('\n[14] Verify plan structure matches ralphex format');
+
+for (let i = 0; i < phasesCompleted.length; i++) {
+  const { phaseNumber, filePath } = phasesCompleted[i];
+  const content = fs.readFileSync(filePath, 'utf8');
+  const validationResult = validateDevPlanStructure(content, phaseNumber);
+  check(
+    validationResult.valid,
+    `Phase ${phaseNumber} plan passes ralphex structure validation`,
+    `Phase ${phaseNumber} plan failed validation: ${validationResult.errors.join('; ')}`,
+  );
+  check(
+    /^#\s+Plan:/im.test(content),
+    `Phase ${phaseNumber} plan has # Plan: header`,
+    `Phase ${phaseNumber} plan missing # Plan: header`,
+  );
+  check(
+    /^##\s+Overview/im.test(content),
+    `Phase ${phaseNumber} plan has ## Overview section`,
+    `Phase ${phaseNumber} plan missing ## Overview`,
+  );
+  check(
+    /^##\s+Validation\s+Commands/im.test(content),
+    `Phase ${phaseNumber} plan has ## Validation Commands section`,
+    `Phase ${phaseNumber} plan missing ## Validation Commands`,
+  );
+  check(
+    /^###\s+(Task|Iteration)\s+\d+:/im.test(content),
+    `Phase ${phaseNumber} plan has ### Task N: sections`,
+    `Phase ${phaseNumber} plan missing task sections`,
+  );
+  check(
+    /^- \[[ x]\]/m.test(content),
+    `Phase ${phaseNumber} plan has checkbox tasks`,
+    `Phase ${phaseNumber} plan missing checkbox tasks`,
+  );
+  check(
+    !/^```/m.test(content),
+    `Phase ${phaseNumber} plan contains no code snippets`,
+    `Phase ${phaseNumber} plan contains fenced code blocks`,
+  );
+}
+
+// ─── test 15: verify session state tracks phase progress ─────────────────────
+
+console.log('\n[15] Verify session state tracks phase progress');
+
+check(
+  loopResultSession.devPlansComplete === true,
+  'Session devPlansComplete is true after loop',
+  `Session devPlansComplete wrong: ${loopResultSession.devPlansComplete}`,
+);
+check(
+  loopResultSession.stage === 'dev-plans',
+  `Session stage is 'dev-plans' after loop`,
+  `Session stage wrong: ${loopResultSession.stage}`,
+);
+check(
+  Array.isArray(loopResultSession.devPlanArtifacts),
+  'Session has devPlanArtifacts array',
+  'Session missing devPlanArtifacts',
+);
+check(
+  loopResultSession.devPlanArtifacts?.length === 4,
+  `Session devPlanArtifacts has 4 entries (got ${loopResultSession.devPlanArtifacts?.length})`,
+  `devPlanArtifacts count wrong: ${loopResultSession.devPlanArtifacts?.length}`,
+);
+check(
+  loopResultSession.completedPhaseCount === 4,
+  `Session completedPhaseCount is 4 (got ${loopResultSession.completedPhaseCount})`,
+  `completedPhaseCount wrong: ${loopResultSession.completedPhaseCount}`,
+);
+
+// Verify each artifact in session has correct fields
+for (const artifact of (loopResultSession.devPlanArtifacts ?? [])) {
+  check(
+    artifact.generated === true,
+    `devPlanArtifact phase ${artifact.phaseNumber} has generated=true`,
+    `devPlanArtifact phase ${artifact.phaseNumber} generated wrong: ${artifact.generated}`,
+  );
+  check(
+    typeof artifact.content === 'string' && artifact.content.length > 0,
+    `devPlanArtifact phase ${artifact.phaseNumber} has non-empty content`,
+    `devPlanArtifact phase ${artifact.phaseNumber} missing content`,
+  );
+  check(
+    typeof artifact.filePath === 'string' && artifact.filePath.length > 0,
+    `devPlanArtifact phase ${artifact.phaseNumber} has filePath`,
+    `devPlanArtifact phase ${artifact.phaseNumber} missing filePath`,
+  );
+}
+
+// Read session from disk and verify persistence
+const rawDevPlanSession = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+check(
+  rawDevPlanSession.devPlansComplete === true,
+  'Persisted session devPlansComplete is true',
+  `Persisted session devPlansComplete wrong: ${rawDevPlanSession.devPlansComplete}`,
+);
+check(
+  Array.isArray(rawDevPlanSession.devPlanArtifacts) && rawDevPlanSession.devPlanArtifacts.length === 4,
+  'Persisted session has 4 devPlanArtifacts',
+  `Persisted session devPlanArtifacts count wrong: ${rawDevPlanSession.devPlanArtifacts?.length}`,
+);
+check(
+  rawDevPlanSession.completedPhaseCount === 4,
+  'Persisted session completedPhaseCount is 4',
+  `Persisted session completedPhaseCount wrong: ${rawDevPlanSession.completedPhaseCount}`,
+);
+check(
+  rawDevPlanSession.devPlansDecision === true,
+  'Persisted session devPlansDecision is true',
+  `Persisted session devPlansDecision wrong: ${rawDevPlanSession.devPlansDecision}`,
+);
+
+// ─── test 16: verify logs capture dev plan generation events ─────────────────
+
+console.log('\n[16] Verify logs capture dev plan generation events');
+
+const logsDir3 = path.join(os.homedir(), '.cobuild', 'logs');
+const logFiles3 = fs.existsSync(logsDir3)
+  ? fs.readdirSync(logsDir3).filter((f) => f.startsWith('cobuild-')).sort().reverse()
+  : [];
+
+if (logFiles3.length > 0) {
+  const latestLogPath3 = path.join(logsDir3, logFiles3[0]);
+  const logContent3 = fs.readFileSync(latestLogPath3, 'utf8');
+  check(
+    logContent3.includes('dev-plan loop:'),
+    'Log contains dev-plan loop events',
+    'Log missing dev-plan loop events',
+  );
+  check(
+    logContent3.includes('dev-plan generator:'),
+    'Log contains dev-plan generator events',
+    'Log missing dev-plan generator events',
+  );
+  check(
+    logContent3.includes('dev-plan-file-writer:'),
+    'Log contains dev-plan file-writer events',
+    'Log missing dev-plan file-writer events',
+  );
+  check(
+    logContent3.includes('dev-plan phase completion:'),
+    'Log contains dev-plan phase completion events',
+    'Log missing dev-plan phase completion events',
+  );
+  check(
+    logContent3.includes('dev-plan stage complete'),
+    'Log contains dev-plan stage complete event',
+    'Log missing dev-plan stage complete event',
+  );
+} else {
+  fail('No log files found — cannot verify dev plan generation logs');
 }
 
 // ─── cleanup ─────────────────────────────────────────────────────────────────

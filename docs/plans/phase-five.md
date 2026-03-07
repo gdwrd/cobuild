@@ -191,10 +191,10 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 14: Verify End-to-End Dev Plan Pipeline
 
-- [ ] Run cobuild from a fresh directory
-- [ ] Complete interview, spec, architecture, and high-level plan stages
-- [ ] Select "yes" for dev plan generation
-- [ ] Verify each phase plan appears under `docs/plans/`
-- [ ] Verify plan structure matches ralphex format
-- [ ] Verify session state tracks phase progress
-- [ ] Verify logs capture generation events
+- [x] Run cobuild from a fresh directory
+- [x] Complete interview, spec, architecture, and high-level plan stages
+- [x] Select "yes" for dev plan generation
+- [x] Verify each phase plan appears under `docs/plans/`
+- [x] Verify plan structure matches ralphex format
+- [x] Verify session state tracks phase progress
+- [x] Verify logs capture generation events

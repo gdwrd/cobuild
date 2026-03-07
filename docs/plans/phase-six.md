@@ -169,9 +169,9 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 13: Final Release Validation
 
-- [ ] Install cobuild globally from npm package
-- [ ] Run cobuild from a fresh project folder
-- [ ] Complete full workflow from interview to dev plans
-- [ ] Verify artifacts are written to docs directories
-- [ ] Verify logs and sessions are created
-- [ ] Confirm application exits cleanly
+- [x] Install cobuild globally from npm package
+- [x] Run cobuild from a fresh project folder
+- [x] Complete full workflow from interview to dev plans
+- [x] Verify artifacts are written to docs directories
+- [x] Verify logs and sessions are created
+- [x] Confirm application exits cleanly

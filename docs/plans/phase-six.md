@@ -55,12 +55,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 3: Improve Error Handling Framework
 
-- [ ] Expand structured error types
-- [ ] Implement centralized error mapping
-- [ ] Improve CLI error presentation
-- [ ] Prevent stack traces from appearing in normal UI output
-- [ ] Ensure errors are logged with full details
-- [ ] Add tests for error mapping logic
+- [x] Expand structured error types
+- [x] Implement centralized error mapping
+- [x] Improve CLI error presentation
+- [x] Prevent stack traces from appearing in normal UI output
+- [x] Ensure errors are logged with full details
+- [x] Add tests for error mapping logic
 
 ---
 

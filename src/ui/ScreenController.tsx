@@ -17,6 +17,7 @@ import { createFinishNowHandler } from '../interview/finish-now.js';
 import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
 import { withRetry, RetryExhaustedError } from '../interview/retry.js';
+import { formatUserMessage, logFullError } from '../errors/errors.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
 import { SpecGenerator } from '../artifacts/spec-generator.js';
 import { ArchGenerator } from '../artifacts/arch-generator.js';
@@ -206,8 +207,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         setInterviewComplete(true);
       })
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        setFatalInterviewError(msg);
+        logFullError(getLogger(), 'interview loop', err);
+        setFatalInterviewError(formatUserMessage(err));
         setIsThinking(false);
       });
   }, [screen, sessionId]);
@@ -271,8 +272,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         }
       })
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        getLogger().error(`generation screen: dev-plan resume failed: ${msg}`);
+        logFullError(getLogger(), 'generation screen: dev-plan resume failed', err);
+        const msg = formatUserMessage(err);
         const s = loadSession(sessionId) ?? currentSessionRef.current;
         if (s) {
           try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
@@ -388,8 +389,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         }
       })
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        getLogger().error(`generation screen: pipeline failed: ${msg}`);
+        logFullError(getLogger(), 'generation screen: pipeline failed', err);
+        const msg = formatUserMessage(err);
         // RetryExhaustedError: onRetryExhausted already persisted error state inside the generator
         if (!(err instanceof RetryExhaustedError)) {
           const s = loadSession(sessionId) ?? currentSessionRef.current;

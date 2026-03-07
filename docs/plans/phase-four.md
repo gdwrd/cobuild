@@ -143,17 +143,17 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 10: Implement High-Level Plan Structure Validator
 
-- [ ] Validate number of phases (4–8)
-- [ ] Validate sequential phase ordering
-- [ ] Validate required fields in each phase:
+- [x] Validate number of phases (4–8)
+- [x] Validate sequential phase ordering
+- [x] Validate required fields in each phase:
   - title
   - goal
   - scope
   - deliverables
   - dependencies
   - acceptance criteria
-- [ ] Reject invalid plan structures
-- [ ] Log validation errors
+- [x] Reject invalid plan structures
+- [x] Log validation errors
 
 ---
 

@@ -10,13 +10,10 @@ vi.mock('../../logging/logger.js', () => ({
   }),
 }));
 
+const mockStdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 const mockExecFile = vi.fn();
 vi.mock('node:child_process', () => ({
   execFile: (...args: unknown[]) => mockExecFile(...args),
-}));
-
-vi.mock('node:util', () => ({
-  promisify: (fn: unknown) => fn,
 }));
 
 describe('buildCodexPrompt', () => {
@@ -46,12 +43,30 @@ describe('buildCodexPrompt', () => {
 });
 
 describe('CodexCliProvider', () => {
+  function mockSuccess(stdout: string) {
+    mockExecFile.mockImplementationOnce(
+      (_file: string, _args: string[], _opts: object, callback: (err: null, stdout: string, stderr: string) => void) => {
+        callback(null, stdout, '');
+        return { stdin: mockStdin };
+      },
+    );
+  }
+
+  function mockFailure(err: Error) {
+    mockExecFile.mockImplementationOnce(
+      (_file: string, _args: string[], _opts: object, callback: (err: Error, stdout: string, stderr: string) => void) => {
+        callback(err, '', '');
+        return { stdin: mockStdin };
+      },
+    );
+  }
+
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
   it('returns trimmed stdout on success', async () => {
-    mockExecFile.mockResolvedValueOnce({ stdout: '  response text  ', stderr: '' });
+    mockSuccess('  response text  ');
 
     const provider = new CodexCliProvider();
     const result = await provider.generate([{ role: 'user', content: 'Hello' }]);
@@ -59,8 +74,8 @@ describe('CodexCliProvider', () => {
     expect(result).toBe('response text');
   });
 
-  it('calls codex with --quiet and the formatted prompt', async () => {
-    mockExecFile.mockResolvedValueOnce({ stdout: 'ok', stderr: '' });
+  it('calls codex with the formatted prompt via stdin', async () => {
+    mockSuccess('ok');
 
     const provider = new CodexCliProvider();
     await provider.generate([
@@ -70,13 +85,16 @@ describe('CodexCliProvider', () => {
 
     expect(mockExecFile).toHaveBeenCalledWith(
       'codex',
-      ['--quiet', '--', 'System: Sys\n\nUser: Hi'],
+      ['--quiet'],
       expect.objectContaining({ encoding: 'utf8' }),
+      expect.any(Function),
     );
+    expect(mockStdin.write).toHaveBeenCalledWith('System: Sys\n\nUser: Hi', 'utf8');
+    expect(mockStdin.end).toHaveBeenCalled();
   });
 
   it('throws when stdout is whitespace only', async () => {
-    mockExecFile.mockResolvedValueOnce({ stdout: '   ', stderr: '' });
+    mockSuccess('   ');
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
@@ -85,7 +103,7 @@ describe('CodexCliProvider', () => {
   });
 
   it('throws wrapped error when codex exits non-zero', async () => {
-    mockExecFile.mockRejectedValueOnce(new Error('Command failed: codex exited with code 1'));
+    mockFailure(new Error('Command failed: codex exited with code 1'));
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
@@ -94,8 +112,7 @@ describe('CodexCliProvider', () => {
   });
 
   it('throws wrapped error when codex binary is not found', async () => {
-    const err = Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' });
-    mockExecFile.mockRejectedValueOnce(err);
+    mockFailure(Object.assign(new Error('spawn codex ENOENT'), { code: 'ENOENT' }));
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
@@ -104,8 +121,7 @@ describe('CodexCliProvider', () => {
   });
 
   it('throws timeout error when process is killed', async () => {
-    const err = Object.assign(new Error('killed'), { killed: true });
-    mockExecFile.mockRejectedValueOnce(err);
+    mockFailure(Object.assign(new Error('killed'), { killed: true }));
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
@@ -114,8 +130,7 @@ describe('CodexCliProvider', () => {
   });
 
   it('throws timeout error for ETIMEDOUT code', async () => {
-    const err = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
-    mockExecFile.mockRejectedValueOnce(err);
+    mockFailure(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }));
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(

@@ -1,9 +1,6 @@
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { getLogger } from '../logging/logger.js';
 import type { ModelMessage, ModelProvider } from '../interview/controller.js';
-
-const execFileAsync = promisify(execFile);
 
 const CODEX_TIMEOUT_MS = 120_000;
 
@@ -27,12 +24,25 @@ export class CodexCliProvider implements ModelProvider {
 
     let stdout: string;
     try {
-      const result = await execFileAsync('codex', ['--quiet', '--', prompt], {
-        timeout: CODEX_TIMEOUT_MS,
-        encoding: 'utf8',
-        maxBuffer: 10 * 1024 * 1024,
+      stdout = await new Promise<string>((resolve, reject) => {
+        const child = execFile(
+          'codex',
+          ['--quiet'],
+          { timeout: CODEX_TIMEOUT_MS, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+          (err, out, errOut) => {
+            if (err) {
+              (err as NodeJS.ErrnoException & { stderr?: string }).stderr =
+                typeof errOut === 'string' ? errOut.trim() : '';
+              reject(err);
+            } else {
+              resolve(out as string);
+            }
+          },
+        );
+        child.stdin?.on('error', reject);
+        child.stdin?.write(prompt, 'utf8');
+        child.stdin?.end();
       });
-      stdout = result.stdout;
     } catch (err) {
       const isTimeout =
         err instanceof Error &&

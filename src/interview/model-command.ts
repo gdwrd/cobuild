@@ -31,7 +31,12 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
 
     logger.info('/model: listing installed models');
 
-    const models = await modelLister!.listModels();
+    if (!modelLister) {
+      logger.error('/model: modelLister not provided despite supportsModelListing=true');
+      return { handled: true, continueInterview: true, message: 'Model listing is unavailable.' };
+    }
+
+    const models = await modelLister.listModels();
 
     if (models.length === 0) {
       logger.info('/model: no models available');

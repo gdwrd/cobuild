@@ -31,6 +31,7 @@ export interface PostSpecWorkflowOptions {
   onDecision: (question: string) => Promise<boolean>;
   writeArtifactFile: (content: string, workingDirectory: string, type: 'architecture' | 'plan') => string;
   onStageUpdate?: (stage: PostSpecStage) => void;
+  onRestoreCompletedStage?: (label: string, filePath: string) => void;
 }
 
 export interface PostSpecWorkflowResult {
@@ -53,37 +54,48 @@ export async function runPostSpecWorkflow(
   const logger = getLogger();
   logger.info(`post-spec workflow: starting (session ${session.id})`);
 
-  // Step 1: Ask about architecture generation
-  notifyStage(options, 'asking-architecture');
-  const wantsArchitecture = await options.onDecision(
-    'Generate architecture document?',
-  );
-  let currentSession = persistWorkflowDecision(session, 'architecture', wantsArchitecture);
+  let currentSession: Session;
+  let architectureFilePath: string;
 
-  if (!wantsArchitecture) {
-    logger.info(`post-spec workflow: user declined architecture generation, terminating (session ${session.id})`);
-    notifyStage(options, 'terminated');
-    return { terminatedAt: 'architecture-decision', finalSession: currentSession };
+  if (session.architectureArtifact) {
+    // Architecture already generated (retry after plan failure) — skip ask and re-generation
+    architectureFilePath = session.architectureArtifact.filePath;
+    currentSession = session;
+    options.onRestoreCompletedStage?.('Architecture document', architectureFilePath);
+    logger.info(`post-spec workflow: architecture already generated, skipping (session ${session.id})`);
+  } else {
+    // Step 1: Ask about architecture generation
+    notifyStage(options, 'asking-architecture');
+    const wantsArchitecture = await options.onDecision(
+      'Generate architecture document?',
+    );
+    currentSession = persistWorkflowDecision(session, 'architecture', wantsArchitecture);
+
+    if (!wantsArchitecture) {
+      logger.info(`post-spec workflow: user declined architecture generation, terminating (session ${session.id})`);
+      notifyStage(options, 'terminated');
+      return { terminatedAt: 'architecture-decision', finalSession: currentSession };
+    }
+
+    // Step 2: Generate architecture
+    notifyStage(options, 'generating-architecture');
+    const { session: afterArchPipeline, result: archResult } = await runArtifactPipeline(
+      currentSession,
+      provider,
+      options.architectureGenerator,
+      'architecture',
+    );
+    architectureFilePath = options.writeArtifactFile(
+      archResult.content,
+      afterArchPipeline.workingDirectory,
+      'architecture',
+    );
+    // Reload from disk to pick up fields written by the generator (e.g. architectureGenerationAttempts)
+    const freshArchSession = loadSession(afterArchPipeline.id) ?? afterArchPipeline;
+    currentSession = persistArchitectureArtifact(freshArchSession, archResult.content, architectureFilePath);
+    currentSession = completeArchitectureStage(currentSession);
+    logger.info(`post-spec workflow: architecture generation complete, saved to ${architectureFilePath} (session ${session.id})`);
   }
-
-  // Step 2: Generate architecture
-  notifyStage(options, 'generating-architecture');
-  const { session: afterArchPipeline, result: archResult } = await runArtifactPipeline(
-    currentSession,
-    provider,
-    options.architectureGenerator,
-    'architecture',
-  );
-  const architectureFilePath = options.writeArtifactFile(
-    archResult.content,
-    afterArchPipeline.workingDirectory,
-    'architecture',
-  );
-  // Reload from disk to pick up fields written by the generator (e.g. architectureGenerationAttempts)
-  const freshArchSession = loadSession(afterArchPipeline.id) ?? afterArchPipeline;
-  currentSession = persistArchitectureArtifact(freshArchSession, archResult.content, architectureFilePath);
-  currentSession = completeArchitectureStage(currentSession);
-  logger.info(`post-spec workflow: architecture generation complete, saved to ${architectureFilePath} (session ${session.id})`);
 
   // Step 3: Ask about plan generation
   notifyStage(options, 'asking-plan');

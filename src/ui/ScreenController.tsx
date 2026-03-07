@@ -334,47 +334,65 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const specGenerator = new SpecGenerator();
     const archGenerator = new ArchGenerator();
     const planGenerator = new PlanGenerator();
-    runArtifactPipeline(session, provider, specGenerator, 'spec')
-      .then(({ session: updatedSession, result }) => {
-        // Reload session from disk to pick up fields written by the generator (e.g. generationAttempts)
-        const freshSession = loadSession(updatedSession.id) ?? updatedSession;
-        const projectName = path.basename(freshSession.workingDirectory) || 'project';
-        const docsDir = ensureDocsDir(freshSession.workingDirectory);
-        const filename = generateFilename(projectName);
-        const filePath = resolveOutputPath(docsDir, filename);
-        try {
-          writeArtifactFile(filePath, result.content);
-        } catch (err) {
-          logFullError(getLogger(), `generation screen: file write failed for ${filePath}`, err);
-          const msg = formatUserMessage(err);
-          try { persistErrorState(freshSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
-          setGenerationError(`File write failed: ${msg}`);
-          setGenerationStatus('error');
-          return null;
-        }
-        const afterArtifact = persistSpecArtifact(freshSession, result.content, filePath);
-        const afterSpecStage = completeSpecStage(afterArtifact);
-        getLogger().info(`generation screen: spec saved to ${filePath}`);
-        setGenerationFilePath(filePath);
-        setCompletedStages((prev) => [...prev, { label: 'Project specification', filePath }]);
 
-        const specSession = loadSession(afterSpecStage.id) ?? afterSpecStage;
-        return runPostSpecWorkflow(specSession, provider, {
-          architectureGenerator: archGenerator,
-          planGenerator: planGenerator,
-          onDecision: makeOnDecision,
-          writeArtifactFile: makeWriteArtifact,
-          onStageUpdate: (stage) => {
-            if (stage === 'generating-architecture') {
-              setGenerationStage('architecture');
-              setScreen('generating');
-            } else if (stage === 'generating-plan') {
-              setGenerationStage('plan');
-              setScreen('generating');
+    const postSpecOptions = {
+      architectureGenerator: archGenerator,
+      planGenerator: planGenerator,
+      onDecision: makeOnDecision,
+      writeArtifactFile: makeWriteArtifact,
+      onStageUpdate: (stage: string) => {
+        if (stage === 'generating-architecture') {
+          setGenerationStage('architecture');
+          setScreen('generating');
+        } else if (stage === 'generating-plan') {
+          setGenerationStage('plan');
+          setScreen('generating');
+        }
+      },
+      onRestoreCompletedStage: (label: string, filePath: string) => {
+        setCompletedStages((prev) => [...prev, { label, filePath }]);
+      },
+    };
+
+    // If spec was already generated (retry after arch/plan failure), skip re-generating it
+    const existingSpec = session.specArtifact;
+    const postSpecPromise = existingSpec
+      ? (() => {
+          setGenerationFilePath(existingSpec.filePath);
+          setCompletedStages([{ label: 'Project specification', filePath: existingSpec.filePath }]);
+          getLogger().info(`generation screen: spec already exists, resuming post-spec workflow (session ${session.id})`);
+          const specSession = loadSession(session.id) ?? session;
+          return runPostSpecWorkflow(specSession, provider, postSpecOptions);
+        })()
+      : runArtifactPipeline(session, provider, specGenerator, 'spec')
+          .then(({ session: updatedSession, result }) => {
+            // Reload session from disk to pick up fields written by the generator (e.g. generationAttempts)
+            const freshSession = loadSession(updatedSession.id) ?? updatedSession;
+            const projectName = path.basename(freshSession.workingDirectory) || 'project';
+            const docsDir = ensureDocsDir(freshSession.workingDirectory);
+            const filename = generateFilename(projectName);
+            const filePath = resolveOutputPath(docsDir, filename);
+            try {
+              writeArtifactFile(filePath, result.content);
+            } catch (err) {
+              logFullError(getLogger(), `generation screen: file write failed for ${filePath}`, err);
+              const msg = formatUserMessage(err);
+              try { persistErrorState(freshSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
+              setGenerationError(`File write failed: ${msg}`);
+              setGenerationStatus('error');
+              return null;
             }
-          },
-        });
-      })
+            const afterArtifact = persistSpecArtifact(freshSession, result.content, filePath);
+            const afterSpecStage = completeSpecStage(afterArtifact);
+            getLogger().info(`generation screen: spec saved to ${filePath}`);
+            setGenerationFilePath(filePath);
+            setCompletedStages((prev) => [...prev, { label: 'Project specification', filePath }]);
+
+            const specSession = loadSession(afterSpecStage.id) ?? afterSpecStage;
+            return runPostSpecWorkflow(specSession, provider, postSpecOptions);
+          });
+
+    postSpecPromise
       .then(async (workflowResult) => {
         if (workflowResult === null || workflowResult === undefined) return;
         if (workflowResult.terminatedAt) {
@@ -428,6 +446,10 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
   const handleRetry = useCallback(() => {
     getLogger().info(`generation screen: user requested retry after retry exhaustion`);
+    // Reload session from disk so the retry pipeline sees the latest state (e.g. specArtifact
+    // already written) and can skip stages that were already completed.
+    const fresh = loadSession(sessionId);
+    if (fresh) currentSessionRef.current = fresh;
     pipelineStartedRef.current = false;
     setGenerationStatus('generating');
     setGenerationError(undefined);
@@ -436,7 +458,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setGenerationFilePath(undefined);
     setWorkflowTerminatedEarly(false);
     setRetryTrigger((n) => n + 1);
-  }, []);
+  }, [sessionId]);
 
   const handleYesNoAnswer = useCallback((answer: boolean) => {
     if (!yesNoResolverRef.current) return;

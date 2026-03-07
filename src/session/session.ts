@@ -461,6 +461,7 @@ export function persistDevPlanStage(session: Session): Session {
     ...session,
     stage: 'dev-plans',
     devPlanHalted: undefined,
+    retryExhausted: undefined,
     updatedAt: new Date().toISOString(),
   };
   saveSession(updated);

@@ -421,4 +421,54 @@ describe('runPostSpecWorkflow', () => {
 
     expect(vi.mocked(persistDevPlanStage)).not.toHaveBeenCalled();
   });
+
+  describe('retry path — architecture already generated', () => {
+    const existingArch = { content: '# Arch', filePath: '/work/docs/arch.md', generated: true };
+
+    it('skips architecture ask and generation when session.architectureArtifact is set', async () => {
+      const session = makeSession({ architectureArtifact: existingArch });
+      const provider = makeProvider();
+      const onRestoreCompletedStage = vi.fn();
+      const options = makeOptions({ onRestoreCompletedStage });
+
+      await runPostSpecWorkflow(session, provider, options);
+
+      expect(vi.mocked(runArtifactPipeline)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(runArtifactPipeline)).toHaveBeenCalledWith(
+        expect.anything(), provider, options.planGenerator, 'plan',
+      );
+    });
+
+    it('does not ask user about architecture when session.architectureArtifact is set', async () => {
+      const session = makeSession({ architectureArtifact: existingArch });
+      const provider = makeProvider();
+      const options = makeOptions();
+
+      await runPostSpecWorkflow(session, provider, options);
+
+      // onDecision is called for plan and dev-plans only (not architecture)
+      expect(vi.mocked(options.onDecision)).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls onRestoreCompletedStage with the existing architecture file path', async () => {
+      const session = makeSession({ architectureArtifact: existingArch });
+      const provider = makeProvider();
+      const onRestoreCompletedStage = vi.fn();
+      const options = makeOptions({ onRestoreCompletedStage });
+
+      await runPostSpecWorkflow(session, provider, options);
+
+      expect(onRestoreCompletedStage).toHaveBeenCalledWith('Architecture document', '/work/docs/arch.md');
+    });
+
+    it('returns existing architectureFilePath in result when arch already generated', async () => {
+      const session = makeSession({ architectureArtifact: existingArch });
+      const provider = makeProvider();
+      const options = makeOptions();
+
+      const result = await runPostSpecWorkflow(session, provider, options);
+
+      expect(result.architectureFilePath).toBe('/work/docs/arch.md');
+    });
+  });
 });

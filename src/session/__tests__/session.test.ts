@@ -1207,6 +1207,17 @@ describe('persistDevPlanStage', () => {
 
     expect(updated.devPlanHalted).toBeUndefined();
   });
+
+  it('clears retryExhausted so a retry-exhausted session resumes with clean state', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlanStage } = await import('../session.js');
+    const retryExhaustedSession = { ...baseSession, retryExhausted: true };
+    const updated = persistDevPlanStage(retryExhaustedSession);
+
+    expect(updated.retryExhausted).toBeUndefined();
+  });
 });
 
 describe('completeDevPlanStage', () => {

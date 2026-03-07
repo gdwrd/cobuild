@@ -216,7 +216,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           getLogger().error(`generation screen: file write failed for ${filePath}: ${msg}`);
-          persistErrorState(updatedSession, `File write failed: ${msg}`);
+          try { persistErrorState(updatedSession, `File write failed: ${msg}`); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           setGenerationError(`File write failed: ${msg}`);
           setGenerationStatus('error');
           return;
@@ -234,7 +234,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (!(err instanceof RetryExhaustedError)) {
           const s = loadSession(sessionId) ?? currentSessionRef.current;
           if (s) {
-            persistErrorState(s, msg);
+            try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
           }
         }
         setGenerationError(msg);

@@ -24,10 +24,9 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
   }, [status]);
 
   useEffect(() => {
-    if (status === 'success') {
-      const timer = setTimeout(() => exit(), 100);
-      return () => clearTimeout(timer);
-    }
+    if (status !== 'success') return;
+    const timer = setTimeout(() => exit(), 1500);
+    return () => clearTimeout(timer);
   }, [status, exit]);
 
   useInput((char, key) => {
@@ -58,8 +57,6 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
             {'Saved to: '}
             <Text color="cyan">{filePath}</Text>
           </Text>
-          <Text> </Text>
-          <Text dimColor>Press ctrl+c to exit.</Text>
         </Box>
       )}
       {status === 'error' && (

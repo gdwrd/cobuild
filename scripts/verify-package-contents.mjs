@@ -15,7 +15,6 @@ const ALLOWED_ROOTS = new Set([
   'package.json',
   'README.md',
   'LICENSE',
-  'RELEASE_NOTES.md',
   'CHANGELOG.md',
 ]);
 

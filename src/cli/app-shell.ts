@@ -1,5 +1,6 @@
 import type { RuntimeConfig } from './config.js';
-import { checkTTY, checkOllama } from '../validation/env.js';
+import type { ProviderName } from '../session/session.js';
+import { checkTTY, checkProviderReadiness } from '../validation/env.js';
 import { bootstrapDirectories } from '../fs/bootstrap.js';
 import { getLogger } from '../logging/logger.js';
 import { createAndSaveSession, findLatestByWorkingDirectory } from '../session/session.js';
@@ -36,10 +37,29 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
     return { success: false, message: ttyResult.message };
   }
 
-  const ollamaResult = await checkOllama();
-  logger.log(ollamaResult.ok ? 'info' : 'error', `ollama check: ${ollamaResult.message}`);
-  if (!ollamaResult.ok) {
-    return { success: false, message: ollamaResult.message };
+  // Determine effective provider before running the readiness check.
+  // For resumed sessions the provider is taken from the saved session, not from config.
+  let effectiveProvider: ProviderName = config.provider;
+  let existingSession: ReturnType<typeof findLatestByWorkingDirectory> = null;
+
+  if (!config.newSession) {
+    existingSession = findLatestByWorkingDirectory(process.cwd());
+    const isResumeable =
+      existingSession &&
+      (!existingSession.completed ||
+        (existingSession.stage === 'dev-plans' && !existingSession.devPlansComplete));
+    if (isResumeable && existingSession) {
+      effectiveProvider = existingSession.provider ?? 'ollama';
+    }
+  }
+
+  const providerResult = await checkProviderReadiness(effectiveProvider);
+  logger.log(
+    providerResult.ok ? 'info' : 'error',
+    `provider check (${effectiveProvider}): ${providerResult.message}`,
+  );
+  if (!providerResult.ok) {
+    return { success: false, message: providerResult.message };
   }
 
   let sessionId: string;
@@ -53,19 +73,22 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
       sessionResolution = 'new';
       logger.info(`new session created: ${session.id}`);
     } else {
-      const existing = findLatestByWorkingDirectory(process.cwd());
       const isResumeableExisting =
-        existing &&
-        (!existing.completed ||
-          (existing.stage === 'dev-plans' && !existing.devPlansComplete));
-      if (isResumeableExisting) {
-        logger.info(`resuming existing session: ${existing.id} at stage ${existing.stage ?? 'interview'} (provider=${existing.provider ?? 'ollama'})`);
-        sessionId = existing.id;
+        existingSession &&
+        (!existingSession.completed ||
+          (existingSession.stage === 'dev-plans' && !existingSession.devPlansComplete));
+      if (isResumeableExisting && existingSession) {
+        logger.info(
+          `resuming existing session: ${existingSession.id} at stage ${existingSession.stage ?? 'interview'} (provider=${existingSession.provider ?? 'ollama'})`,
+        );
+        sessionId = existingSession.id;
         sessionResolution = 'resumed';
-        sessionStage = existing.stage;
+        sessionStage = existingSession.stage;
       } else {
-        if (existing && (existing.completed || existing.devPlansComplete)) {
-          logger.info(`latest session completed, starting new session (was: ${existing.id})`);
+        if (existingSession && (existingSession.completed || existingSession.devPlansComplete)) {
+          logger.info(
+            `latest session completed, starting new session (was: ${existingSession.id})`,
+          );
         } else {
           logger.info('no existing session found for working directory, starting new session');
         }

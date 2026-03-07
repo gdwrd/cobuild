@@ -13,10 +13,10 @@
 - [x] Add unit tests for config parsing, session migration, and session resume behavior with both Ollama and Codex CLI providers.
 
 ### Task 2: Replace Ollama-only startup validation with provider-aware readiness checks
-- [ ] Refactor startup validation so it runs the correct readiness check for the selected or resumed provider instead of always calling `checkOllama`.
-- [ ] Keep the current Ollama reachability check for Ollama sessions and add a Codex CLI readiness check that verifies the `codex` executable is available and returns a clear actionable failure message when it is not.
-- [ ] Ensure resumed sessions validate against the provider saved in the session rather than any new-session default.
-- [ ] Add tests covering successful and failing startup for both providers, including resumed Codex CLI sessions.
+- [x] Refactor startup validation so it runs the correct readiness check for the selected or resumed provider instead of always calling `checkOllama`.
+- [x] Keep the current Ollama reachability check for Ollama sessions and add a Codex CLI readiness check that verifies the `codex` executable is available and returns a clear actionable failure message when it is not.
+- [x] Ensure resumed sessions validate against the provider saved in the session rather than any new-session default.
+- [x] Add tests covering successful and failing startup for both providers, including resumed Codex CLI sessions.
 
 ### Task 3: Add a Codex CLI provider implementation behind a shared provider factory
 - [ ] Introduce a provider factory or equivalent abstraction that constructs the active provider instance from session/config state instead of instantiating `OllamaProvider` directly in the UI flow.

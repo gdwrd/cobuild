@@ -1,3 +1,6 @@
+import { spawnSync } from 'node:child_process';
+import type { ProviderName } from '../session/session.js';
+
 export interface ValidationResult {
   ok: boolean;
   message: string;
@@ -40,4 +43,24 @@ export async function checkOllama(baseUrl = 'http://localhost:11434'): Promise<V
       message: `Ollama is not reachable at ${baseUrl} (${detail}). Start Ollama and try again.`,
     };
   }
+}
+
+export function checkCodexCli(): ValidationResult {
+  const result = spawnSync('codex', ['--version'], { timeout: 5000 });
+  if (result.error) {
+    const isNotFound = (result.error as NodeJS.ErrnoException).code === 'ENOENT';
+    const detail = isNotFound ? 'codex binary not found on PATH' : result.error.message;
+    return {
+      ok: false,
+      message: `codex CLI is not available (${detail}). Install Codex CLI and ensure it is on your PATH.`,
+    };
+  }
+  return { ok: true, message: 'codex CLI is available' };
+}
+
+export async function checkProviderReadiness(provider: ProviderName): Promise<ValidationResult> {
+  if (provider === 'codex-cli') {
+    return checkCodexCli();
+  }
+  return checkOllama();
 }

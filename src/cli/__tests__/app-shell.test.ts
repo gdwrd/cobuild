@@ -3,7 +3,7 @@ import { runStartup } from '../app-shell.js';
 
 vi.mock('../../validation/env.js', () => ({
   checkTTY: vi.fn(() => ({ ok: true, message: 'terminal is interactive' })),
-  checkOllama: vi.fn(async () => ({ ok: true, message: 'Ollama is reachable at http://localhost:11434' })),
+  checkProviderReadiness: vi.fn(async () => ({ ok: true, message: 'provider is ready' })),
 }));
 
 vi.mock('../../session/session.js', () => ({
@@ -14,6 +14,7 @@ vi.mock('../../session/session.js', () => ({
     workingDirectory: '/work',
     completed: false,
     transcript: [],
+    provider: 'ollama',
   })),
   findLatestByWorkingDirectory: vi.fn(() => null),
 }));
@@ -30,7 +31,7 @@ vi.mock('../../logging/logger.js', () => ({
   getLogger: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), log: vi.fn() }),
 }));
 
-import { checkTTY, checkOllama } from '../../validation/env.js';
+import { checkTTY, checkProviderReadiness } from '../../validation/env.js';
 import { bootstrapDirectories } from '../../fs/bootstrap.js';
 import { createAndSaveSession, findLatestByWorkingDirectory } from '../../session/session.js';
 
@@ -41,13 +42,14 @@ const mockNewSession = {
   workingDirectory: '/work',
   completed: false,
   transcript: [],
+  provider: 'ollama' as const,
 };
 
 describe('runStartup', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(checkTTY).mockReturnValue({ ok: true, message: 'terminal is interactive' });
-    vi.mocked(checkOllama).mockResolvedValue({ ok: true, message: 'Ollama is reachable at http://localhost:11434' });
+    vi.mocked(checkProviderReadiness).mockResolvedValue({ ok: true, message: 'provider is ready' });
     vi.mocked(bootstrapDirectories).mockReturnValue({
       ok: true,
       cobuildDir: '/home/testuser/.cobuild',
@@ -65,6 +67,16 @@ describe('runStartup', () => {
     expect(result.sessionResolution).toBe('new');
   });
 
+  it('calls checkProviderReadiness with ollama for a new ollama session', async () => {
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('ollama');
+  });
+
+  it('calls checkProviderReadiness with codex-cli for a new codex-cli session', async () => {
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const });
+    expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('codex-cli');
+  });
+
   it('resumes existing incomplete session when newSession=false', async () => {
     vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
       id: 'existing-session-id',
@@ -73,12 +85,58 @@ describe('runStartup', () => {
       workingDirectory: process.cwd(),
       completed: false,
       transcript: [],
+      provider: 'ollama' as const,
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('existing-session-id');
     expect(result.sessionResolution).toBe('resumed');
     expect(vi.mocked(createAndSaveSession)).not.toHaveBeenCalled();
+  });
+
+  it('uses the provider from the resumed session for the readiness check', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'codex-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'codex-cli' as const,
+    });
+    // config says ollama but the session says codex-cli — must use codex-cli
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('codex-cli');
+  });
+
+  it('resumes a codex-cli session successfully', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'codex-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'codex-cli' as const,
+    });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    expect(result.success).toBe(true);
+    expect(result.sessionId).toBe('codex-session-id');
+    expect(result.sessionResolution).toBe('resumed');
+  });
+
+  it('treats resumed sessions with missing provider as ollama', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'legacy-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      // no provider field — legacy session
+    });
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('ollama');
   });
 
   it('creates new session when existing session is completed', async () => {
@@ -89,6 +147,7 @@ describe('runStartup', () => {
       workingDirectory: process.cwd(),
       completed: true,
       transcript: [],
+      provider: 'ollama' as const,
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
@@ -104,6 +163,7 @@ describe('runStartup', () => {
       workingDirectory: process.cwd(),
       completed: false,
       transcript: [],
+      provider: 'ollama' as const,
     });
     const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(true);
@@ -132,14 +192,43 @@ describe('runStartup', () => {
     expect(result.message).toMatch(/interactive terminal/i);
   });
 
-  it('returns failure when Ollama check fails', async () => {
-    vi.mocked(checkOllama).mockResolvedValue({
+  it('returns failure when ollama readiness check fails', async () => {
+    vi.mocked(checkProviderReadiness).mockResolvedValue({
       ok: false,
       message: 'Ollama is not reachable at http://localhost:11434 (connection refused).',
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/not reachable/i);
+  });
+
+  it('returns failure when codex-cli readiness check fails for a new session', async () => {
+    vi.mocked(checkProviderReadiness).mockResolvedValue({
+      ok: false,
+      message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
+    });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/codex CLI is not available/i);
+  });
+
+  it('returns failure when codex-cli readiness check fails for a resumed codex-cli session', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'codex-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'codex-cli' as const,
+    });
+    vi.mocked(checkProviderReadiness).mockResolvedValue({
+      ok: false,
+      message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
+    });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/codex CLI is not available/i);
   });
 
   it('returns failure when directory bootstrap fails', async () => {

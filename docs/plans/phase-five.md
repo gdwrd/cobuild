@@ -180,12 +180,12 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 13: Add Integration Tests
 
-- [ ] Test dev plan generation after high-level plan
-- [ ] Test generation of multiple phases
-- [ ] Test retry behavior
-- [ ] Test stop on unrecoverable phase failure
-- [ ] Test resume after partial generation
-- [ ] Test filename collision handling
+- [x] Test dev plan generation after high-level plan
+- [x] Test generation of multiple phases
+- [x] Test retry behavior
+- [x] Test stop on unrecoverable phase failure
+- [x] Test resume after partial generation
+- [x] Test filename collision handling
 
 ---
 

@@ -84,13 +84,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         sessionResolution = 'resumed';
         sessionStage = existingSession.stage;
       } else {
-        if (existingSession && (existingSession.completed || existingSession.devPlansComplete)) {
-          logger.info(
-            `latest session completed, starting new session (was: ${existingSession.id})`,
-          );
-        } else {
-          logger.info('no existing session found for working directory, starting new session');
-        }
+        logger.info('no existing session found for working directory, starting new session');
         const session = createAndSaveSession(config.provider);
         sessionId = session.id;
         sessionResolution = 'new';

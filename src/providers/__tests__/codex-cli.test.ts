@@ -70,7 +70,7 @@ describe('CodexCliProvider', () => {
 
     expect(mockExecFile).toHaveBeenCalledWith(
       'codex',
-      ['--quiet', 'System: Sys\n\nUser: Hi'],
+      ['--quiet', '--', 'System: Sys\n\nUser: Hi'],
       expect.objectContaining({ encoding: 'utf8' }),
     );
   });

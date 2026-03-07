@@ -120,7 +120,8 @@ export function migrateSession(raw: unknown): Session {
 
   // carry over optional fields if present
   if (data['finishedEarly'] !== undefined) migrated.finishedEarly = data['finishedEarly'] as boolean;
-  migrated.provider = (data['provider'] as ProviderName | undefined) ?? 'ollama';
+  const rawProvider = data['provider'];
+  migrated.provider = rawProvider === 'ollama' || rawProvider === 'codex-cli' ? rawProvider : 'ollama';
   if (data['model'] !== undefined) migrated.model = data['model'] as string;
   if (data['lastError'] !== undefined) migrated.lastError = data['lastError'] as string;
   if (data['generationAttempts'] !== undefined) migrated.generationAttempts = data['generationAttempts'] as number;

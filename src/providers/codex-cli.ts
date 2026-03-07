@@ -27,7 +27,7 @@ export class CodexCliProvider implements ModelProvider {
 
     let stdout: string;
     try {
-      const result = await execFileAsync('codex', ['--quiet', prompt], {
+      const result = await execFileAsync('codex', ['--quiet', '--', prompt], {
         timeout: CODEX_TIMEOUT_MS,
         encoding: 'utf8',
       });

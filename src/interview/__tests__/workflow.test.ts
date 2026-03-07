@@ -106,16 +106,16 @@ describe('new session interview start', () => {
 
 describe('restored session continuation', () => {
   it('resumes from existing transcript without firing initial model turn', async () => {
+    // Transcript ends with assistant (normal resume: model asked a question, waiting for user)
     const session = makeSession({
       transcript: [
         { role: 'assistant', content: 'What is your project?', timestamp: '2026-01-01T00:00:00.000Z' },
-        { role: 'user', content: 'A todo app.', timestamp: '2026-01-01T00:00:00.000Z' },
       ],
     });
     const provider: ModelProvider = {
       generate: vi.fn().mockResolvedValue(`Great, I have enough info! ${COMPLETION_MARKER}`),
     };
-    const onUserInput = vi.fn().mockResolvedValue('I need auth too.');
+    const onUserInput = vi.fn().mockResolvedValue('A todo app.');
     const onAssistantResponse = vi.fn(async () => {});
 
     const finalSession = await runInterviewLoop(
@@ -132,10 +132,12 @@ describe('restored session continuation', () => {
   });
 
   it('sends existing transcript messages to model when resuming', async () => {
+    // Transcript ends with assistant, so resume asks for user input before calling model
     const session = makeSession({
       transcript: [
         { role: 'assistant', content: 'What is your project?', timestamp: '2026-01-01T00:00:00.000Z' },
         { role: 'user', content: 'A todo app.', timestamp: '2026-01-01T00:00:00.000Z' },
+        { role: 'assistant', content: 'Tell me more.', timestamp: '2026-01-01T00:00:00.000Z' },
       ],
     });
     const provider: ModelProvider = {

@@ -94,8 +94,12 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
       if (session && session.workingDirectory === workingDirectory) {
         sessions.push(session);
       }
-    } catch {
-      // skip corrupted session files
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        // skip corrupted/invalid JSON session files
+      } else {
+        throw err;
+      }
     }
   }
 

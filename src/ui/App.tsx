@@ -13,6 +13,8 @@ export interface AppProps {
   isThinking?: boolean;
   isComplete?: boolean;
   errorMessage?: string | null;
+  fatalErrorMessage?: string | null;
+  allowEmptySubmit?: boolean;
   onSubmit?: (input: string) => void;
 }
 
@@ -23,6 +25,8 @@ export function App({
   isThinking = false,
   isComplete = false,
   errorMessage = null,
+  fatalErrorMessage = null,
+  allowEmptySubmit = false,
   onSubmit,
 }: AppProps) {
   const { exit } = useApp();
@@ -53,7 +57,7 @@ export function App({
 
     if (key.return) {
       const trimmed = input.trim();
-      if (trimmed && !isThinking) {
+      if ((trimmed || allowEmptySubmit) && !isThinking) {
         onSubmit?.(trimmed);
         setInput('');
       }
@@ -112,7 +116,12 @@ export function App({
         </Text>
       </Box>
 
-      {isComplete ? (
+      {fatalErrorMessage ? (
+        <Box paddingX={1} paddingY={1} flexDirection="column">
+          <Text color="red">Fatal error: {fatalErrorMessage}</Text>
+          <Text dimColor>Press ctrl+c to exit.</Text>
+        </Box>
+      ) : isComplete ? (
         <Box paddingX={1} paddingY={1}>
           <Text color="magenta">Interview complete. Press ctrl+c to exit.</Text>
         </Box>

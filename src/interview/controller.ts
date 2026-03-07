@@ -87,6 +87,20 @@ export async function runInterviewLoop(
       currentSession = completeInterview(currentSession, false);
       return currentSession;
     }
+  } else {
+    const tx = getTranscript(currentSession);
+    if (tx[tx.length - 1].role === 'user') {
+      logger.info('interview loop: resuming after incomplete turn, generating model response');
+      const result = await runInterviewTurn(currentSession, provider, systemPrompt);
+      currentSession = result.session;
+      await onAssistantResponse(result.response, result.complete);
+
+      if (result.complete) {
+        logger.info('interview loop: completed after resumed turn');
+        currentSession = completeInterview(currentSession, false);
+        return currentSession;
+      }
+    }
   }
 
   let complete = false;

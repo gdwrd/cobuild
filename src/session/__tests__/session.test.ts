@@ -259,6 +259,17 @@ describe('findLatestByWorkingDirectory', () => {
 
     expect(result?.id).toBe('good');
   });
+
+  it('re-throws permission errors from individual session load', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(() => findLatestByWorkingDirectory('/work')).toThrow('EACCES: permission denied');
+  });
 });
 
 describe('appendInterviewMessage', () => {

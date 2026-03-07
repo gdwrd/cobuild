@@ -31,7 +31,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [transcript, setTranscript] = useState<InterviewMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [interviewComplete, setInterviewComplete] = useState(false);
-  const [interviewError, setInterviewError] = useState<string | null>(null);
+  const [fatalInterviewError, setFatalInterviewError] = useState<string | null>(null);
+  const [isSelectingModel, setIsSelectingModel] = useState(false);
 
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
@@ -137,13 +138,15 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         false,
       );
       isSelectingModelRef.current = true;
+      setIsSelectingModel(true);
       const choice = await onUserInput();
       isSelectingModelRef.current = false;
+      setIsSelectingModel(false);
       setIsThinking(true);
       const trimmed = choice.trim();
       if (!trimmed) return null;
-      const byIndex = parseInt(trimmed, 10);
-      if (!isNaN(byIndex) && byIndex >= 1 && byIndex <= models.length) {
+      const byIndex = Number(trimmed);
+      if (Number.isInteger(byIndex) && byIndex >= 1 && byIndex <= models.length) {
         return models[byIndex - 1];
       }
       return models.includes(trimmed) ? trimmed : null;
@@ -175,7 +178,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
-        setInterviewError(msg);
+        setFatalInterviewError(msg);
         setIsThinking(false);
       });
   }, [screen, sessionId]);
@@ -234,7 +237,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       transcript={transcript}
       isThinking={isThinking}
       isComplete={interviewComplete}
-      errorMessage={interviewError}
+      fatalErrorMessage={fatalInterviewError}
+      allowEmptySubmit={isSelectingModel}
       onSubmit={handleSubmit}
     />
   );

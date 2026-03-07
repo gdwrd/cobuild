@@ -203,19 +203,56 @@ describe('runInterviewLoop', () => {
   });
 
   it('skips initial model turn when transcript already has messages', async () => {
+    // Transcript ends with assistant (normal resume: model asked, waiting for user answer)
     const session = makeSession([
       { role: 'assistant', content: 'Previous question?' },
-      { role: 'user', content: 'Previous answer.' },
     ]);
     const provider = makeProvider(`All done! ${COMPLETION_MARKER}`);
     const onUserInput = vi.fn(async () => 'My answer.');
     const onAssistantResponse = vi.fn(async () => {});
+
+    vi.mocked(appendInterviewMessage).mockImplementation((s, role, content) => ({
+      ...s,
+      transcript: [...s.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }));
 
     await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
 
     expect(onUserInput).toHaveBeenCalledTimes(1);
     expect(onAssistantResponse).toHaveBeenCalledTimes(1);
     expect(onAssistantResponse).toHaveBeenCalledWith('All done!', true);
+  });
+
+  it('generates model response first when transcript ends with user message (crash recovery)', async () => {
+    const session = makeSession([
+      { role: 'assistant', content: 'What is your project?' },
+      { role: 'user', content: 'A todo app.' },
+      // session ends here — as if it crashed before the assistant responded
+    ]);
+    let callCount = 0;
+    const provider: ModelProvider = {
+      generate: vi.fn(async () => {
+        callCount++;
+        return callCount === 1 ? 'Tell me more.' : `All done! ${COMPLETION_MARKER}`;
+      }),
+    };
+    const onUserInput = vi.fn(async () => 'More details.');
+    const onAssistantResponse = vi.fn(async () => {});
+
+    vi.mocked(appendInterviewMessage).mockImplementation((s, role, content) => ({
+      ...s,
+      transcript: [...s.transcript, { role, content, timestamp: '2026-01-01T00:00:01.000Z' }],
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }));
+
+    await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
+
+    // First call resumes the incomplete turn; second call follows user input
+    expect(provider.generate).toHaveBeenCalledTimes(2);
+    expect(onAssistantResponse).toHaveBeenCalledTimes(2);
+    expect(onAssistantResponse).toHaveBeenNthCalledWith(1, 'Tell me more.', false);
+    expect(onUserInput).toHaveBeenCalledTimes(1);
   });
 
   it('loops until model signals completion', async () => {

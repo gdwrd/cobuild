@@ -46,9 +46,9 @@
 - [x] Ensure the release workflow publishes only after build and test validation passes.
 
 ### Task 7: Add install and package smoke checks
-- [ ] Add a smoke check that installs the packed tarball and verifies `cobuild --help`.
-- [ ] Verify that the published package contains only intended runtime files.
-- [ ] Document the release verification steps in the repository so future releases follow the same flow.
+- [x] Add a smoke check that installs the packed tarball and verifies `cobuild --help`.
+- [x] Verify that the published package contains only intended runtime files.
+- [x] Document the release verification steps in the repository so future releases follow the same flow.
 
 ### Task 8: Run the final release pass
 - [ ] Run the full validation command set on a clean working tree.

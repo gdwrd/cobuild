@@ -41,3 +41,9 @@ jobs:
 
       - name: Packaging smoke check
         run: npm pack --dry-run --cache /tmp/cobuild-npm-cache
+
+      - name: Verify package contents
+        run: node scripts/verify-package-contents.mjs
+
+      - name: Install smoke check
+        run: bash scripts/smoke-test.sh

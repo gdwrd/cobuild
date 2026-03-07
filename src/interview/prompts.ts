@@ -1,6 +1,3 @@
-import { getLogger } from '../logging/logger.js';
-import type { Session } from '../session/session.js';
-import { buildModelMessages } from './controller.js';
 import type { ModelMessage } from './controller.js';
 
 export const MAX_PROMPT_TOKENS = 8000;
@@ -17,6 +14,7 @@ Rules:
 - Keep questions concise and conversational.`;
 
 export function buildInterviewSystemPrompt(projectIdea: string): string {
+  if (!projectIdea) return INTERVIEW_SYSTEM_PROMPT;
   return `${INTERVIEW_SYSTEM_PROMPT}
 
 The user's project idea: ${projectIdea}`;
@@ -36,21 +34,3 @@ export function isPromptTooLarge(messages: ModelMessage[]): boolean {
   return estimateMessagesTokenCount(messages) > MAX_PROMPT_TOKENS;
 }
 
-export function buildInterviewMessages(session: Session, projectIdea: string): ModelMessage[] {
-  const logger = getLogger();
-  const systemPrompt = buildInterviewSystemPrompt(projectIdea);
-  const messages = buildModelMessages(systemPrompt, session);
-  const estimatedTokens = estimateMessagesTokenCount(messages);
-
-  logger.info(
-    `prompt orchestration: ${messages.length} messages, ~${estimatedTokens} estimated tokens`,
-  );
-
-  if (isPromptTooLarge(messages)) {
-    logger.warn(
-      `prompt orchestration: prompt may be too large (~${estimatedTokens} tokens > ${MAX_PROMPT_TOKENS})`,
-    );
-  }
-
-  return messages;
-}

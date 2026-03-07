@@ -4,52 +4,17 @@ vi.mock('../../logging/logger.js', () => ({
   getLogger: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
 }));
 
-vi.mock('../../session/session.js', () => ({
-  getTranscript: vi.fn((session) => session.transcript),
-}));
-
-vi.mock('../controller.js', () => ({
-  buildModelMessages: vi.fn((systemPrompt, session) => [
-    { role: 'system', content: systemPrompt },
-    ...session.transcript.map((m: { role: string; content: string }) => ({
-      role: m.role,
-      content: m.content,
-    })),
-  ]),
-}));
-
-import { buildModelMessages } from '../controller.js';
 import {
   INTERVIEW_SYSTEM_PROMPT,
   MAX_PROMPT_TOKENS,
   buildInterviewSystemPrompt,
-  buildInterviewMessages,
   estimateTokenCount,
   estimateMessagesTokenCount,
   isPromptTooLarge,
 } from '../prompts.js';
-import type { Session } from '../../session/session.js';
-
-const makeSession = (
-  transcript: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-): Session => ({
-  id: 'sess-1',
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  workingDirectory: '/work',
-  completed: false,
-  transcript: transcript.map((m) => ({ ...m, timestamp: '2026-01-01T00:00:00.000Z' })),
-});
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(buildModelMessages).mockImplementation((systemPrompt, session) => [
-    { role: 'system', content: systemPrompt },
-    ...session.transcript.map((m: { role: string; content: string }) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    })),
-  ]);
 });
 
 describe('INTERVIEW_SYSTEM_PROMPT', () => {
@@ -77,6 +42,11 @@ describe('buildInterviewSystemPrompt', () => {
     const result = buildInterviewSystemPrompt('My project');
     expect(result).toContain("project idea");
     expect(result).toContain('My project');
+  });
+
+  it('returns just the base prompt when project idea is empty', () => {
+    const result = buildInterviewSystemPrompt('');
+    expect(result).toBe(INTERVIEW_SYSTEM_PROMPT);
   });
 });
 
@@ -130,32 +100,3 @@ describe('isPromptTooLarge', () => {
   });
 });
 
-describe('buildInterviewMessages', () => {
-  it('calls buildModelMessages with system prompt containing project idea', () => {
-    const session = makeSession();
-    buildInterviewMessages(session, 'A task manager app');
-
-    expect(buildModelMessages).toHaveBeenCalledOnce();
-    const [systemPrompt] = vi.mocked(buildModelMessages).mock.calls[0];
-    expect(systemPrompt).toContain('A task manager app');
-    expect(systemPrompt).toContain(INTERVIEW_SYSTEM_PROMPT);
-  });
-
-  it('returns messages from buildModelMessages', () => {
-    const session = makeSession([{ role: 'assistant', content: 'What is your idea?' }]);
-    const messages = buildInterviewMessages(session, 'A chat app');
-
-    expect(messages).toHaveLength(2); // system + 1 transcript message
-    expect(messages[0].role).toBe('system');
-    expect(messages[1]).toEqual({ role: 'assistant', content: 'What is your idea?' });
-  });
-
-  it('includes transcript messages in returned messages', () => {
-    const session = makeSession([
-      { role: 'assistant', content: 'Question?' },
-      { role: 'user', content: 'Answer.' },
-    ]);
-    const messages = buildInterviewMessages(session, 'My project');
-    expect(messages).toHaveLength(3);
-  });
-});

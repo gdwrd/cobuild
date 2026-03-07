@@ -2,6 +2,7 @@ import { Session, appendInterviewMessage, getTranscript, completeInterview } fro
 import { getLogger } from '../logging/logger.js';
 import { isSlashCommand, parseCommand, createCommandRouter } from './commands.js';
 import type { CommandHandler, SlashCommand } from './commands.js';
+import { MAX_PROMPT_TOKENS } from './prompts.js';
 
 export const COMPLETION_MARKER = '[INTERVIEW_COMPLETE]';
 
@@ -46,8 +47,8 @@ export async function runInterviewTurn(
 
   const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4) + 4, 0);
   logger.info(`prompt orchestration: ${messages.length} messages, ~${estimatedTokens} estimated tokens`);
-  if (estimatedTokens > 8000) {
-    logger.warn(`prompt orchestration: prompt may be too large (~${estimatedTokens} tokens > 8000)`);
+  if (estimatedTokens > MAX_PROMPT_TOKENS) {
+    logger.warn(`prompt orchestration: prompt may be too large (~${estimatedTokens} tokens > ${MAX_PROMPT_TOKENS})`);
   }
 
   logger.info(`interview turn: sending ${messages.length} messages to model`);

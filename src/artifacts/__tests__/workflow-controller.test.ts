@@ -5,6 +5,7 @@ vi.mock('../../logging/logger.js', () => ({
 }));
 
 vi.mock('../../session/session.js', () => ({
+  loadSession: vi.fn(() => null),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),
   persistArchitectureArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),

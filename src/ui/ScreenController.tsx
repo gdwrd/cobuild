@@ -50,6 +50,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [generationError, setGenerationError] = useState<string | undefined>(undefined);
   const [generationStage, setGenerationStage] = useState<GenerationStage>('spec');
   const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
+  const [workflowTerminatedEarly, setWorkflowTerminatedEarly] = useState(false);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -287,6 +288,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (workflowResult === null || workflowResult === undefined) return;
         if (workflowResult.terminatedAt) {
           getLogger().info(`generation screen: workflow terminated at ${workflowResult.terminatedAt}, exiting`);
+          setWorkflowTerminatedEarly(true);
         }
         setGenerationStatus('success');
       })
@@ -367,6 +369,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         errorMessage={generationError}
         currentStage={generationStage}
         completedStages={completedStages}
+        terminatedEarly={workflowTerminatedEarly}
       />
     );
   }

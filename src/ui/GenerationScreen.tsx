@@ -17,6 +17,7 @@ export interface GenerationScreenProps {
   errorMessage?: string;
   currentStage?: GenerationStage;
   completedStages?: CompletedStage[];
+  terminatedEarly?: boolean;
 }
 
 const STAGE_LABELS: Record<GenerationStage, string> = {
@@ -37,6 +38,7 @@ export function GenerationScreen({
   errorMessage,
   currentStage = 'spec',
   completedStages = [],
+  terminatedEarly = false,
 }: GenerationScreenProps) {
   const { exit } = useApp();
   const [spinnerFrame, setSpinnerFrame] = useState(0);
@@ -107,7 +109,7 @@ export function GenerationScreen({
       {status === 'success' && completedStages.length > 0 && (
         <Box flexDirection="column">
           <Text> </Text>
-          <Text color="green">All artifacts generated successfully.</Text>
+          <Text color="green">{terminatedEarly ? 'Artifacts generated successfully.' : 'All artifacts generated successfully.'}</Text>
         </Box>
       )}
       {status === 'error' && (

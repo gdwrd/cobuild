@@ -8,6 +8,7 @@ vi.mock('../../logging/logger.js', () => ({
 }));
 
 vi.mock('../../session/session.js', () => ({
+  loadSession: vi.fn(() => null),
   saveSession: vi.fn(),
   persistErrorState: vi.fn(),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),

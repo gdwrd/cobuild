@@ -2,6 +2,7 @@ import type { Session } from '../session/session.js';
 import type { ModelProvider } from '../interview/controller.js';
 import type { ArtifactGenerator } from './generator.js';
 import {
+  loadSession,
   persistWorkflowDecision,
   persistArchitectureArtifact,
   completeArchitectureStage,
@@ -75,7 +76,9 @@ export async function runPostSpecWorkflow(
     afterArchPipeline.workingDirectory,
     'architecture',
   );
-  currentSession = persistArchitectureArtifact(afterArchPipeline, archResult.content, architectureFilePath);
+  // Reload from disk to pick up fields written by the generator (e.g. architectureGenerationAttempts)
+  const freshArchSession = loadSession(afterArchPipeline.id) ?? afterArchPipeline;
+  currentSession = persistArchitectureArtifact(freshArchSession, archResult.content, architectureFilePath);
   currentSession = completeArchitectureStage(currentSession);
   logger.info(`post-spec workflow: architecture generation complete, saved to ${architectureFilePath} (session ${session.id})`);
 
@@ -107,7 +110,9 @@ export async function runPostSpecWorkflow(
     afterPlanPipeline.workingDirectory,
     'plan',
   );
-  currentSession = persistPlanArtifact(afterPlanPipeline, planResult.content, planFilePath);
+  // Reload from disk to pick up fields written by the generator (e.g. planGenerationAttempts)
+  const freshPlanSession = loadSession(afterPlanPipeline.id) ?? afterPlanPipeline;
+  currentSession = persistPlanArtifact(freshPlanSession, planResult.content, planFilePath);
   const phases = extractPhases(planResult.content);
   currentSession = persistExtractedPhases(currentSession, phases);
   currentSession = completePlanStage(currentSession);

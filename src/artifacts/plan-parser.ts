@@ -1,7 +1,7 @@
 import { getLogger } from '../logging/logger.js';
 import type { PlanPhase } from '../session/session.js';
 
-const PHASE_PATTERN = /^#{1,3}\s+Phase\s+(\d+)[:\s]+(.+)/gim;
+const PHASE_PATTERN = /^#{1,3}\s+Phase\s+(\d+)[: \t]+(.+)/gim;
 
 const SECTION_PATTERNS: Array<{ field: keyof Omit<PlanPhase, 'number' | 'title'>; pattern: RegExp }> =
   [

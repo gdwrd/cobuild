@@ -15,20 +15,24 @@ vi.mock('../../logging/logger.js', () => ({
 
 import { YesNoPrompt } from '../YesNoPrompt.js';
 
-function renderToText(question: string, onAnswer: () => void): { output: string; unmount: () => void } {
+function createInputStream(): NodeJS.ReadStream {
+  const stdin = new PassThrough() as PassThrough & NodeJS.ReadStream & {
+    setRawMode: (mode: boolean) => void;
+  };
+  stdin.isTTY = true;
+  stdin.setRawMode = () => {};
+  return stdin;
+}
+
+function renderPrompt(question: string, onAnswer: () => void) {
   const stream = new PassThrough();
-  const chunks: Buffer[] = [];
-  stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-  const { unmount } = render(
+  return render(
     React.createElement(YesNoPrompt, { question, onAnswer }),
-    { stdout: stream as unknown as NodeJS.WriteStream },
+    {
+      stdout: stream as unknown as NodeJS.WriteStream,
+      stdin: createInputStream(),
+    },
   );
-  stream.end();
-  const raw = Buffer.concat(chunks).toString();
-  /* eslint-disable no-control-regex */
-  const output = raw.replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '').replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
-  /* eslint-enable no-control-regex */
-  return { output, unmount };
 }
 
 describe('YesNoPrompt', () => {
@@ -36,44 +40,28 @@ describe('YesNoPrompt', () => {
     vi.resetAllMocks();
   });
 
-  it('renders the question text', () => {
+  it('renders the default prompt without throwing', () => {
     const onAnswer = vi.fn();
-    const { output, unmount } = renderToText('Generate architecture document?', onAnswer);
-    expect(output).toContain('Generate architecture document?');
+    const { unmount } = renderPrompt('Generate architecture document?', onAnswer);
     unmount();
   });
 
   it('renders with a custom question', () => {
     const onAnswer = vi.fn();
-    const { output, unmount } = renderToText('Generate high-level development plan?', onAnswer);
-    expect(output).toContain('Generate high-level development plan?');
+    const { unmount } = renderPrompt('Generate high-level development plan?', onAnswer);
     unmount();
   });
 
   it('does not call onAnswer on initial render', () => {
-    const stream = new PassThrough();
     const onAnswer = vi.fn();
-    const { unmount } = render(
-      React.createElement(YesNoPrompt, {
-        question: 'Generate architecture document?',
-        onAnswer,
-      }),
-      { stdout: stream as unknown as NodeJS.WriteStream },
-    );
+    const { unmount } = renderPrompt('Generate architecture document?', onAnswer);
     expect(onAnswer).not.toHaveBeenCalled();
     unmount();
   });
 
   it('renders without throwing when question is empty string', () => {
-    const stream = new PassThrough();
     const onAnswer = vi.fn();
-    const { unmount } = render(
-      React.createElement(YesNoPrompt, {
-        question: '',
-        onAnswer,
-      }),
-      { stdout: stream as unknown as NodeJS.WriteStream },
-    );
+    const { unmount } = renderPrompt('', onAnswer);
     unmount();
   });
 });

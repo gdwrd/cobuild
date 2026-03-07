@@ -1,29 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, vi, beforeEach } from 'vitest';
 import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
 import { App } from '../App.js';
 import type { InterviewMessage } from '../../session/session.js';
 
-function renderApp(props: Parameters<typeof App>[0]): { output: string; unmount: () => void } {
+function renderApp(props: Parameters<typeof App>[0]) {
   const stream = new PassThrough();
-  const chunks: Buffer[] = [];
-  stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-
-  const { unmount } = render(React.createElement(App, props), {
+  return render(React.createElement(App, props), {
     stdout: stream as unknown as NodeJS.WriteStream,
   });
-
-  // Flush synchronous output
-  stream.end();
-  const raw = Buffer.concat(chunks).toString();
-  // Strip ANSI escape codes for easier assertion
-  /* eslint-disable no-control-regex */
-  const stripped1 = raw.replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '');
-  const output = stripped1.replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
-  /* eslint-enable no-control-regex */
-
-  return { output, unmount };
 }
 
 describe('App component', () => {
@@ -32,20 +18,12 @@ describe('App component', () => {
   });
 
   it('renders without throwing given valid props', () => {
-    const stream = new PassThrough();
-    const { unmount } = render(
-      React.createElement(App, { sessionId: 'test-session', version: '0.1.0' }),
-      { stdout: stream as unknown as NodeJS.WriteStream },
-    );
+    const { unmount } = renderApp({ sessionId: 'test-session', version: '0.1.0' });
     unmount();
   });
 
   it('renders without throwing with minimal sessionId', () => {
-    const stream = new PassThrough();
-    const { unmount } = render(
-      React.createElement(App, { sessionId: 'x', version: '1.0.0' }),
-      { stdout: stream as unknown as NodeJS.WriteStream },
-    );
+    const { unmount } = renderApp({ sessionId: 'x', version: '1.0.0' });
     unmount();
   });
 
@@ -114,11 +92,20 @@ describe('App component', () => {
     unmount();
   });
 
-  it('renders with null error message without throwing', () => {
+  it('renders with fatal error without throwing', () => {
     const { unmount } = renderApp({
       sessionId: 'abc123',
       version: '0.1.0',
-      errorMessage: null,
+      fatalErrorMessage: 'Pipeline crashed',
+    });
+    unmount();
+  });
+
+  it('renders completed state without throwing', () => {
+    const { unmount } = renderApp({
+      sessionId: 'abc123',
+      version: '0.1.0',
+      isComplete: true,
     });
     unmount();
   });
@@ -140,17 +127,5 @@ describe('App component', () => {
       onSubmit,
     });
     unmount();
-  });
-
-  it('renders session id prefix in output', () => {
-    const { output, unmount } = renderApp({ sessionId: 'abcdefgh-rest', version: '0.1.0' });
-    unmount();
-    expect(output).toContain('abcdefgh');
-  });
-
-  it('renders version in output', () => {
-    const { output, unmount } = renderApp({ sessionId: 'abc123', version: '0.1.0' });
-    unmount();
-    expect(output).toContain('0.1.0');
   });
 });

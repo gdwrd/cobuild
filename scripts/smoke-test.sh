@@ -4,9 +4,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "==> Packing tarball..."
-TARBALL=$(npm pack --silent)
+TARBALL=$(npm pack --silent | tail -n1)
 TARBALL_PATH="$(pwd)/$TARBALL"
 echo "    Packed: $TARBALL"
+trap 'rm -f "$TARBALL_PATH"' EXIT
 
 INSTALL_DIR=$(mktemp -d)
 trap 'rm -rf "$INSTALL_DIR" "$TARBALL_PATH"' EXIT

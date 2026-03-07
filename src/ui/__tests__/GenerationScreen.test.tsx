@@ -3,7 +3,7 @@ import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
 import { GenerationScreen } from '../GenerationScreen.js';
-import type { GenerationScreenProps } from '../GenerationScreen.js';
+import type { GenerationScreenProps, CompletedStage } from '../GenerationScreen.js';
 
 function renderScreen(props: GenerationScreenProps): { output: string; unmount: () => void } {
   const stream = new PassThrough();
@@ -124,5 +124,84 @@ describe('GenerationScreen', () => {
     unmount();
     expect(output).not.toContain('# Project Overview');
     expect(output).not.toContain('Functional Requirements');
+  });
+
+  it('shows architecture generation header when currentStage is architecture', () => {
+    const { output, unmount } = renderScreen({ status: 'generating', currentStage: 'architecture' });
+    unmount();
+    expect(output).toContain('Architecture Generation');
+  });
+
+  it('shows architecture spinner text when currentStage is architecture', () => {
+    const { output, unmount } = renderScreen({ status: 'generating', currentStage: 'architecture' });
+    unmount();
+    expect(output).toContain('Creating architecture document');
+  });
+
+  it('shows plan generation header when currentStage is plan', () => {
+    const { output, unmount } = renderScreen({ status: 'generating', currentStage: 'plan' });
+    unmount();
+    expect(output).toContain('Plan Generation');
+  });
+
+  it('shows plan spinner text when currentStage is plan', () => {
+    const { output, unmount } = renderScreen({ status: 'generating', currentStage: 'plan' });
+    unmount();
+    expect(output).toContain('Creating high-level development plan');
+  });
+
+  it('shows completed stages with file paths when provided', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'architecture',
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).toContain('Project specification');
+    expect(output).toContain('/tmp/docs/spec.md');
+  });
+
+  it('shows all completed stages in success state', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+      { label: 'Architecture document', filePath: '/tmp/docs/arch.md' },
+      { label: 'High-level development plan', filePath: '/tmp/docs/plan.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'success',
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).toContain('/tmp/docs/spec.md');
+    expect(output).toContain('/tmp/docs/arch.md');
+    expect(output).toContain('/tmp/docs/plan.md');
+    expect(output).toContain('All artifacts generated successfully');
+  });
+
+  it('shows generation complete header when multiple stages completed', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+      { label: 'Architecture document', filePath: '/tmp/docs/arch.md' },
+    ];
+    const { output, unmount } = renderScreen({ status: 'success', completedStages: completed });
+    unmount();
+    expect(output).toContain('Generation Complete');
+  });
+
+  it('does not print document content in architecture or plan completed stages', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+    ];
+    const { output, unmount } = renderScreen({
+      status: 'generating',
+      currentStage: 'architecture',
+      completedStages: completed,
+    });
+    unmount();
+    expect(output).not.toContain('## System Components');
+    expect(output).not.toContain('## Phase 1');
   });
 });

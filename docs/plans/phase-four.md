@@ -190,12 +190,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 14: Implement Generation Status UI
 
-- [ ] Reuse artifact generation UI screen
-- [ ] Display architecture generation progress
-- [ ] Display high-level plan generation progress
-- [ ] Display file creation messages
-- [ ] Display saved file paths
-- [ ] Ensure document contents are not printed
+- [x] Reuse artifact generation UI screen
+- [x] Display architecture generation progress
+- [x] Display high-level plan generation progress
+- [x] Display file creation messages
+- [x] Display saved file paths
+- [x] Ensure document contents are not printed
 
 ---
 

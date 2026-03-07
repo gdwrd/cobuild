@@ -5,7 +5,7 @@ import type { StartupResult } from '../cli/app-shell.js';
 import { App } from './App.js';
 import { RestoredSession } from './RestoredSession.js';
 import { GenerationScreen } from './GenerationScreen.js';
-import type { GenerationStatus } from './GenerationScreen.js';
+import type { GenerationStatus, GenerationStage, CompletedStage } from './GenerationScreen.js';
 import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
 import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage } from '../session/session.js';
@@ -47,6 +47,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('generating');
   const [generationFilePath, setGenerationFilePath] = useState<string | undefined>(undefined);
   const [generationError, setGenerationError] = useState<string | undefined>(undefined);
+  const [generationStage, setGenerationStage] = useState<GenerationStage>('spec');
+  const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -231,6 +233,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       const artifactPath = resolveOutputPath(dir, artifactFilename);
       writeArtifactFile(artifactPath, content);
       getLogger().info(`generation screen: ${type} saved to ${artifactPath}`);
+      const label = type === 'architecture' ? 'Architecture document' : 'High-level development plan';
+      setCompletedStages((prev) => [...prev, { label, filePath: artifactPath }]);
       return artifactPath;
     };
 
@@ -265,6 +269,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         completeSpecStage(afterArtifact);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);
+        setCompletedStages((prev) => [...prev, { label: 'Project specification', filePath }]);
 
         const specSession = loadSession(afterArtifact.id) ?? afterArtifact;
         return runPostSpecWorkflow(specSession, provider, {
@@ -273,7 +278,11 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           onDecision: makeOnDecision,
           writeArtifactFile: makeWriteArtifact,
           onStageUpdate: (stage) => {
-            if (stage === 'generating-architecture' || stage === 'generating-plan') {
+            if (stage === 'generating-architecture') {
+              setGenerationStage('architecture');
+              setScreen('generating');
+            } else if (stage === 'generating-plan') {
+              setGenerationStage('plan');
               setScreen('generating');
             }
           },
@@ -363,6 +372,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         status={generationStatus}
         filePath={generationFilePath}
         errorMessage={generationError}
+        currentStage={generationStage}
+        completedStages={completedStages}
       />
     );
   }

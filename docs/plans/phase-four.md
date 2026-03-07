@@ -61,12 +61,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 3: Implement Architecture Prompt Builder
 
-- [ ] Create architecture system prompt
-- [ ] Ensure prompt uses clean AI session
-- [ ] Inject spec document as only context
-- [ ] Ensure interview transcript is not included
-- [ ] Add prompt metadata logging
-- [ ] Add unit tests for prompt builder
+- [x] Create architecture system prompt
+- [x] Ensure prompt uses clean AI session
+- [x] Inject spec document as only context
+- [x] Ensure interview transcript is not included
+- [x] Add prompt metadata logging
+- [x] Add unit tests for prompt builder
 
 ---
 

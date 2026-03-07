@@ -48,11 +48,18 @@ export async function checkOllama(baseUrl = 'http://localhost:11434'): Promise<V
 export function checkCodexCli(): ValidationResult {
   const result = spawnSync('codex', ['--version'], { timeout: 5000 });
   if (result.error) {
-    const isNotFound = (result.error as NodeJS.ErrnoException).code === 'ENOENT';
-    const detail = isNotFound ? 'codex binary not found on PATH' : result.error.message;
+    const errCode = (result.error as NodeJS.ErrnoException).code;
+    const isNotFound = errCode === 'ENOENT';
+    const isTimeout = errCode === 'ETIMEDOUT';
+    const detail = isNotFound
+      ? 'codex binary not found on PATH'
+      : isTimeout
+        ? 'codex --version timed out after 5s'
+        : result.error.message;
+    const hint = isNotFound ? ' Install Codex CLI and ensure it is on your PATH.' : '';
     return {
       ok: false,
-      message: `codex CLI is not available (${detail}). Install Codex CLI and ensure it is on your PATH.`,
+      message: `codex CLI is not available (${detail}).${hint}`,
     };
   }
   if (result.signal) {

@@ -144,6 +144,18 @@ describe('checkCodexCli', () => {
     expect(result.message).toMatch(/codex CLI is not available/i);
     expect(result.message).toMatch(/SIGTERM/);
   });
+
+  it('returns ok=false with timeout message when spawnSync times out (ETIMEDOUT)', () => {
+    mockSpawnSync.mockReturnValue({
+      status: null,
+      error: Object.assign(new Error('spawnSync codex ETIMEDOUT'), { code: 'ETIMEDOUT' }),
+      signal: 'SIGTERM',
+    });
+    const result = checkCodexCli();
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/timed out/i);
+    expect(result.message).not.toMatch(/PATH/i);
+  });
 });
 
 describe('checkProviderReadiness', () => {

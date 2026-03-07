@@ -44,12 +44,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 2: Harden Session Persistence
 
-- [ ] Ensure session writes use atomic temp-file + rename pattern
-- [ ] Detect partial or corrupted session files
-- [ ] Implement safe JSON parsing with validation
-- [ ] Handle corrupted sessions gracefully
-- [ ] Log session load failures
-- [ ] Add tests for corrupted session recovery
+- [x] Ensure session writes use atomic temp-file + rename pattern
+- [x] Detect partial or corrupted session files
+- [x] Implement safe JSON parsing with validation
+- [x] Handle corrupted sessions gracefully
+- [x] Log session load failures
+- [x] Add tests for corrupted session recovery
 
 ---
 

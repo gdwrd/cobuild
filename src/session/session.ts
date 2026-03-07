@@ -192,21 +192,13 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
     const sessionId = file.slice(0, -5);
     if (!sessionId) continue;
     if (sessionId.includes(path.sep) || sessionId.includes('/')) continue;
-    try {
-      const session = loadSession(sessionId);
-      if (!session || session.workingDirectory !== workingDirectory) continue;
-      const isResumeableInterview = !session.completed;
-      const isResumeableDevPlan =
-        session.stage === 'dev-plans' && !session.devPlansComplete;
-      if (isResumeableInterview || isResumeableDevPlan) {
-        sessions.push(session);
-      }
-    } catch (err) {
-      if (err instanceof SyntaxError) {
-        // skip corrupted/invalid JSON session files
-      } else {
-        throw err;
-      }
+    const session = loadSession(sessionId);
+    if (!session || session.workingDirectory !== workingDirectory) continue;
+    const isResumeableInterview = !session.completed;
+    const isResumeableDevPlan =
+      session.stage === 'dev-plans' && !session.devPlansComplete;
+    if (isResumeableInterview || isResumeableDevPlan) {
+      sessions.push(session);
     }
   }
 
@@ -236,7 +228,17 @@ export function loadSession(sessionId: string): Session | null {
   const filePath = getSessionFilePath(sessionId);
   try {
     const raw = fs.readFileSync(filePath, { encoding: 'utf8' });
-    const parsed = JSON.parse(raw) as unknown;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      getLogger().error(`session load: corrupted JSON in session file ${filePath}, skipping`);
+      return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      getLogger().error(`session load: unexpected data structure in session file ${filePath}, skipping`);
+      return null;
+    }
     return migrateSession(parsed);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

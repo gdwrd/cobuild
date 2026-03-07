@@ -154,6 +154,46 @@ describe('loadSession', () => {
     const { loadSession } = await import('../session.js');
     expect(() => loadSession('abc')).toThrow('EACCES: permission denied');
   });
+
+  it('returns null for corrupted JSON and logs the error', async () => {
+    fsMock.readFileSync.mockReturnValue('not valid json{{{');
+    const errorFn = vi.fn();
+    vi.doMock('../../logging/logger.js', () => ({
+      getLogger: () => ({ info: vi.fn(), error: errorFn, warn: vi.fn(), debug: vi.fn() }),
+    }));
+
+    const { loadSession } = await import('../session.js');
+    const result = loadSession('bad-session');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when parsed JSON is an array', async () => {
+    fsMock.readFileSync.mockReturnValue(JSON.stringify([{ id: 'x' }]));
+
+    const { loadSession } = await import('../session.js');
+    const result = loadSession('array-session');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when parsed JSON is a primitive', async () => {
+    fsMock.readFileSync.mockReturnValue('"just a string"');
+
+    const { loadSession } = await import('../session.js');
+    const result = loadSession('primitive-session');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when parsed JSON is null', async () => {
+    fsMock.readFileSync.mockReturnValue('null');
+
+    const { loadSession } = await import('../session.js');
+    const result = loadSession('null-session');
+
+    expect(result).toBeNull();
+  });
 });
 
 

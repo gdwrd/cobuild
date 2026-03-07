@@ -212,12 +212,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 16: Add Integration Tests for Pipeline
 
-- [ ] Test architecture generation after spec
-- [ ] Test immediate exit when user answers "no"
-- [ ] Test high-level plan generation after architecture
-- [ ] Test plan validator rejects invalid outputs
-- [ ] Test phase extraction logic
-- [ ] Test filename collision handling
+- [x] Test architecture generation after spec
+- [x] Test immediate exit when user answers "no"
+- [x] Test high-level plan generation after architecture
+- [x] Test plan validator rejects invalid outputs
+- [x] Test phase extraction logic
+- [x] Test filename collision handling
 
 ---
 

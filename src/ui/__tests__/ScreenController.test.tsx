@@ -7,7 +7,7 @@ import type { StartupResult } from '../../cli/app-shell.js';
 import { runInterviewLoop } from '../../interview/controller.js';
 import { runArtifactPipeline } from '../../artifacts/generator.js';
 import { writeArtifactFile } from '../../artifacts/file-output.js';
-import { persistErrorState, persistSpecArtifact, loadSession } from '../../session/session.js';
+import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession } from '../../session/session.js';
 
 vi.mock('../App.js', () => ({
   App: function MockApp() {
@@ -64,6 +64,7 @@ vi.mock('../../session/session.js', () => ({
   })),
   persistErrorState: vi.fn(),
   persistSpecArtifact: vi.fn(),
+  completeSpecStage: vi.fn(),
 }));
 
 vi.mock('../../providers/ollama.js', () => ({
@@ -243,6 +244,54 @@ describe('ScreenController write failure handling', () => {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(persistSpecArtifact).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('calls completeSpecStage after successful spec generation', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockResolvedValue({
+      session: mockSession,
+      result: { type: 'spec', content: '# Spec' },
+    });
+    vi.mocked(persistSpecArtifact).mockReturnValue({ ...mockSession, specArtifact: { content: '# Spec', filePath: '/tmp/docs/project-spec.md', generated: true } });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(completeSpecStage).toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('does not call completeSpecStage when file write fails', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockResolvedValue({
+      session: mockSession,
+      result: { type: 'spec', content: '# Spec' },
+    });
+    vi.mocked(writeArtifactFile).mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(completeSpecStage).not.toHaveBeenCalled();
 
     unmount();
   });

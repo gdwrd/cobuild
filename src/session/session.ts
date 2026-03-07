@@ -22,7 +22,7 @@ export interface Session {
   updatedAt: string;
   workingDirectory: string;
   completed: boolean;
-  stage?: 'interview' | 'spec';
+  stage?: 'interview' | 'spec' | 'architecture';
   finishedEarly?: boolean;
   transcript: InterviewMessage[];
   model?: string;
@@ -181,6 +181,17 @@ export function persistSpecArtifact(session: Session, content: string, filePath:
   };
   saveSession(updated);
   getLogger().info(`artifact persistence: spec artifact saved to ${filePath} (session ${session.id})`);
+  return updated;
+}
+
+export function completeSpecStage(session: Session): Session {
+  const updated: Session = {
+    ...session,
+    stage: 'architecture',
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`spec stage complete: transitioning to architecture stage (session ${session.id})`);
   return updated;
 }
 

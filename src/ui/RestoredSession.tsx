@@ -4,7 +4,7 @@ import { getLogger } from '../logging/logger.js';
 
 export interface RestoredSessionProps {
   sessionId: string;
-  stage?: 'interview' | 'spec';
+  stage?: 'interview' | 'spec' | 'architecture';
   onContinue: () => void;
 }
 

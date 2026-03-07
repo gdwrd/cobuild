@@ -511,6 +511,74 @@ describe('persistSpecArtifact', () => {
   });
 });
 
+describe('completeSpecStage', () => {
+  const baseSession = {
+    id: 'sess-spec-complete',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'spec' as const,
+    transcript: [],
+    specArtifact: { content: '# Spec', filePath: '/work/docs/spec.md', generated: true },
+  };
+
+  it('sets stage to architecture', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeSpecStage } = await import('../session.js');
+    const updated = completeSpecStage(baseSession);
+
+    expect(updated.stage).toBe('architecture');
+  });
+
+  it('persists session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeSpecStage } = await import('../session.js');
+    completeSpecStage(baseSession);
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeSpecStage } = await import('../session.js');
+    const updated = completeSpecStage(baseSession);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeSpecStage } = await import('../session.js');
+    completeSpecStage(baseSession);
+
+    expect(baseSession.stage).toBe('spec');
+  });
+
+  it('preserves other session fields', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeSpecStage } = await import('../session.js');
+    const updated = completeSpecStage(baseSession);
+
+    expect(updated.id).toBe(baseSession.id);
+    expect(updated.workingDirectory).toBe(baseSession.workingDirectory);
+    expect(updated.completed).toBe(baseSession.completed);
+    expect(updated.specArtifact).toEqual(baseSession.specArtifact);
+    expect(updated.transcript).toEqual(baseSession.transcript);
+  });
+});
+
 describe('getTranscript', () => {
   it('returns empty array for session with no messages', async () => {
     const { getTranscript } = await import('../session.js');

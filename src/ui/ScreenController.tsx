@@ -7,7 +7,7 @@ import { RestoredSession } from './RestoredSession.js';
 import { GenerationScreen } from './GenerationScreen.js';
 import type { GenerationStatus } from './GenerationScreen.js';
 import type { InterviewMessage, Session } from '../session/session.js';
-import { loadSession, persistErrorState, persistSpecArtifact } from '../session/session.js';
+import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage } from '../session/session.js';
 import { OllamaProvider } from '../providers/ollama.js';
 import { runInterviewLoop } from '../interview/controller.js';
 import type { ModelProvider } from '../interview/controller.js';
@@ -33,7 +33,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [screen, setScreen] = useState<Screen>('startup');
   const [statusMessage] = useState('Starting cobuild...');
   const [sessionId, setSessionId] = useState('');
-  const [sessionStage, setSessionStage] = useState<'interview' | 'spec'>('interview');
+  const [sessionStage, setSessionStage] = useState<'interview' | 'spec' | 'architecture'>('interview');
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<InterviewMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -221,7 +221,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           setGenerationStatus('error');
           return;
         }
-        persistSpecArtifact(updatedSession, result.content, filePath);
+        const afterArtifact = persistSpecArtifact(updatedSession, result.content, filePath);
+        completeSpecStage(afterArtifact);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);
         setGenerationStatus('success');

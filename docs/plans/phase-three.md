@@ -134,10 +134,10 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 10: Implement Stage Completion Logic
 
-- [ ] Update session stage to `spec`
-- [ ] Persist stage completion in session
-- [ ] Emit stage completion log event
-- [ ] Prepare state for architecture stage prompt
+- [x] Update session stage to `spec`
+- [x] Persist stage completion in session
+- [x] Emit stage completion log event
+- [x] Prepare state for architecture stage prompt
 
 ---
 

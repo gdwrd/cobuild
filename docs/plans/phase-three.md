@@ -81,13 +81,13 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 5: Implement File Output System for Artifacts
 
-- [ ] Implement docs directory creation if missing
-- [ ] Implement filename generation from project name
-- [ ] Implement filename sanitization
-- [ ] Implement collision detection
-- [ ] Implement numeric suffixing for collisions
-- [ ] Implement safe Markdown file writing
-- [ ] Log file creation attempts
+- [x] Implement docs directory creation if missing
+- [x] Implement filename generation from project name
+- [x] Implement filename sanitization
+- [x] Implement collision detection
+- [x] Implement numeric suffixing for collisions
+- [x] Implement safe Markdown file writing
+- [x] Log file creation attempts
 
 ---
 

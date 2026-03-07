@@ -392,7 +392,6 @@ describe('ScreenController dev-plans resume', () => {
       expect.objectContaining({
         onPhaseStart: expect.any(Function),
         onPhaseComplete: expect.any(Function),
-        onHalt: expect.any(Function),
       }),
     );
 

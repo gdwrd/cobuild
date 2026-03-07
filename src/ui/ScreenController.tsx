@@ -261,9 +261,6 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           { label: `Dev plan — phase ${phaseNumber}`, filePath },
         ]);
       },
-      onHalt: () => {
-        setWorkflowTerminatedEarly(true);
-      },
     })
       .then((resultSession) => {
         if (resultSession.devPlanHalted) {
@@ -352,8 +349,6 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
             } else if (stage === 'generating-plan') {
               setGenerationStage('plan');
               setScreen('generating');
-            } else if (stage === 'asking-dev-plans') {
-              setScreen('generating');
             }
           },
         });
@@ -379,9 +374,6 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
               ...prev,
               { label: `Dev plan — phase ${phaseNumber}`, filePath },
             ]);
-          },
-          onHalt: () => {
-            setWorkflowTerminatedEarly(true);
           },
         });
         if (devPlanResult.devPlanHalted) {

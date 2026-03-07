@@ -401,6 +401,7 @@ export function completeDevPlanStage(session: Session): Session {
   const updated: Session = {
     ...session,
     devPlansComplete: true,
+    devPlanHalted: undefined,
     updatedAt: new Date().toISOString(),
   };
   saveSession(updated);

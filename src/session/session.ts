@@ -94,14 +94,18 @@ export function migrateSession(raw: unknown): Session {
   const logger = getLogger();
 
   const fromVersion = typeof data['schemaVersion'] === 'number' ? data['schemaVersion'] : 0;
-  if (fromVersion !== CURRENT_SCHEMA_VERSION) {
+  if (fromVersion > CURRENT_SCHEMA_VERSION) {
+    logger.warn(
+      `session migration: session ${data['id'] ?? 'unknown'} has schema version ${fromVersion} which is newer than supported version ${CURRENT_SCHEMA_VERSION}; loading with best-effort field mapping`,
+    );
+  } else if (fromVersion !== CURRENT_SCHEMA_VERSION) {
     logger.info(
       `session migration: upgrading schema from version ${fromVersion} to ${CURRENT_SCHEMA_VERSION} (session ${data['id'] ?? 'unknown'})`,
     );
   }
 
   const migrated: Session = {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
+    schemaVersion: fromVersion > CURRENT_SCHEMA_VERSION ? fromVersion : CURRENT_SCHEMA_VERSION,
     id: (data['id'] as string) ?? '',
     createdAt: (data['createdAt'] as string) ?? new Date().toISOString(),
     updatedAt: (data['updatedAt'] as string) ?? new Date().toISOString(),

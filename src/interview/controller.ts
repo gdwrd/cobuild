@@ -145,7 +145,18 @@ export async function runInterviewLoop(
     if (isSlashCommand(userInput)) {
       const parsed = parseCommand(userInput);
       if (parsed) {
-        const cmdResult = await routeCommand(parsed);
+        let cmdResult;
+        try {
+          cmdResult = await routeCommand(parsed);
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          logger.error(`interview loop: command "${parsed.command}" threw an error (session ${session.id}): ${detail}`);
+          await onAssistantResponse(
+            `Command failed: ${detail}. Please try again or type /finish-now to end the interview.`,
+            false,
+          );
+          continue;
+        }
         if (cmdResult.message) {
           await onAssistantResponse(cmdResult.message, false);
         }

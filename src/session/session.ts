@@ -21,6 +21,7 @@ export interface Session {
   transcript: InterviewMessage[];
   model?: string;
   lastError?: string;
+  generationAttempts?: number;
 }
 
 export function getSessionsDir(): string {

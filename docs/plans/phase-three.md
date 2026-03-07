@@ -57,12 +57,12 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 3: Implement Spec Generation Module
 
-- [ ] Implement spec generator module
-- [ ] Send generation request to provider layer
-- [ ] Capture model response
-- [ ] Normalize generation output
-- [ ] Log raw request and response payloads
-- [ ] Persist generation attempts count
+- [x] Implement spec generator module
+- [x] Send generation request to provider layer
+- [x] Capture model response
+- [x] Normalize generation output
+- [x] Log raw request and response payloads
+- [x] Persist generation attempts count
 
 ---
 

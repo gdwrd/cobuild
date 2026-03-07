@@ -37,8 +37,10 @@ export async function runDevPlanLoop(
   const completedPhaseNumbers = new Set(completedArtifacts.map((a) => a.phaseNumber));
 
   if (completedArtifacts.length > 0) {
+    const nextPhase = phases.find((p) => !completedPhaseNumbers.has(p.number));
+    const nextPhaseNumber = nextPhase?.number ?? completedArtifacts.length + 1;
     logger.info(
-      `dev-plan loop: resuming — ${completedArtifacts.length} phase(s) already complete, continuing from phase ${completedArtifacts.length + 1} (session ${initialSession.id})`,
+      `dev-plan loop: resuming — ${completedArtifacts.length} phase(s) already complete, continuing from phase ${nextPhaseNumber} (session ${initialSession.id})`,
     );
     for (const artifact of completedArtifacts) {
       options.onPhaseComplete(artifact.phaseNumber, artifact.filePath);

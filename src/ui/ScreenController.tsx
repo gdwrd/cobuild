@@ -433,6 +433,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setGenerationError(undefined);
     setGenerationStage('spec');
     setCompletedStages([]);
+    setGenerationFilePath(undefined);
     setRetryTrigger((n) => n + 1);
   }, []);
 

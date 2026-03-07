@@ -127,5 +127,5 @@ export function formatUserMessage(err: unknown): string {
 export function logFullError(logger: Logger, context: string, err: unknown): void {
   const error = err instanceof Error ? err : new Error(String(err));
   const stack = error.stack ?? `${error.name}: ${error.message} (no stack available)`;
-  logger.error(`${context}: ${error.message} [${error.name}]\n${stack}`);
+  logger.error(`${context}: [${error.name}]\n${stack}`);
 }

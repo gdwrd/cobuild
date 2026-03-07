@@ -132,12 +132,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 9: Implement High-Level Plan Generator
 
-- [ ] Create high-level plan generator module
-- [ ] Send generation request to provider
-- [ ] Normalize model response
-- [ ] Capture raw request/response for logging
-- [ ] Persist generation attempt counts
-- [ ] Return generated Markdown
+- [x] Create high-level plan generator module
+- [x] Send generation request to provider
+- [x] Normalize model response
+- [x] Capture raw request/response for logging
+- [x] Persist generation attempt counts
+- [x] Return generated Markdown
 
 ---
 

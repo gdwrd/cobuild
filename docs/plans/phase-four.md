@@ -201,12 +201,12 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 15: Implement Retry Handling for Both Generators
 
-- [ ] Integrate retry executor with architecture generator
-- [ ] Integrate retry executor with high-level plan generator
-- [ ] Retry generation up to 5 times
-- [ ] Log retry attempts
-- [ ] Surface retry UI action on exhaustion
-- [ ] Persist failure state in session
+- [x] Integrate retry executor with architecture generator
+- [x] Integrate retry executor with high-level plan generator
+- [x] Retry generation up to 5 times
+- [x] Log retry attempts
+- [x] Surface retry UI action on exhaustion
+- [x] Persist failure state in session
 
 ---
 

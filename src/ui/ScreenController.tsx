@@ -211,7 +211,16 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         const docsDir = ensureDocsDir(updatedSession.workingDirectory);
         const filename = generateFilename(projectName);
         const filePath = resolveOutputPath(docsDir, filename);
-        writeArtifactFile(filePath, result.content);
+        try {
+          writeArtifactFile(filePath, result.content);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          getLogger().error(`generation screen: file write failed for ${filePath}: ${msg}`);
+          persistErrorState(updatedSession, `File write failed: ${msg}`);
+          setGenerationError(`File write failed: ${msg}`);
+          setGenerationStatus('error');
+          return;
+        }
         persistSpecArtifact(updatedSession, result.content, filePath);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);

@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
 import { ScreenController } from '../ScreenController.js';
 import type { StartupResult } from '../../cli/app-shell.js';
+import { runInterviewLoop } from '../../interview/controller.js';
+import { runArtifactPipeline } from '../../artifacts/generator.js';
+import { writeArtifactFile } from '../../artifacts/file-output.js';
+import { persistErrorState, persistSpecArtifact, loadSession } from '../../session/session.js';
 
 vi.mock('../App.js', () => ({
   App: function MockApp() {
@@ -170,6 +174,76 @@ describe('ScreenController', () => {
     );
     await new Promise(resolve => setTimeout(resolve, 200));
     expect(exitSpy).toHaveBeenCalledWith(1);
+    unmount();
+  });
+});
+
+describe('ScreenController write failure handling', () => {
+  const mockSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview' as const,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(loadSession).mockReturnValue(mockSession);
+  });
+
+  it('persists error state to session when file write fails', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockResolvedValue({
+      session: mockSession,
+      result: { type: 'spec', content: '# Spec' },
+    });
+    vi.mocked(writeArtifactFile).mockImplementation(() => {
+      throw new Error('EACCES: permission denied, open \'/tmp/docs/project-spec.md\'');
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(persistErrorState).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'abc-123' }),
+      expect.stringContaining('File write failed'),
+    );
+
+    unmount();
+  });
+
+  it('does not persist spec artifact when file write fails', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(mockSession);
+    vi.mocked(runArtifactPipeline).mockResolvedValue({
+      session: mockSession,
+      result: { type: 'spec', content: '# Spec' },
+    });
+    vi.mocked(writeArtifactFile).mockImplementation(() => {
+      throw new Error('ENOSPC: no space left on device');
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(persistSpecArtifact).not.toHaveBeenCalled();
+
     unmount();
   });
 });

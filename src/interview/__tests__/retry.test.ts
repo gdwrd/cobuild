@@ -29,7 +29,7 @@ describe('withRetry', () => {
       .mockRejectedValueOnce(new Error('fail2'))
       .mockResolvedValue('success');
 
-    const result = await withRetry(fn, { maxAttempts: 5 });
+    const result = await withRetry(fn, { maxAttempts: 5, delayMs: 0 });
     expect(result).toBe('success');
     expect(fn).toHaveBeenCalledTimes(3);
   });
@@ -37,7 +37,7 @@ describe('withRetry', () => {
   it('throws RetryExhaustedError after all attempts fail', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('always fails'));
 
-    await expect(withRetry(fn, { maxAttempts: 3 })).rejects.toThrow(RetryExhaustedError);
+    await expect(withRetry(fn, { maxAttempts: 3, delayMs: 0 })).rejects.toThrow(RetryExhaustedError);
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
@@ -47,7 +47,7 @@ describe('withRetry', () => {
 
     let thrown: RetryExhaustedError | undefined;
     try {
-      await withRetry(fn, { maxAttempts: 3 });
+      await withRetry(fn, { maxAttempts: 3, delayMs: 0 });
     } catch (err) {
       thrown = err as RetryExhaustedError;
     }
@@ -60,7 +60,7 @@ describe('withRetry', () => {
 
   it('defaults to DEFAULT_MAX_ATTEMPTS (5) attempts', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('fail'));
-    await expect(withRetry(fn)).rejects.toThrow(RetryExhaustedError);
+    await expect(withRetry(fn, { delayMs: 0 })).rejects.toThrow(RetryExhaustedError);
     expect(fn).toHaveBeenCalledTimes(DEFAULT_MAX_ATTEMPTS);
   });
 
@@ -68,7 +68,7 @@ describe('withRetry', () => {
     const onRetryExhausted = vi.fn();
     const fn = vi.fn().mockRejectedValue(new Error('fail'));
 
-    await expect(withRetry(fn, { maxAttempts: 2, onRetryExhausted })).rejects.toThrow(
+    await expect(withRetry(fn, { maxAttempts: 2, delayMs: 0, onRetryExhausted })).rejects.toThrow(
       RetryExhaustedError,
     );
 

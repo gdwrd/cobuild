@@ -32,6 +32,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [isThinking, setIsThinking] = useState(false);
   const [interviewComplete, setInterviewComplete] = useState(false);
   const [fatalInterviewError, setFatalInterviewError] = useState<string | null>(null);
+  const [transientError, setTransientError] = useState<string | null>(null);
   const [isSelectingModel, setIsSelectingModel] = useState(false);
 
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
@@ -99,10 +100,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       generate: (messages) =>
         withRetry(() => providerRef.current!.generate(messages), {
           onRetryExhausted: (err, attempts) => {
+            const errorText = `Model request failed after ${attempts} attempts: ${err.message}`;
             const s = loadSession(sessionId);
             if (s) {
-              persistErrorState(s, `Model request failed after ${attempts} attempts: ${err.message}`);
+              persistErrorState(s, errorText);
             }
+            setTransientError(errorText);
           },
         }),
     };
@@ -237,6 +240,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       transcript={transcript}
       isThinking={isThinking}
       isComplete={interviewComplete}
+      errorMessage={transientError}
       fatalErrorMessage={fatalInterviewError}
       allowEmptySubmit={isSelectingModel}
       onSubmit={handleSubmit}

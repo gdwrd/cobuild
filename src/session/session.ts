@@ -69,7 +69,7 @@ export function appendInterviewMessage(
 }
 
 export function getTranscript(session: Session): InterviewMessage[] {
-  return session.transcript;
+  return session.transcript ?? [];
 }
 
 export function findLatestByWorkingDirectory(workingDirectory: string): Session | null {

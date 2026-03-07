@@ -64,20 +64,23 @@ vi.mock('../../logging/logger.js', () => ({
   }),
 }));
 
-vi.mock('../../session/session.js', () => ({
-  loadSession: vi.fn(() => ({
+vi.mock('../../session/session.js', () => {
+  const base = {
     id: 'abc-123',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     workingDirectory: '/tmp',
     completed: false,
-    stage: 'interview',
+    stage: 'architecture',
     transcript: [],
-  })),
-  persistErrorState: vi.fn(),
-  persistSpecArtifact: vi.fn(),
-  completeSpecStage: vi.fn(),
-}));
+  };
+  return {
+    loadSession: vi.fn(() => base),
+    persistErrorState: vi.fn(),
+    persistSpecArtifact: vi.fn(() => base),
+    completeSpecStage: vi.fn(() => base),
+  };
+});
 
 vi.mock('../../providers/ollama.js', () => ({
   OllamaProvider: vi.fn().mockImplementation(() => ({
@@ -108,6 +111,15 @@ vi.mock('../../interview/provider-command.js', () => ({
 
 vi.mock('../../interview/retry.js', () => ({
   withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+  RetryExhaustedError: class RetryExhaustedError extends Error {},
+}));
+
+vi.mock('../../artifacts/arch-generator.js', () => ({
+  ArchGenerator: vi.fn().mockImplementation(() => ({})),
+}));
+
+vi.mock('../../artifacts/plan-generator.js', () => ({
+  PlanGenerator: vi.fn().mockImplementation(() => ({})),
 }));
 
 describe('ScreenController', () => {
@@ -205,6 +217,8 @@ describe('ScreenController write failure handling', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(loadSession).mockReturnValue(mockSession);
+    vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
+    vi.mocked(completeSpecStage).mockReturnValue(mockSession);
     vi.mocked(runPostSpecWorkflow).mockResolvedValue({ terminatedAt: 'architecture-decision' as const, finalSession: mockSession });
   });
 

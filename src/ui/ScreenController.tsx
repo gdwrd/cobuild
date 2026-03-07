@@ -18,8 +18,9 @@ import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
 import { withRetry, RetryExhaustedError } from '../interview/retry.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
-import type { ArtifactGenerator } from '../artifacts/generator.js';
 import { SpecGenerator } from '../artifacts/spec-generator.js';
+import { ArchGenerator } from '../artifacts/arch-generator.js';
+import { PlanGenerator } from '../artifacts/plan-generator.js';
 import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile, sanitizeFilename } from '../artifacts/file-output.js';
 import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { getLogger } from '../logging/logger.js';
@@ -238,15 +239,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       return artifactPath;
     };
 
-    // Stub generators — replaced in Tasks 4 and 9 with real implementations
-    const stubArchitectureGenerator: ArtifactGenerator = {
-      generate: async () => ({ type: 'architecture' as const, content: '# Architecture\n\n(Not yet generated)' }),
-    };
-    const stubPlanGenerator: ArtifactGenerator = {
-      generate: async () => ({ type: 'plan' as const, content: '# High-Level Plan\n\n(Not yet generated)' }),
-    };
-
     const specGenerator = new SpecGenerator();
+    const archGenerator = new ArchGenerator();
+    const planGenerator = new PlanGenerator();
     runArtifactPipeline(session, provider, specGenerator, 'spec')
       .then(({ session: updatedSession, result }) => {
         // Reload session from disk to pick up fields written by the generator (e.g. generationAttempts)
@@ -266,15 +261,15 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           return null;
         }
         const afterArtifact = persistSpecArtifact(freshSession, result.content, filePath);
-        completeSpecStage(afterArtifact);
+        const afterSpecStage = completeSpecStage(afterArtifact);
         getLogger().info(`generation screen: spec saved to ${filePath}`);
         setGenerationFilePath(filePath);
         setCompletedStages((prev) => [...prev, { label: 'Project specification', filePath }]);
 
-        const specSession = loadSession(afterArtifact.id) ?? afterArtifact;
+        const specSession = loadSession(afterSpecStage.id) ?? afterSpecStage;
         return runPostSpecWorkflow(specSession, provider, {
-          architectureGenerator: stubArchitectureGenerator,
-          planGenerator: stubPlanGenerator,
+          architectureGenerator: archGenerator,
+          planGenerator: planGenerator,
           onDecision: makeOnDecision,
           writeArtifactFile: makeWriteArtifact,
           onStageUpdate: (stage) => {
@@ -292,7 +287,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (workflowResult === null || workflowResult === undefined) return;
         if (workflowResult.terminatedAt) {
           getLogger().info(`generation screen: workflow terminated at ${workflowResult.terminatedAt}, exiting`);
-          exit();
+          setGenerationStatus('success');
+          setTimeout(() => exit(), 1500);
         } else {
           setGenerationStatus('success');
         }

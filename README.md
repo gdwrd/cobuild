@@ -38,6 +38,18 @@ cobuild -v              # Print version
 | `--verbose`     | Enable verbose logging                             |
 | `-v, --version` | Print the current version                          |
 
+## What cobuild generates
+
+After the interview completes, cobuild runs a multi-stage generation pipeline:
+
+1. **Project specification** — always generated; saved to `docs/<project>-spec.md`
+2. **Architecture document** — generated if you answer yes when prompted; saved to `docs/<project>-architecture.md`
+3. **High-level development plan** — generated if you answer yes when prompted (requires architecture); saved to `docs/<project>-high-level-plan.md`
+
+All files are written to a `docs/` directory under your current working directory.
+
+> **Note:** cobuild requires an interactive terminal throughout the full session, including during the generation prompts. Non-interactive (piped or scripted) invocations will fail immediately.
+
 ## Startup Behavior
 
 cobuild validates the environment before starting:
@@ -47,12 +59,13 @@ cobuild validates the environment before starting:
 
 ## Local Data
 
-cobuild writes to `~/.cobuild/`:
+cobuild writes to `~/.cobuild/` and to your project directory:
 
 | Path | Contents |
 |------|----------|
 | `~/.cobuild/sessions/` | JSON session files (UUID-named, one per session) |
 | `~/.cobuild/logs/` | Daily log files (`cobuild-YYYY-MM-DD.log`) |
+| `<project>/docs/` | Generated artifacts: spec, architecture, and plan Markdown files |
 
 ## Development
 

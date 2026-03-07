@@ -22,9 +22,6 @@ import type { ModelProvider } from '../../interview/controller.js';
 
 const VALID_PLAN = `## Phase 1: Foundation
 
-### Title
-Foundation
-
 ### Goal
 Set up the project skeleton.
 
@@ -42,9 +39,6 @@ Build passes.
 
 ## Phase 2: Core Features
 
-### Title
-Core Features
-
 ### Goal
 Implement primary functionality.
 
@@ -59,6 +53,40 @@ Phase 1.
 
 ### Acceptance Criteria
 All tests pass.
+
+## Phase 3: Testing
+
+### Goal
+Achieve full test coverage.
+
+### Scope
+Write unit and integration tests.
+
+### Deliverables
+Test suite with 90% coverage.
+
+### Dependencies
+Phase 2.
+
+### Acceptance Criteria
+CI passes.
+
+## Phase 4: Release
+
+### Goal
+Ship to production.
+
+### Scope
+Deploy and monitor.
+
+### Deliverables
+Live application.
+
+### Dependencies
+Phase 3.
+
+### Acceptance Criteria
+No critical errors in first 24 hours.
 `;
 
 const makeSession = (overrides: Partial<Session> = {}): Session => ({

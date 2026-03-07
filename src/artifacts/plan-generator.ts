@@ -5,6 +5,7 @@ import { getLogger } from '../logging/logger.js';
 import type { ArtifactGenerator, ArtifactResult } from './generator.js';
 import { buildPlanMessages, logPlanPromptMetadata } from './plan-prompt.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../interview/retry.js';
+import { assertValidPlan } from './plan-validator.js';
 
 export function normalizePlanOutput(raw: string): string {
   return raw.trim();
@@ -42,7 +43,9 @@ export class PlanGenerator implements ArtifactGenerator {
         logger.info(
           `plan generator: response received (length=${raw.length}, session ${updatedSession.id})`,
         );
-        return normalizePlanOutput(raw);
+        const normalized = normalizePlanOutput(raw);
+        assertValidPlan(normalized);
+        return normalized;
       },
       {
         maxAttempts: DEFAULT_MAX_ATTEMPTS,

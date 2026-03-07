@@ -5,6 +5,7 @@ import { getLogger } from '../logging/logger.js';
 import type { ArtifactGenerator, ArtifactResult } from './generator.js';
 import { buildArchMessages, logArchPromptMetadata } from './arch-prompt.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../interview/retry.js';
+import { assertValidArch } from './arch-validator.js';
 
 export function normalizeArchOutput(raw: string): string {
   return raw.trim();
@@ -42,7 +43,9 @@ export class ArchGenerator implements ArtifactGenerator {
         logger.info(
           `arch generator: response received (length=${raw.length}, session ${updatedSession.id})`,
         );
-        return normalizeArchOutput(raw);
+        const normalized = normalizeArchOutput(raw);
+        assertValidArch(normalized);
+        return normalized;
       },
       {
         maxAttempts: DEFAULT_MAX_ATTEMPTS,

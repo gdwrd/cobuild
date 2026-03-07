@@ -799,6 +799,16 @@ describe('completePlanStage', () => {
     expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
   });
 
+  it('sets stage to plan on the returned session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completePlanStage } = await import('../session.js');
+    const updated = completePlanStage(baseSession);
+
+    expect(updated.stage).toBe('plan');
+  });
+
   it('does not mutate the original session', async () => {
     fsMock.writeFileSync.mockImplementation(() => {});
     fsMock.renameSync.mockImplementation(() => {});

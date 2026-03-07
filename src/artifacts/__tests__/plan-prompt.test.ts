@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   PLAN_SYSTEM_PROMPT,
   buildPlanMessages,
@@ -7,14 +7,15 @@ import {
 } from '../plan-prompt.js';
 import type { Session } from '../../session/session.js';
 
+const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+
 vi.mock('../../logging/logger.js', () => ({
-  getLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }),
+  getLogger: () => mockLogger,
 }));
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -209,12 +210,13 @@ describe('getPlanPromptMetadata', () => {
 });
 
 describe('logPlanPromptMetadata', () => {
-  it('does not throw for a valid session and messages', () => {
+  it('logs prompt metadata via the logger', () => {
     const session = makeSession({
       specArtifact: { content: SAMPLE_SPEC, filePath: '/tmp/spec.md', generated: true },
       architectureArtifact: { content: SAMPLE_ARCH, filePath: '/tmp/arch.md', generated: true },
     });
     const messages = buildPlanMessages(session);
-    expect(() => logPlanPromptMetadata(session, messages)).not.toThrow();
+    logPlanPromptMetadata(session, messages);
+    expect(mockLogger.info).toHaveBeenCalled();
   });
 });

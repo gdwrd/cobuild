@@ -1,23 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
+import type { InterviewMessage } from '../session/session.js';
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SLASH_COMMANDS = ['/finish-now', '/model', '/provider'];
+const ERROR_DISPLAY_MS = 5000;
 
 export interface AppProps {
   sessionId: string;
   version: string;
+  transcript?: InterviewMessage[];
+  isThinking?: boolean;
+  isComplete?: boolean;
+  errorMessage?: string | null;
+  fatalErrorMessage?: string | null;
+  allowEmptySubmit?: boolean;
+  onSubmit?: (input: string) => void;
 }
 
-export interface Message {
-  role: 'system' | 'user';
-  content: string;
-}
-
-export function App({ sessionId, version }: AppProps) {
+export function App({
+  sessionId,
+  version,
+  transcript = [],
+  isThinking = false,
+  isComplete = false,
+  errorMessage = null,
+  fatalErrorMessage = null,
+  allowEmptySubmit = false,
+  onSubmit,
+}: AppProps) {
   const { exit } = useApp();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'system', content: 'What would you like to build today?' },
-  ]);
   const [input, setInput] = useState('');
-  const [status, setStatus] = useState('ready');
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
+  const [visibleError, setVisibleError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isThinking) return;
+    const interval = setInterval(() => {
+      setSpinnerFrame(f => (f + 1) % SPINNER_FRAMES.length);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [isThinking]);
+
+  useEffect(() => {
+    if (!errorMessage) return;
+    setVisibleError(errorMessage);
+    const timer = setTimeout(() => setVisibleError(null), ERROR_DISPLAY_MS);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
 
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
@@ -27,11 +57,9 @@ export function App({ sessionId, version }: AppProps) {
 
     if (key.return) {
       const trimmed = input.trim();
-      if (trimmed) {
-        setMessages(prev => [...prev, { role: 'user', content: trimmed }]);
+      if ((trimmed || allowEmptySubmit) && !isThinking) {
+        onSubmit?.(trimmed);
         setInput('');
-        setStatus('processing');
-        setTimeout(() => setStatus('ready'), 500);
       }
       return;
     }
@@ -50,22 +78,35 @@ export function App({ sessionId, version }: AppProps) {
     <Box flexDirection="column">
       {/* Transcript area */}
       <Box flexDirection="column" paddingX={1} paddingY={1}>
-        {messages.map((msg, i) => (
+        {transcript.map((msg, i) => (
           <Box key={i} marginBottom={1}>
-            <Text color={msg.role === 'system' ? 'cyan' : 'white'}>
-              {msg.role === 'system' ? '◆ ' : '▶ '}
+            <Text color={msg.role === 'assistant' ? 'cyan' : 'white'}>
+              {msg.role === 'assistant' ? '◆ ' : '▶ '}
               {msg.content}
             </Text>
           </Box>
         ))}
+        {isThinking && (
+          <Box>
+            <Text color="cyan">
+              {SPINNER_FRAMES[spinnerFrame]}
+              {' thinking...'}
+            </Text>
+          </Box>
+        )}
       </Box>
+
+      {/* Transient error */}
+      {visibleError && (
+        <Box paddingX={1} marginBottom={1}>
+          <Text color="red">{'Error: '}{visibleError}</Text>
+        </Box>
+      )}
 
       {/* Status bar */}
       <Box borderStyle="single" paddingX={1}>
-        <Text color={status === 'ready' ? 'green' : 'yellow'}>
-          {'['}
-          {status}
-          {']'}
+        <Text color={isComplete ? 'magenta' : isThinking ? 'yellow' : 'green'}>
+          {isComplete ? '[complete]' : isThinking ? '[thinking]' : '[ready]'}
         </Text>
         <Text dimColor>
           {'  cobuild v'}
@@ -75,19 +116,35 @@ export function App({ sessionId, version }: AppProps) {
         </Text>
       </Box>
 
-      {/* Input prompt area */}
-      <Box paddingX={1} paddingY={1}>
-        <Text bold color="cyan">
-          {'▶ '}
-        </Text>
-        <Text>{input}</Text>
-        <Text>{'█'}</Text>
-      </Box>
+      {fatalErrorMessage ? (
+        <Box paddingX={1} paddingY={1} flexDirection="column">
+          <Text color="red">Fatal error: {fatalErrorMessage}</Text>
+          <Text dimColor>Press ctrl+c to exit.</Text>
+        </Box>
+      ) : isComplete ? (
+        <Box paddingX={1} paddingY={1}>
+          <Text color="magenta">Interview complete. Press ctrl+c to exit.</Text>
+        </Box>
+      ) : (
+        <>
+          {/* Input prompt area */}
+          <Box paddingX={1} paddingY={1}>
+            <Text bold color="cyan">
+              {'▶ '}
+            </Text>
+            <Text>{input}</Text>
+            {!isThinking && <Text>{'█'}</Text>}
+          </Box>
 
-      {/* Footer command area */}
-      <Box paddingX={1}>
-        <Text dimColor>ctrl+c: quit  enter: submit</Text>
-      </Box>
+          {/* Footer: slash commands */}
+          <Box paddingX={1}>
+            <Text dimColor>
+              {SLASH_COMMANDS.join('  ')}
+              {'  ctrl+c: quit'}
+            </Text>
+          </Box>
+        </>
+      )}
     </Box>
   );
 }

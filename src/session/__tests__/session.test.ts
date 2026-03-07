@@ -52,10 +52,31 @@ describe('createSession', () => {
     expect(new Date(session.createdAt).getTime()).toBeGreaterThanOrEqual(before);
     expect(new Date(session.createdAt).getTime()).toBeLessThanOrEqual(after);
     expect(session.workingDirectory).toBe(process.cwd());
+    expect(session.completed).toBe(false);
   });
 });
 
 describe('saveSession', () => {
+  it('re-throws rename error and unlinks tmp file', async () => {
+    const renameErr = new Error('EACCES: permission denied');
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => { throw renameErr; });
+    fsMock.unlinkSync.mockImplementation(() => {});
+
+    const { saveSession } = await import('../session.js');
+    const session = {
+      id: 'test-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    expect(() => saveSession(session)).toThrow('EACCES: permission denied');
+    expect(fsMock.unlinkSync).toHaveBeenCalled();
+  });
+
   it('writes to tmp file then renames atomically', async () => {
     fsMock.writeFileSync.mockImplementation(() => {});
     fsMock.renameSync.mockImplementation(() => {});
@@ -66,6 +87,8 @@ describe('saveSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
+      transcript: [],
     };
 
     saveSession(session);
@@ -96,6 +119,8 @@ describe('loadSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
+      transcript: [],
     };
     fsMock.readFileSync.mockReturnValue(JSON.stringify(mockSession));
 
@@ -116,6 +141,16 @@ describe('loadSession', () => {
 
     expect(result).toBeNull();
   });
+
+  it('re-throws non-ENOENT errors', async () => {
+    fsMock.readFileSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { loadSession } = await import('../session.js');
+    expect(() => loadSession('abc')).toThrow('EACCES: permission denied');
+  });
 });
 
 describe('updateSession', () => {
@@ -129,6 +164,8 @@ describe('updateSession', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
       workingDirectory: '/work',
+      completed: false,
+      transcript: [],
     };
 
     const updated = updateSession(original);
@@ -149,7 +186,285 @@ describe('createAndSaveSession', () => {
     const session = createAndSaveSession();
 
     expect(session.id).toBeTruthy();
+    expect(session.completed).toBe(false);
     expect(fsMock.writeFileSync).toHaveBeenCalled();
     expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+});
+
+describe('findLatestByWorkingDirectory', () => {
+  const makeSession = (id: string, workingDirectory: string, createdAt: string, completed = false) =>
+    JSON.stringify({ id, createdAt, updatedAt: createdAt, workingDirectory, completed, transcript: [] });
+
+  it('returns null when sessions directory does not exist', async () => {
+    fsMock.readdirSync.mockImplementation(() => {
+      const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
+  it('re-throws non-ENOENT errors from readdirSync', async () => {
+    fsMock.readdirSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(() => findLatestByWorkingDirectory('/work')).toThrow('EACCES: permission denied');
+  });
+
+  it('returns null when no sessions match working directory', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/other', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
+  it('returns the most recent session matching working directory', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json', 'session-b.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync
+      .mockReturnValueOnce(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z'))
+      .mockReturnValueOnce(makeSession('session-b', '/work', '2026-02-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe('session-b');
+  });
+
+  it('skips non-json files', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json', 'README.txt'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+    expect(fsMock.readFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips corrupted session files', async () => {
+    fsMock.readdirSync.mockReturnValue(['bad.json', 'good.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync
+      .mockReturnValueOnce('not valid json{{{')
+      .mockReturnValueOnce(makeSession('good', '/work', '2026-01-01T00:00:00.000Z'));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('good');
+  });
+
+  it('re-throws permission errors from individual session load', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockImplementation(() => {
+      const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      throw err;
+    });
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(() => findLatestByWorkingDirectory('/work')).toThrow('EACCES: permission denied');
+  });
+});
+
+describe('appendInterviewMessage', () => {
+  const baseSession = {
+    id: 'sess-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: false,
+    transcript: [],
+  };
+
+  it('appends a user message and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'user', 'Hello!');
+
+    expect(updated.transcript).toHaveLength(1);
+    expect(updated.transcript[0].role).toBe('user');
+    expect(updated.transcript[0].content).toBe('Hello!');
+    expect(updated.transcript[0].timestamp).toBeTruthy();
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('appends an assistant message and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'assistant', 'What is your project idea?');
+
+    expect(updated.transcript[0].role).toBe('assistant');
+    expect(updated.transcript[0].content).toBe('What is your project idea?');
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    appendInterviewMessage(baseSession, 'user', 'Hi');
+
+    expect(baseSession.transcript).toHaveLength(0);
+  });
+
+  it('accumulates messages across calls', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const after1 = appendInterviewMessage(baseSession, 'assistant', 'Question 1?');
+    const after2 = appendInterviewMessage(after1, 'user', 'Answer 1');
+
+    expect(after2.transcript).toHaveLength(2);
+    expect(after2.transcript[0].role).toBe('assistant');
+    expect(after2.transcript[1].role).toBe('user');
+  });
+
+  it('updates updatedAt on append', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { appendInterviewMessage } = await import('../session.js');
+    const updated = appendInterviewMessage(baseSession, 'user', 'Hi');
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+});
+
+describe('persistErrorState', () => {
+  it('saves session with lastError field set', async () => {
+    const { persistErrorState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-err',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    const updated = persistErrorState(session, 'something went wrong');
+    expect(updated.lastError).toBe('something went wrong');
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('returns updated session object with lastError', async () => {
+    const { persistErrorState } = await import('../session.js');
+    fsMock.writeFileSync.mockReturnValue(undefined);
+    fsMock.renameSync.mockReturnValue(undefined);
+
+    const session = {
+      id: 'sess-err2',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+
+    const updated = persistErrorState(session, 'model timeout');
+    expect(updated.id).toBe('sess-err2');
+    expect(updated.lastError).toBe('model timeout');
+    expect(updated.transcript).toEqual([]);
+  });
+});
+
+describe('completeInterview', () => {
+  const baseSession = {
+    id: 'sess-c',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: false,
+    stage: 'interview' as const,
+    transcript: [],
+  };
+
+  it('sets completed=true, stage=spec, and finishedEarly=false for natural completion', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, false);
+
+    expect(updated.completed).toBe(true);
+    expect(updated.stage).toBe('spec');
+    expect(updated.finishedEarly).toBe(false);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('sets finishedEarly=true when ended via /finish-now', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, true);
+
+    expect(updated.finishedEarly).toBe(true);
+    expect(updated.stage).toBe('spec');
+    expect(updated.completed).toBe(true);
+  });
+
+  it('updates updatedAt on completion', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    const updated = completeInterview(baseSession, false);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { completeInterview } = await import('../session.js');
+    completeInterview(baseSession, false);
+
+    expect(baseSession.completed).toBe(false);
+    expect(baseSession.stage).toBe('interview');
+  });
+});
+
+describe('getTranscript', () => {
+  it('returns empty array for session with no messages', async () => {
+    const { getTranscript } = await import('../session.js');
+    const session = {
+      id: 'sess-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [],
+    };
+    expect(getTranscript(session)).toEqual([]);
+  });
+
+  it('returns transcript messages', async () => {
+    const { getTranscript } = await import('../session.js');
+    const msg = { role: 'user' as const, content: 'Hello', timestamp: '2026-01-01T00:00:00.000Z' };
+    const session = {
+      id: 'sess-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: '/work',
+      completed: false,
+      transcript: [msg],
+    };
+    expect(getTranscript(session)).toEqual([msg]);
   });
 });

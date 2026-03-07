@@ -41,12 +41,22 @@ describe('Logger', () => {
     expect(contents).toContain('[ERROR] something went wrong');
   });
 
-  it('writes a debug entry', () => {
-    const logger = new Logger(logFile);
+  it('writes a debug entry when minLevel is debug', () => {
+    const logger = new Logger(logFile, 'debug');
     logger.debug('debug info');
 
     const contents = fs.readFileSync(logFile, 'utf8');
     expect(contents).toContain('[DEBUG] debug info');
+  });
+
+  it('does not write debug entries by default (default minLevel is info)', () => {
+    const logger = new Logger(logFile);
+    logger.debug('should not appear');
+    logger.info('should appear');
+
+    const contents = fs.readFileSync(logFile, 'utf8');
+    expect(contents).not.toContain('should not appear');
+    expect(contents).toContain('should appear');
   });
 
   it('includes a timestamp in ISO format', () => {

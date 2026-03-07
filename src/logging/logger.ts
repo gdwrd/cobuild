@@ -38,7 +38,7 @@ export class Logger {
   private logFilePath: string;
   private minLevel: LogLevel;
 
-  constructor(logFilePath?: string, minLevel: LogLevel = 'debug') {
+  constructor(logFilePath?: string, minLevel: LogLevel = 'info') {
     this.logFilePath = logFilePath ?? getLogFilePath();
     this.minLevel = minLevel;
   }

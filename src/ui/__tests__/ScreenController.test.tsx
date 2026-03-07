@@ -11,6 +11,56 @@ vi.mock('../App.js', () => ({
   },
 }));
 
+vi.mock('../RestoredSession.js', () => ({
+  RestoredSession: function MockRestoredSession() {
+    return null;
+  },
+}));
+
+vi.mock('../../session/session.js', () => ({
+  loadSession: vi.fn(() => ({
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview',
+    transcript: [],
+  })),
+  persistErrorState: vi.fn(),
+}));
+
+vi.mock('../../providers/ollama.js', () => ({
+  OllamaProvider: vi.fn().mockImplementation(() => ({
+    generate: vi.fn(),
+    listModels: vi.fn(),
+  })),
+}));
+
+vi.mock('../../interview/controller.js', () => ({
+  runInterviewLoop: vi.fn(() => new Promise(() => {})),
+}));
+
+vi.mock('../../interview/prompts.js', () => ({
+  buildInterviewSystemPrompt: vi.fn(() => 'mock system prompt'),
+}));
+
+vi.mock('../../interview/finish-now.js', () => ({
+  createFinishNowHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/model-command.js', () => ({
+  createModelHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/provider-command.js', () => ({
+  createProviderHandler: vi.fn(() => vi.fn()),
+}));
+
+vi.mock('../../interview/retry.js', () => ({
+  withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
+}));
+
 describe('ScreenController', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -33,6 +83,24 @@ describe('ScreenController', () => {
     const { unmount } = render(
       React.createElement(ScreenController, {
         startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 10));
+    unmount();
+  });
+
+  it('renders without throwing when startup succeeds with resumed session', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          sessionResolution: 'resumed' as const,
+        }),
         version: '0.1.0',
       }),
       { stdout: stream as unknown as NodeJS.WriteStream },

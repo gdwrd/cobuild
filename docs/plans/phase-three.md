@@ -46,12 +46,12 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 2: Implement Spec Prompt Builder
 
-- [ ] Create spec system prompt definition
-- [ ] Implement prompt builder for spec generation
-- [ ] Ensure interview transcript is included as input
-- [ ] Ensure prompt uses clean model context
-- [ ] Implement prompt metadata logging
-- [ ] Add unit tests for prompt builder
+- [x] Create spec system prompt definition
+- [x] Implement prompt builder for spec generation
+- [x] Ensure interview transcript is included as input
+- [x] Ensure prompt uses clean model context
+- [x] Implement prompt metadata logging
+- [x] Add unit tests for prompt builder
 
 ---
 

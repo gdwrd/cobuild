@@ -30,6 +30,7 @@ export class CodexCliProvider implements ModelProvider {
       const result = await execFileAsync('codex', ['--quiet', '--', prompt], {
         timeout: CODEX_TIMEOUT_MS,
         encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
       });
       stdout = result.stdout;
     } catch (err) {
@@ -47,6 +48,9 @@ export class CodexCliProvider implements ModelProvider {
     }
 
     const content = stdout.trim();
+    if (!content) {
+      throw new Error('codex CLI returned empty response');
+    }
     logger.info(`codex-cli: response received (length=${content.length})`);
     return content;
   }

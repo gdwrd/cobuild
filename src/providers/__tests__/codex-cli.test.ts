@@ -75,13 +75,13 @@ describe('CodexCliProvider', () => {
     );
   });
 
-  it('returns empty string when stdout is whitespace only', async () => {
+  it('throws when stdout is whitespace only', async () => {
     mockExecFile.mockResolvedValueOnce({ stdout: '   ', stderr: '' });
 
     const provider = new CodexCliProvider();
-    const result = await provider.generate([{ role: 'user', content: 'Hi' }]);
-
-    expect(result).toBe('');
+    await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
+      'codex CLI returned empty response',
+    );
   });
 
   it('throws wrapped error when codex exits non-zero', async () => {

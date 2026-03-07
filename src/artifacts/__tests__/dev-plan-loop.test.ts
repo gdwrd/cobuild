@@ -15,6 +15,11 @@ vi.mock('../../session/session.js', () => ({
     completedPhaseCount: (session.completedPhaseCount ?? 0) + 1,
     updatedAt: 'now',
   })),
+  persistDevPlanHalt: vi.fn((session, _failedPhaseNumber) => ({
+    ...session,
+    devPlanHalted: true,
+    updatedAt: 'now',
+  })),
 }));
 
 vi.mock('../dev-plan-phases.js', () => ({
@@ -34,11 +39,12 @@ vi.mock('../dev-plan-file-writer.js', () => ({
   })),
 }));
 
-import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion } from '../../session/session.js';
+import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion, persistDevPlanHalt } from '../../session/session.js';
 import { loadAndValidatePhases } from '../dev-plan-phases.js';
 import { DevPlanGenerator } from '../dev-plan-generator.js';
 import { writeDevPlanFile } from '../dev-plan-file-writer.js';
 import { runDevPlanLoop } from '../dev-plan-loop.js';
+import { RetryExhaustedError } from '../../interview/retry.js';
 import type { Session, PlanPhase } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
 
@@ -81,6 +87,11 @@ beforeEach(() => {
   vi.mocked(persistDevPlanPhaseCompletion).mockImplementation((session, _phaseNumber, _c, _f) => ({
     ...session,
     completedPhaseCount: (session.completedPhaseCount ?? 0) + 1,
+    updatedAt: 'now',
+  }));
+  vi.mocked(persistDevPlanHalt).mockImplementation((session, _failedPhaseNumber) => ({
+    ...session,
+    devPlanHalted: true,
     updatedAt: 'now',
   }));
   mockGeneratorGenerate.mockImplementation(async (_session, _provider, phase, _prev) => ({
@@ -243,7 +254,7 @@ describe('runDevPlanLoop', () => {
     expect(result.id).toBe('sess-1');
   });
 
-  it('propagates errors from generator', async () => {
+  it('propagates non-RetryExhaustedError errors from generator', async () => {
     const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
     vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
     const session = makeSession();
@@ -265,5 +276,82 @@ describe('runDevPlanLoop', () => {
     await expect(
       runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() }),
     ).rejects.toThrow('no phases');
+  });
+
+  it('stops further phases when RetryExhaustedError is thrown', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate
+      .mockResolvedValueOnce({ content: '# Plan: Phase 1\n## Overview\n## Validation Commands\n### Task 1:\n- [ ] x', phaseNumber: 1 })
+      .mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    // Only phase 1 and phase 2 (failed) were attempted; phases 3 and 4 were not
+    expect(mockGeneratorGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls persistDevPlanHalt with the failed phase number on RetryExhaustedError', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate.mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    expect(vi.mocked(persistDevPlanHalt)).toHaveBeenCalledWith(expect.anything(), 1);
+  });
+
+  it('calls onHalt with the failed phase number on RetryExhaustedError', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate.mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+    const onHalt = vi.fn();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn(), onHalt });
+
+    expect(onHalt).toHaveBeenCalledWith(1);
+  });
+
+  it('does not call onHalt when all phases succeed', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    const onHalt = vi.fn();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn(), onHalt });
+
+    expect(onHalt).not.toHaveBeenCalled();
+  });
+
+  it('returns session with devPlanHalted after halt', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate.mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+
+    const result = await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete: vi.fn() });
+
+    expect(result.devPlanHalted).toBe(true);
+  });
+
+  it('does not call onPhaseComplete for the failed phase', async () => {
+    const phases = [makePhase(1), makePhase(2), makePhase(3), makePhase(4)];
+    vi.mocked(loadAndValidatePhases).mockReturnValue({ phases, totalCount: 4 });
+    const session = makeSession();
+    const provider = makeProvider();
+    mockGeneratorGenerate.mockRejectedValueOnce(new RetryExhaustedError(new Error('model error'), 5));
+    const onPhaseComplete = vi.fn();
+
+    await runDevPlanLoop(session, provider, { onPhaseStart: vi.fn(), onPhaseComplete });
+
+    expect(onPhaseComplete).not.toHaveBeenCalled();
   });
 });

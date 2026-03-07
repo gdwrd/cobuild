@@ -1,7 +1,8 @@
 import type { Session } from '../session/session.js';
 import type { ModelProvider } from '../interview/controller.js';
-import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion } from '../session/session.js';
+import { persistCurrentDevPlanPhase, persistDevPlanPhaseCompletion, persistDevPlanHalt } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
+import { RetryExhaustedError } from '../interview/retry.js';
 import { loadAndValidatePhases } from './dev-plan-phases.js';
 import { DevPlanGenerator } from './dev-plan-generator.js';
 import { writeDevPlanFile } from './dev-plan-file-writer.js';
@@ -9,6 +10,7 @@ import { writeDevPlanFile } from './dev-plan-file-writer.js';
 export interface DevPlanLoopOptions {
   onPhaseStart: (phaseNumber: number, total: number) => void;
   onPhaseComplete: (phaseNumber: number, filePath: string) => void;
+  onHalt?: (phaseNumber: number) => void;
 }
 
 export async function runDevPlanLoop(
@@ -26,6 +28,8 @@ export async function runDevPlanLoop(
   let previousDevPlans: string[] = [];
   let currentSession = initialSession;
 
+  let halted = false;
+
   for (const phase of phases) {
     logger.info(
       `dev-plan loop: starting phase ${phase.number} of ${totalCount} (session ${currentSession.id})`,
@@ -35,7 +39,21 @@ export async function runDevPlanLoop(
     options.onPhaseStart(phase.number, totalCount);
 
     const generator = new DevPlanGenerator();
-    const result = await generator.generate(currentSession, provider, phase, previousDevPlans);
+    let result;
+    try {
+      result = await generator.generate(currentSession, provider, phase, previousDevPlans);
+    } catch (err) {
+      if (err instanceof RetryExhaustedError) {
+        logger.error(
+          `dev-plan loop: halting generation after retry exhaustion at phase ${phase.number} (session ${currentSession.id})`,
+        );
+        currentSession = persistDevPlanHalt(currentSession, phase.number);
+        options.onHalt?.(phase.number);
+        halted = true;
+        break;
+      }
+      throw err;
+    }
 
     const { filePath } = writeDevPlanFile(currentSession.workingDirectory, phase, result.content);
     currentSession = persistDevPlanPhaseCompletion(
@@ -52,8 +70,10 @@ export async function runDevPlanLoop(
     options.onPhaseComplete(phase.number, filePath);
   }
 
-  logger.info(
-    `dev-plan loop: all ${totalCount} phases generated successfully (session ${currentSession.id})`,
-  );
+  if (!halted) {
+    logger.info(
+      `dev-plan loop: all ${totalCount} phases generated successfully (session ${currentSession.id})`,
+    );
+  }
   return currentSession;
 }

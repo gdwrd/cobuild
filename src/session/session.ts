@@ -69,6 +69,8 @@ export interface Session {
   extractedPhases?: PlanPhase[];
   devPlanArtifacts?: DevPlanArtifact[];
   completedPhaseCount?: number;
+  currentDevPlanPhase?: number;
+  devPlanHalted?: boolean;
 }
 
 export function getSessionsDir(): string {
@@ -350,6 +352,30 @@ export function persistDevPlanPhaseCompletion(
   getLogger().info(
     `dev-plan phase completion: phase ${phaseNumber} saved to ${filePath}, completedPhaseCount=${completedPhaseCount} (session ${session.id})`,
   );
+  return updated;
+}
+
+export function persistDevPlanHalt(session: Session, failedPhaseNumber: number): Session {
+  const updated: Session = {
+    ...session,
+    devPlanHalted: true,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().error(
+    `dev-plan halt: generation stopped at phase ${failedPhaseNumber} due to retry exhaustion (session ${session.id})`,
+  );
+  return updated;
+}
+
+export function persistCurrentDevPlanPhase(session: Session, phaseNumber: number): Session {
+  const updated: Session = {
+    ...session,
+    currentDevPlanPhase: phaseNumber,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(`dev-plan loop: current phase set to ${phaseNumber} (session ${session.id})`);
   return updated;
 }
 

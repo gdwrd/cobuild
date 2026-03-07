@@ -23,6 +23,7 @@ import { ArchGenerator } from '../artifacts/arch-generator.js';
 import { PlanGenerator } from '../artifacts/plan-generator.js';
 import { ensureDocsDir, generateFilename, generateArchitectureFilename, generatePlanFilename, resolveOutputPath, writeArtifactFile } from '../artifacts/file-output.js';
 import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
+import { runDevPlanLoop } from '../artifacts/dev-plan-loop.js';
 import { getLogger } from '../logging/logger.js';
 
 type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'yesno' | 'error';
@@ -51,6 +52,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [generationStage, setGenerationStage] = useState<GenerationStage>('spec');
   const [completedStages, setCompletedStages] = useState<CompletedStage[]>([]);
   const [workflowTerminatedEarly, setWorkflowTerminatedEarly] = useState(false);
+  const [devPlanProgress, setDevPlanProgress] = useState<{ current: number; total: number } | undefined>(undefined);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -286,12 +288,32 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           },
         });
       })
-      .then((workflowResult) => {
+      .then(async (workflowResult) => {
         if (workflowResult === null || workflowResult === undefined) return;
         if (workflowResult.terminatedAt) {
           getLogger().info(`generation screen: workflow terminated at ${workflowResult.terminatedAt}, exiting`);
           setWorkflowTerminatedEarly(true);
+          setGenerationStatus('success');
+          return;
         }
+        // User accepted dev plan generation — run the sequential phase loop
+        const devPlanSession = workflowResult.finalSession;
+        await runDevPlanLoop(devPlanSession, provider, {
+          onPhaseStart: (phaseNumber, total) => {
+            setGenerationStage('dev-plan');
+            setDevPlanProgress({ current: phaseNumber, total });
+            setScreen('generating');
+          },
+          onPhaseComplete: (phaseNumber, filePath) => {
+            setCompletedStages((prev) => [
+              ...prev,
+              { label: `Dev plan — phase ${phaseNumber}`, filePath },
+            ]);
+          },
+          onHalt: () => {
+            setWorkflowTerminatedEarly(true);
+          },
+        });
         setGenerationStatus('success');
       })
       .catch((err: unknown) => {
@@ -372,6 +394,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         currentStage={generationStage}
         completedStages={completedStages}
         terminatedEarly={workflowTerminatedEarly}
+        devPlanProgress={devPlanProgress}
       />
     );
   }

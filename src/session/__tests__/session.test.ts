@@ -774,7 +774,7 @@ describe('completePlanStage', () => {
     updatedAt: '2026-01-01T00:00:00.000Z',
     workingDirectory: '/work',
     completed: true,
-    stage: 'plan' as const,
+    stage: 'architecture' as const,
     transcript: [],
   };
 
@@ -816,7 +816,7 @@ describe('completePlanStage', () => {
     const { completePlanStage } = await import('../session.js');
     completePlanStage(baseSession);
 
-    expect(baseSession.stage).toBe('plan');
+    expect(baseSession.stage).toBe('architecture');
   });
 });
 
@@ -1150,6 +1150,59 @@ describe('completeDevPlanStage', () => {
     const updated = completeDevPlanStage(baseSession);
 
     expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+});
+
+describe('persistCurrentDevPlanPhase', () => {
+  const baseSession = {
+    id: 'sess-cdpp',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'dev-plans' as const,
+    transcript: [],
+  };
+
+  it('sets currentDevPlanPhase to the given number', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistCurrentDevPlanPhase } = await import('../session.js');
+    const updated = persistCurrentDevPlanPhase(baseSession, 3);
+
+    expect(updated.currentDevPlanPhase).toBe(3);
+  });
+
+  it('persists session to disk', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistCurrentDevPlanPhase } = await import('../session.js');
+    persistCurrentDevPlanPhase(baseSession, 1);
+
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+    expect(fsMock.renameSync).toHaveBeenCalled();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistCurrentDevPlanPhase } = await import('../session.js');
+    const updated = persistCurrentDevPlanPhase(baseSession, 1);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistCurrentDevPlanPhase } = await import('../session.js');
+    persistCurrentDevPlanPhase(baseSession, 2);
+
+    expect((baseSession as Record<string, unknown>)['currentDevPlanPhase']).toBeUndefined();
   });
 });
 

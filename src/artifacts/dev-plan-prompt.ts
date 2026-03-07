@@ -8,7 +8,7 @@ Your task is to produce a complete, actionable ralphex development plan for ONLY
 
 The plan MUST follow this exact structure:
 
-# Plan: <phase title>
+# Plan: Phase <N>: <phase title>
 
 ## Overview
 

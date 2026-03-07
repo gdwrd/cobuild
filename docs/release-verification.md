@@ -57,9 +57,7 @@ After the GitHub Release workflow completes:
 2. Install the published version in a fresh directory and verify `cobuild --help` works:
 
 ```
-mkdir /tmp/cobuild-verify && cd /tmp/cobuild-verify
-npm install cobuild@<version>
-./node_modules/.bin/cobuild --help
+mkdir /tmp/cobuild-verify && cd /tmp/cobuild-verify && npm install cobuild@<version> && ./node_modules/.bin/cobuild --help
 ```
 
 3. Confirm the GitHub Release was created with the correct tag and notes.

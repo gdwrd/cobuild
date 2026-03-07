@@ -9,6 +9,8 @@
 - `npm run typecheck` — type-check without emitting (uses root `tsconfig.json`, includes test files)
 - `npm run integration-test` — build then run end-to-end verification (alias for `npm run build && node scripts/verify-e2e.mjs`)
 - `node scripts/verify-e2e.mjs` — end-to-end verification: exercises the full artifact pipeline programmatically using compiled `dist/` modules, including spec generation, architecture, high-level plan, phase extraction, per-phase dev plan generation, file output to `docs/plans/`, session state persistence, halt behavior, and resume from `dev-plans` stage
+- `node scripts/verify-package-contents.mjs` — assert that `npm pack --dry-run --json` contains only `dist/` and allowed root files; exits non-zero on unexpected inclusions (run by CI on every PR)
+- `bash scripts/smoke-test.sh` — pack a real tarball, install it in a temp directory, run `cobuild --help` against the installed binary; confirms the published artifact is installable (run by CI on every PR)
 
 ## Project Structure
 

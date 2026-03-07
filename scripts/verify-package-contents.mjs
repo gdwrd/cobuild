@@ -52,6 +52,10 @@ try {
 }
 
 const [packResult] = packResults;
+if (!packResult || typeof packResult !== 'object') {
+  console.error('ERROR: Unexpected npm pack output format — no package entry found');
+  process.exit(1);
+}
 const files = (packResult.files ?? []).map((f) => f.path);
 
 if (files.length === 0) {

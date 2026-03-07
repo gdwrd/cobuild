@@ -39,8 +39,27 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Verify package.json version matches tag
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$PKG_VERSION" != "${{ github.ref_name }}" ]; then
+            echo "ERROR: package.json version ($PKG_VERSION) does not match tag (${{ github.ref_name }})"
+            exit 1
+          fi
+
       - name: Packaging smoke check
         run: npm pack --dry-run --cache /tmp/cobuild-npm-cache
+
+      - name: Verify package contents
+        run: node scripts/verify-package-contents.mjs
+
+      - name: Install smoke test
+        run: bash scripts/smoke-test.sh
+
+      - name: Publish to npm
+        run: npm publish --ignore-scripts --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         env:
@@ -50,8 +69,3 @@ jobs:
             --title "${{ github.ref_name }}" \
             --notes "See RELEASE_NOTES.md for details." \
             --verify-tag
-
-      - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -31,9 +31,11 @@ npm run build
 npm test
 npm run lint
 npm run typecheck
+node scripts/verify-package-contents.mjs
+bash scripts/smoke-test.sh
 ```
 
-All checks must pass with no errors.
+All checks must pass with no errors. The last two match what CI runs on every PR.
 
 ## Pull request expectations
 

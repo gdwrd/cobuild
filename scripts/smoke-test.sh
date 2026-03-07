@@ -8,13 +8,13 @@ TARBALL=$(npm pack --silent 2>/dev/null)
 TARBALL_PATH="$(pwd)/$TARBALL"
 echo "    Packed: $TARBALL"
 
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR" "$TARBALL_PATH"' EXIT
+INSTALL_DIR=$(mktemp -d)
+trap 'rm -rf "$INSTALL_DIR" "$TARBALL_PATH"' EXIT
 
-echo "==> Installing into clean directory: $TMPDIR"
-npm install --prefix "$TMPDIR" "$TARBALL_PATH" --no-save --silent 2>/dev/null
+echo "==> Installing into clean directory: $INSTALL_DIR"
+npm install --prefix "$INSTALL_DIR" "$TARBALL_PATH" --no-save --silent
 
-COBUILD_BIN="$TMPDIR/node_modules/.bin/cobuild"
+COBUILD_BIN="$INSTALL_DIR/node_modules/.bin/cobuild"
 
 if [[ ! -x "$COBUILD_BIN" ]]; then
   echo "ERROR: cobuild binary not found at $COBUILD_BIN" >&2

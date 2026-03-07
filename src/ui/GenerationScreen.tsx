@@ -23,6 +23,12 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
     return () => clearInterval(interval);
   }, [status]);
 
+  useEffect(() => {
+    if (status === 'success') {
+      exit();
+    }
+  }, [status, exit]);
+
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
       exit();

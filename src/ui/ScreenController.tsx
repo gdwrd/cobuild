@@ -15,7 +15,7 @@ import { buildInterviewSystemPrompt } from '../interview/prompts.js';
 import { createFinishNowHandler } from '../interview/finish-now.js';
 import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
-import { withRetry } from '../interview/retry.js';
+import { withRetry, RetryExhaustedError } from '../interview/retry.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
 import { SpecGenerator } from '../artifacts/spec-generator.js';
 import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile } from '../artifacts/file-output.js';
@@ -205,7 +205,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setScreen('generating');
 
     const specGenerator = new SpecGenerator();
-    runArtifactPipeline(session, providerRef.current!, specGenerator, 'spec')
+    runArtifactPipeline(session, provider, specGenerator, 'spec')
       .then(({ session: updatedSession, result }) => {
         const projectName = path.basename(updatedSession.workingDirectory) || 'project';
         const docsDir = ensureDocsDir(updatedSession.workingDirectory);
@@ -230,9 +230,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         getLogger().error(`generation screen: spec generation failed: ${msg}`);
-        const s = currentSessionRef.current;
-        if (s) {
-          persistErrorState(s, msg);
+        // RetryExhaustedError: onRetryExhausted already persisted error state inside the generator
+        if (!(err instanceof RetryExhaustedError)) {
+          const s = currentSessionRef.current;
+          if (s) {
+            persistErrorState(s, msg);
+          }
         }
         setGenerationError(msg);
         setGenerationStatus('error');

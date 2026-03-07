@@ -25,7 +25,7 @@ src/
                  transitionToArtifactStage), spec-generator.ts (SpecGenerator, incrementGenerationAttempts,
                  normalizeSpecOutput), spec-prompt.ts (SPEC_SYSTEM_PROMPT, buildSpecMessages,
                  logSpecPromptMetadata), spec-validator.ts (validateSpecStructure, assertValidSpec,
-                 SpecValidationError, REQUIRED_SECTIONS), file-output.ts (ensureDocsDir, generateFilename,
+                 SpecValidationError), file-output.ts (ensureDocsDir, generateFilename,
                  sanitizeFilename, resolveOutputPath, writeArtifactFile)
   session/     — Session schema, creation, atomic persistence, transcript append, session resolution (session.ts)
   ui/          — Ink components: App.tsx (main shell), ScreenController.tsx (screen router),

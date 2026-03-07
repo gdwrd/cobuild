@@ -103,12 +103,12 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 7: Implement Generation Status UI
 
-- [ ] Implement artifact generation screen
-- [ ] Display "creating file" animation
-- [ ] Display generation progress indicator
-- [ ] Display success confirmation message
-- [ ] Display saved file path
-- [ ] Ensure document content is not printed in terminal
+- [x] Implement artifact generation screen
+- [x] Display "creating file" animation
+- [x] Display generation progress indicator
+- [x] Display success confirmation message
+- [x] Display saved file path
+- [x] Ensure document content is not printed in terminal
 
 ---
 

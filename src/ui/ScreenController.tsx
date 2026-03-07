@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import * as path from 'node:path';
 import { Box, Text, useApp } from 'ink';
 import type { StartupResult } from '../cli/app-shell.js';
 import { App } from './App.js';
 import { RestoredSession } from './RestoredSession.js';
+import { GenerationScreen } from './GenerationScreen.js';
+import type { GenerationStatus } from './GenerationScreen.js';
 import type { InterviewMessage, Session } from '../session/session.js';
-import { loadSession, persistErrorState } from '../session/session.js';
+import { loadSession, persistErrorState, persistSpecArtifact } from '../session/session.js';
 import { OllamaProvider } from '../providers/ollama.js';
 import { runInterviewLoop } from '../interview/controller.js';
 import type { ModelProvider } from '../interview/controller.js';
@@ -13,8 +16,12 @@ import { createFinishNowHandler } from '../interview/finish-now.js';
 import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
 import { withRetry } from '../interview/retry.js';
+import { runArtifactPipeline } from '../artifacts/generator.js';
+import { SpecGenerator } from '../artifacts/spec-generator.js';
+import { ensureDocsDir, generateFilename, resolveOutputPath, writeArtifactFile } from '../artifacts/file-output.js';
+import { getLogger } from '../logging/logger.js';
 
-type Screen = 'startup' | 'restored' | 'main' | 'error';
+type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'error';
 
 export interface ScreenControllerProps {
   startupPromise: Promise<StartupResult>;
@@ -34,6 +41,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [fatalInterviewError, setFatalInterviewError] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [isSelectingModel, setIsSelectingModel] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('generating');
+  const [generationFilePath, setGenerationFilePath] = useState<string | undefined>(undefined);
+  const [generationError, setGenerationError] = useState<string | undefined>(undefined);
 
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
@@ -186,6 +196,35 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       });
   }, [screen, sessionId]);
 
+  useEffect(() => {
+    if (!interviewComplete) return;
+    const session = currentSessionRef.current;
+    const provider = providerRef.current;
+    if (!session || !provider) return;
+
+    setScreen('generating');
+
+    const specGenerator = new SpecGenerator();
+    runArtifactPipeline(session, provider, specGenerator, 'spec')
+      .then(({ session: updatedSession, result }) => {
+        const projectName = path.basename(updatedSession.workingDirectory) || 'project';
+        const docsDir = ensureDocsDir(updatedSession.workingDirectory);
+        const filename = generateFilename(projectName);
+        const filePath = resolveOutputPath(docsDir, filename);
+        writeArtifactFile(filePath, result.content);
+        persistSpecArtifact(updatedSession, result.content, filePath);
+        getLogger().info(`generation screen: spec saved to ${filePath}`);
+        setGenerationFilePath(filePath);
+        setGenerationStatus('success');
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        getLogger().error(`generation screen: spec generation failed: ${msg}`);
+        setGenerationError(msg);
+        setGenerationStatus('error');
+      });
+  }, [interviewComplete]);
+
   const handleSubmit = useCallback(
     (input: string) => {
       if (!userInputResolverRef.current) return;
@@ -230,6 +269,16 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       <Box paddingX={1} paddingY={1}>
         <Text color="red">Error: {errorMessage}</Text>
       </Box>
+    );
+  }
+
+  if (screen === 'generating') {
+    return (
+      <GenerationScreen
+        status={generationStatus}
+        filePath={generationFilePath}
+        errorMessage={generationError}
+      />
     );
   }
 

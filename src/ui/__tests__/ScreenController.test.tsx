@@ -17,6 +17,37 @@ vi.mock('../RestoredSession.js', () => ({
   },
 }));
 
+vi.mock('../GenerationScreen.js', () => ({
+  GenerationScreen: function MockGenerationScreen() {
+    return null;
+  },
+}));
+
+vi.mock('../../artifacts/generator.js', () => ({
+  runArtifactPipeline: vi.fn(() => new Promise(() => {})),
+}));
+
+vi.mock('../../artifacts/spec-generator.js', () => ({
+  SpecGenerator: vi.fn().mockImplementation(() => ({})),
+}));
+
+vi.mock('../../artifacts/file-output.js', () => ({
+  ensureDocsDir: vi.fn(() => '/tmp/docs'),
+  generateFilename: vi.fn(() => 'project-spec.md'),
+  resolveOutputPath: vi.fn(() => '/tmp/docs/project-spec.md'),
+  writeArtifactFile: vi.fn(),
+}));
+
+vi.mock('../../logging/logger.js', () => ({
+  getLogger: () => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    log: vi.fn(),
+  }),
+}));
+
 vi.mock('../../session/session.js', () => ({
   loadSession: vi.fn(() => ({
     id: 'abc-123',
@@ -28,6 +59,7 @@ vi.mock('../../session/session.js', () => ({
     transcript: [],
   })),
   persistErrorState: vi.fn(),
+  persistSpecArtifact: vi.fn(),
 }));
 
 vi.mock('../../providers/ollama.js', () => ({

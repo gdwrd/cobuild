@@ -108,14 +108,14 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 6: Implement Dev Plan File Writer
 
-- [ ] Ensure `docs/plans/` directory exists
-- [ ] Generate filename using format:
+- [x] Ensure `docs/plans/` directory exists
+- [x] Generate filename using format:
   `YYYY-MM-DD-phase-<number>-<title>.md`
-- [ ] Sanitize filename for filesystem safety
-- [ ] Detect collisions
-- [ ] Apply numeric suffix if needed
-- [ ] Write Markdown file
-- [ ] Log file creation
+- [x] Sanitize filename for filesystem safety
+- [x] Detect collisions
+- [x] Apply numeric suffix if needed
+- [x] Write Markdown file
+- [x] Log file creation
 
 ---
 

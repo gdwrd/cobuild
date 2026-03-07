@@ -61,7 +61,7 @@ describe('CobuildError', () => {
 
 describe('mapError', () => {
   it('returns the same CobuildError if already classified', () => {
-    const cobuildErr = new CobuildError('SESSION', 'Session error: not found');
+    const cobuildErr = new CobuildError('UNKNOWN', 'Session error: not found');
     expect(mapError(cobuildErr)).toBe(cobuildErr);
   });
 

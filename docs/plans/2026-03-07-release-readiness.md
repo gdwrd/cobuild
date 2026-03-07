@@ -34,10 +34,10 @@
 - [x] Verify the publish surface using `package.json`, `.npmignore`, and `npm pack --dry-run`, and remove any unintended package contents.
 
 ### Task 5: Add continuous integration for pull requests and pushes
-- [ ] Add a GitHub Actions workflow under `.github/workflows/` that runs `npm ci`, `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck`.
-- [ ] Choose an appropriate Node.js version matrix for supported releases.
-- [ ] Ensure CI does not depend on Ollama or Codex CLI being installed.
-- [ ] Make CI fail fast on packaging or TypeScript regressions that would block release.
+- [x] Add a GitHub Actions workflow under `.github/workflows/` that runs `npm ci`, `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck`.
+- [x] Choose an appropriate Node.js version matrix for supported releases.
+- [x] Ensure CI does not depend on Ollama or Codex CLI being installed.
+- [x] Make CI fail fast on packaging or TypeScript regressions that would block release.
 
 ### Task 6: Add release automation for GitHub and npm
 - [ ] Add a release workflow under `.github/workflows/` for tagged releases.

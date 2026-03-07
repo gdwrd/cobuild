@@ -434,6 +434,7 @@ export function persistDevPlanHalt(session: Session, failedPhaseNumber: number):
   const updated: Session = {
     ...session,
     devPlanHalted: true,
+    currentDevPlanPhase: failedPhaseNumber,
     updatedAt: new Date().toISOString(),
   };
   saveSession(updated);

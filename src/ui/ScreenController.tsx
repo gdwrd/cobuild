@@ -434,6 +434,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setGenerationStage('spec');
     setCompletedStages([]);
     setGenerationFilePath(undefined);
+    setWorkflowTerminatedEarly(false);
     setRetryTrigger((n) => n + 1);
   }, []);
 

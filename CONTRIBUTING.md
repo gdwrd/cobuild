@@ -5,7 +5,7 @@
 1. Clone the repository and install dependencies:
 
    ```
-   git clone https://github.com/d0p3/cobuild.git
+   git clone https://github.com/gdwrd/cobuild.git
    cd cobuild
    npm install
    ```
@@ -51,4 +51,4 @@ See `CLAUDE.md` for a detailed breakdown of source modules, architectural patter
 
 ## Reporting issues
 
-Use the GitHub issue tracker at https://github.com/d0p3/cobuild/issues.
+Use the GitHub issue tracker at https://github.com/gdwrd/cobuild/issues.

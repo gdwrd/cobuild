@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/d0p3/cobuild.git"
+    "url": "https://github.com/gdwrd/cobuild.git"
   },
-  "homepage": "https://github.com/d0p3/cobuild#readme",
+  "homepage": "https://github.com/gdwrd/cobuild#readme",
   "bugs": {
-    "url": "https://github.com/d0p3/cobuild/issues"
+    "url": "https://github.com/gdwrd/cobuild/issues"
   },
   "keywords": [
     "ai",

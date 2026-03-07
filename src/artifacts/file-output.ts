@@ -48,14 +48,13 @@ export function resolveOutputPath(docsDir: string, filename: string): string {
   }
 
   let suffix = 2;
-  let found = false;
-  while (!found) {
+  while (suffix <= 1000) {
     candidate = path.join(docsDir, `${base}-${suffix}${ext}`);
-    if (!fs.existsSync(candidate)) {
-      found = true;
-    } else {
-      suffix++;
-    }
+    if (!fs.existsSync(candidate)) break;
+    suffix++;
+  }
+  if (suffix > 1000) {
+    throw new Error(`file-output: could not find a free filename for ${filename} after 1000 attempts`);
   }
   getLogger().info(`file-output: collision detected, using suffix ${suffix} → ${candidate}`);
   return candidate;

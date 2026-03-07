@@ -332,10 +332,12 @@ describe('write failure behavior', () => {
     expect(() => writeArtifactFile(filePath, '# Content')).toThrow(/ENOENT|no such file/i);
   });
 
-  it('does not leave a tmp file behind on write failure', () => {
+  it('does not leave a tmp file behind when the target directory does not exist', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-int-'));
+    // The tmp path lives next to filePath; if the parent subdirectory doesn't exist,
+    // writeFileSync fails before creating the tmp file — no cleanup needed.
     try {
-      const filePath = '/nonexistent-cobuild-test-dir/output.md';
+      const filePath = path.join(tmpDir, 'nonexistent-subdir', 'output.md');
       try {
         writeArtifactFile(filePath, '# Content');
       } catch {

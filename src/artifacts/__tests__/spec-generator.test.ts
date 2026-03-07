@@ -27,7 +27,7 @@ vi.mock('../spec-validator.js', () => ({
 
 import { saveSession, getTranscript, persistErrorState } from '../../session/session.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../../interview/retry.js';
-import { assertValidSpec } from '../spec-validator.js';
+import { assertValidSpec, SpecValidationError } from '../spec-validator.js';
 import { normalizeSpecOutput, incrementGenerationAttempts, SpecGenerator } from '../spec-generator.js';
 import type { Session } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
@@ -164,10 +164,11 @@ describe('SpecGenerator', () => {
     const generator = new SpecGenerator();
 
     vi.mocked(assertValidSpec).mockImplementationOnce(() => {
-      throw new Error('Spec validation failed: missing sections — project overview, functional requirements, acceptance criteria');
+      const result = { valid: false, missingSections: ['project overview', 'functional requirements', 'acceptance criteria'] };
+      throw new SpecValidationError(result);
     });
 
-    await expect(generator.generate(session, provider)).rejects.toThrow('Spec validation failed');
+    await expect(generator.generate(session, provider)).rejects.toThrow(SpecValidationError);
   });
 
   it('increments generation attempts in session', async () => {

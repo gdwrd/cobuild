@@ -146,14 +146,6 @@ export function loadSession(sessionId: string): Session | null {
   }
 }
 
-export function updateSession(session: Session): Session {
-  const updated: Session = {
-    ...session,
-    updatedAt: new Date().toISOString(),
-  };
-  saveSession(updated);
-  return updated;
-}
 
 export function createAndSaveSession(): Session {
   const session = createSession();

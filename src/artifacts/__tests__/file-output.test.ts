@@ -173,15 +173,17 @@ describe('writeArtifactFile', () => {
     expect(mockLogger.error.mock.calls[0][0]).toMatch(/failed to write/);
   });
 
-  it('does not leave a tmp file on failure', () => {
+  it('does not leave a tmp file when the target directory does not exist', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cobuild-test-'));
-    const filePath = '/nonexistent-dir-cobuild-test/output.md';
+    // The tmp path lives next to filePath; if the directory doesn't exist,
+    // writeFileSync fails before creating the tmp file — no cleanup is needed.
+    const filePath = path.join(tmpDir, 'nonexistent-subdir', 'output.md');
     try {
       writeArtifactFile(filePath, 'content');
     } catch {
       /* expected */
     }
-    // No tmp files should remain in tmpDir
+    // No tmp files should exist in the parent tmpDir
     const files = fs.readdirSync(tmpDir);
     expect(files.filter((f) => f.endsWith('.tmp'))).toHaveLength(0);
     fs.rmSync(tmpDir, { recursive: true });

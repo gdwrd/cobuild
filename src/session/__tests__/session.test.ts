@@ -153,29 +153,6 @@ describe('loadSession', () => {
   });
 });
 
-describe('updateSession', () => {
-  it('returns session with updated timestamp and saves it', async () => {
-    fsMock.writeFileSync.mockImplementation(() => {});
-    fsMock.renameSync.mockImplementation(() => {});
-
-    const { updateSession } = await import('../session.js');
-    const original = {
-      id: 'abc',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      workingDirectory: '/work',
-      completed: false,
-      transcript: [],
-    };
-
-    const updated = updateSession(original);
-
-    expect(updated.id).toBe(original.id);
-    expect(updated.createdAt).toBe(original.createdAt);
-    expect(updated.updatedAt).not.toBe(original.updatedAt);
-    expect(fsMock.writeFileSync).toHaveBeenCalled();
-  });
-});
 
 describe('createAndSaveSession', () => {
   it('creates and saves session, returning it', async () => {

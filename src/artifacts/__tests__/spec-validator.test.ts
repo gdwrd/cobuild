@@ -125,6 +125,7 @@ describe('assertValidSpec', () => {
   });
 
   it('thrown error contains the validation result', () => {
+    expect.assertions(3);
     try {
       assertValidSpec('no sections');
     } catch (err) {
@@ -136,6 +137,7 @@ describe('assertValidSpec', () => {
   });
 
   it('thrown error message includes missing section names', () => {
+    expect.assertions(1);
     try {
       assertValidSpec('no sections');
     } catch (err) {

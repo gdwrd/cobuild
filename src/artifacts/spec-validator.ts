@@ -21,7 +21,7 @@ const REQUIRED_SECTIONS: RequiredSection[] = [
   },
   {
     name: 'acceptance criteria',
-    patterns: [/^#{1,3}\s+(acceptance\s+criteria|criteria)/im],
+    patterns: [/^#{1,3}\s+acceptance\s+criteria/im],
   },
 ];
 

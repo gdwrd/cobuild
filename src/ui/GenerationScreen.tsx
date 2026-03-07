@@ -25,7 +25,7 @@ export function GenerationScreen({ status, filePath, errorMessage }: GenerationS
 
   useEffect(() => {
     if (status === 'success') {
-      exit();
+      setTimeout(() => exit(), 100);
     }
   }, [status, exit]);
 

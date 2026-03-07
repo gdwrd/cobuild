@@ -90,10 +90,11 @@ describe('validateSpecStructure', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('accepts "Criteria" as acceptance criteria heading', () => {
+  it('rejects bare "Criteria" heading without "acceptance" prefix', () => {
     const content = `# Spec\n\n## Project Overview\n\nDesc\n\n## Functional Requirements\n\n- A\n\n## Criteria\n\n- B\n`;
     const result = validateSpecStructure(content);
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.missingSections).toContain('acceptance criteria');
   });
 
   it('is case-insensitive for section headings', () => {

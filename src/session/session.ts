@@ -97,6 +97,7 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
   for (const file of files) {
     if (!file.endsWith('.json')) continue;
     const sessionId = file.slice(0, -5);
+    if (sessionId.includes(path.sep) || sessionId.includes('/')) continue;
     try {
       const session = loadSession(sessionId);
       if (session && session.workingDirectory === workingDirectory) {

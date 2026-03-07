@@ -25,10 +25,10 @@
 - [x] Add focused tests for the provider factory and the Codex CLI provider success, failure, timeout, and output parsing paths.
 
 ### Task 4: Preserve interview and artifact generation flows across providers
-- [ ] Update `ScreenController` and any related orchestration code to hold the active provider through the new factory/capability layer rather than through an `OllamaProvider`-typed ref.
-- [ ] Ensure interview turns, `/finish-now`, spec generation, architecture generation, high-level plan generation, and per-phase dev-plan generation all use the same active provider instance.
-- [ ] Preserve retry handling, error persistence, and logging semantics for Codex CLI-backed generation calls.
-- [ ] Add or update integration-style tests that cover the end-to-end orchestration path with a non-Ollama provider stub.
+- [x] Update `ScreenController` and any related orchestration code to hold the active provider through the new factory/capability layer rather than through an `OllamaProvider`-typed ref.
+- [x] Ensure interview turns, `/finish-now`, spec generation, architecture generation, high-level plan generation, and per-phase dev-plan generation all use the same active provider instance.
+- [x] Preserve retry handling, error persistence, and logging semantics for Codex CLI-backed generation calls.
+- [x] Add or update integration-style tests that cover the end-to-end orchestration path with a non-Ollama provider stub.
 
 ### Task 5: Disable `/model` for Codex CLI and make provider messaging explicit
 - [ ] Refactor `/model` handling to check provider capabilities before listing models.

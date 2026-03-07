@@ -9,7 +9,7 @@ import type { GenerationStatus, GenerationStage, CompletedStage } from './Genera
 import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
 import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage, persistRetryExhaustedState } from '../session/session.js';
-import { OllamaProvider } from '../providers/ollama.js';
+import { createProvider, supportsModelListing } from '../providers/factory.js';
 import { runInterviewLoop } from '../interview/controller.js';
 import type { ModelProvider } from '../interview/controller.js';
 import { buildInterviewSystemPrompt } from '../interview/prompts.js';
@@ -65,7 +65,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
   const yesNoResolverRef = useRef<((answer: boolean) => void) | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
-  const providerRef = useRef<OllamaProvider | null>(null);
+  const providerRef = useRef<ModelProvider | null>(null);
   const currentModelRef = useRef<string>('llama3');
   const interviewStartedRef = useRef(false);
   const pipelineStartedRef = useRef(false);
@@ -135,7 +135,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
     const model = session.model ?? 'llama3';
     currentModelRef.current = model;
-    providerRef.current = new OllamaProvider({ model });
+    providerRef.current = createProvider(session.provider ?? 'ollama', model);
 
     // Proxy delegates to current provider ref, enabling /model switching
     const providerProxy: ModelProvider = {
@@ -172,7 +172,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       currentSessionRef.current = updated;
       if (updated.model && updated.model !== currentModelRef.current) {
         currentModelRef.current = updated.model;
-        providerRef.current = new OllamaProvider({ model: updated.model });
+        providerRef.current = createProvider(updated.provider ?? 'ollama', updated.model);
       }
     };
 
@@ -211,7 +211,12 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       '/model': createModelHandler({
         getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
         onSessionUpdate,
-        modelLister: { listModels: () => providerRef.current!.listModels() },
+        modelLister: {
+          listModels: () =>
+            supportsModelListing(providerRef.current!)
+              ? providerRef.current!.listModels()
+              : Promise.resolve([]),
+        },
         onSelectModel,
       }),
       '/provider': createProviderHandler(),
@@ -263,7 +268,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setCompletedStages(resumeStages);
 
     const model = session.model ?? 'llama3';
-    providerRef.current = new OllamaProvider({ model });
+    providerRef.current = createProvider(session.provider ?? 'ollama', model);
     const provider = providerRef.current;
 
     setGenerationStage('dev-plan');

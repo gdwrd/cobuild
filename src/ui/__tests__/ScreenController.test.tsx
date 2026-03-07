@@ -11,6 +11,7 @@ import { writeArtifactFile } from '../../artifacts/file-output.js';
 import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession, persistRetryExhaustedState } from '../../session/session.js';
 import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
+import { createProvider } from '../../providers/factory.js';
 
 vi.mock('../App.js', () => ({
   App: function MockApp() {
@@ -85,11 +86,12 @@ vi.mock('../../session/session.js', () => {
   };
 });
 
-vi.mock('../../providers/ollama.js', () => ({
-  OllamaProvider: vi.fn().mockImplementation(() => ({
+vi.mock('../../providers/factory.js', () => ({
+  createProvider: vi.fn(() => ({
     generate: vi.fn(),
     listModels: vi.fn(),
   })),
+  supportsModelListing: vi.fn(() => true),
 }));
 
 vi.mock('../../interview/controller.js', () => ({
@@ -223,6 +225,7 @@ describe('ScreenController write failure handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
     vi.mocked(completeSpecStage).mockReturnValue(mockSession);
@@ -344,6 +347,7 @@ describe('ScreenController retry exhaustion handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
     vi.mocked(completeSpecStage).mockReturnValue(mockSession);
@@ -391,6 +395,127 @@ describe('ScreenController retry exhaustion handling', () => {
   });
 });
 
+describe('ScreenController codex-cli provider', () => {
+  const codexSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview' as const,
+    provider: 'codex-cli' as const,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
+    vi.mocked(loadSession).mockReturnValue(codexSession);
+    vi.mocked(persistSpecArtifact).mockReturnValue(codexSession);
+    vi.mocked(completeSpecStage).mockReturnValue(codexSession);
+    vi.mocked(runPostSpecWorkflow).mockResolvedValue({ terminatedAt: 'architecture-decision' as const, finalSession: codexSession });
+  });
+
+  it('constructs provider via factory with codex-cli when session provider is codex-cli', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(createProvider).toHaveBeenCalledWith('codex-cli', expect.anything());
+
+    unmount();
+  });
+
+  it('starts interview loop with the codex-cli provider instance', async () => {
+    const mockProvider = { generate: vi.fn(() => new Promise(() => {})) };
+    vi.mocked(createProvider).mockReturnValue(mockProvider);
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(runInterviewLoop).toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('runs full artifact pipeline with codex-cli provider', async () => {
+    vi.mocked(runInterviewLoop).mockResolvedValue(codexSession);
+    vi.mocked(runArtifactPipeline).mockResolvedValue({
+      session: codexSession,
+      result: { type: 'spec', content: '# Spec' },
+    });
+    vi.mocked(persistSpecArtifact).mockReturnValue({ ...codexSession, specArtifact: { content: '# Spec', filePath: '/tmp/docs/spec.md', generated: true } });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(runArtifactPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'codex-cli' }),
+      expect.anything(),
+      expect.anything(),
+      'spec',
+    );
+    expect(completeSpecStage).toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('resumes dev-plan loop using codex-cli provider from session', async () => {
+    const devPlanCodexSession = {
+      ...codexSession,
+      completed: true,
+      stage: 'dev-plans' as const,
+      devPlansDecision: true,
+    };
+    vi.mocked(loadSession).mockReturnValue(devPlanCodexSession);
+    vi.mocked(runDevPlanLoop).mockReturnValue(new Promise(() => {}));
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          sessionStage: 'dev-plans' as const,
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(createProvider).toHaveBeenCalledWith('codex-cli', expect.anything());
+    expect(runDevPlanLoop).toHaveBeenCalledWith(
+      devPlanCodexSession,
+      expect.anything(),
+      expect.objectContaining({ onPhaseStart: expect.any(Function), onPhaseComplete: expect.any(Function) }),
+    );
+
+    unmount();
+  });
+});
+
 describe('ScreenController dev-plans resume', () => {
   const devPlanSession = {
     id: 'abc-123',
@@ -405,6 +530,7 @@ describe('ScreenController dev-plans resume', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
     vi.mocked(loadSession).mockReturnValue(devPlanSession);
     vi.mocked(runDevPlanLoop).mockReturnValue(new Promise(() => {}));
   });

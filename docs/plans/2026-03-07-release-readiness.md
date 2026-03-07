@@ -40,10 +40,10 @@
 - [x] Make CI fail fast on packaging or TypeScript regressions that would block release.
 
 ### Task 6: Add release automation for GitHub and npm
-- [ ] Add a release workflow under `.github/workflows/` for tagged releases.
-- [ ] Decide whether npm publishing will be manual or automated from GitHub Actions.
-- [ ] If npm publishing is automated, wire the required npm token and permissions into the release workflow.
-- [ ] Ensure the release workflow publishes only after build and test validation passes.
+- [x] Add a release workflow under `.github/workflows/` for tagged releases.
+- [x] Decide whether npm publishing will be manual or automated from GitHub Actions.
+- [x] If npm publishing is automated, wire the required npm token and permissions into the release workflow.
+- [x] Ensure the release workflow publishes only after build and test validation passes.
 
 ### Task 7: Add install and package smoke checks
 - [ ] Add a smoke check that installs the packed tarball and verifies `cobuild --help`.

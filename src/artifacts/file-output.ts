@@ -71,8 +71,7 @@ export function writeArtifactFile(filePath: string, content: string): void {
   logger.info(`file-output: writing artifact to ${filePath}`);
   try {
     fs.writeFileSync(tmpPath, content, { encoding: 'utf8' });
-    fs.linkSync(tmpPath, filePath);
-    fs.unlinkSync(tmpPath);
+    fs.renameSync(tmpPath, filePath);
     logger.info(`file-output: artifact written successfully to ${filePath}`);
   } catch (err) {
     try {

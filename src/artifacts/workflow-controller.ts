@@ -4,6 +4,7 @@ import type { ArtifactGenerator } from './generator.js';
 import {
   loadSession,
   persistWorkflowDecision,
+  persistDevPlansDecision,
   persistArchitectureArtifact,
   completeArchitectureStage,
   persistPlanArtifact,
@@ -19,6 +20,7 @@ export type PostSpecStage =
   | 'generating-architecture'
   | 'asking-plan'
   | 'generating-plan'
+  | 'asking-dev-plans'
   | 'complete'
   | 'terminated';
 
@@ -31,7 +33,7 @@ export interface PostSpecWorkflowOptions {
 }
 
 export interface PostSpecWorkflowResult {
-  terminatedAt?: 'architecture-decision' | 'plan-decision';
+  terminatedAt?: 'architecture-decision' | 'plan-decision' | 'dev-plans-decision';
   architectureFilePath?: string;
   planFilePath?: string;
   finalSession: Session;
@@ -118,6 +120,23 @@ export async function runPostSpecWorkflow(
   currentSession = completePlanStage(currentSession);
   logger.info(`post-spec workflow: plan generation complete, saved to ${planFilePath} (session ${session.id})`);
 
+  // Step 5: Ask about dev plan generation
+  notifyStage(options, 'asking-dev-plans');
+  const wantsDevPlans = await options.onDecision('Generate per-phase dev plans?');
+  currentSession = persistDevPlansDecision(currentSession, wantsDevPlans);
+
+  if (!wantsDevPlans) {
+    logger.info(`post-spec workflow: user declined dev plan generation, terminating (session ${session.id})`);
+    notifyStage(options, 'terminated');
+    return {
+      terminatedAt: 'dev-plans-decision',
+      architectureFilePath,
+      planFilePath,
+      finalSession: currentSession,
+    };
+  }
+
+  logger.info(`post-spec workflow: dev plan generation stage starting (session ${session.id})`);
   notifyStage(options, 'complete');
   return {
     architectureFilePath,

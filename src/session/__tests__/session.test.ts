@@ -913,3 +913,57 @@ describe('getTranscript', () => {
     expect(getTranscript(session)).toEqual([msg]);
   });
 });
+
+describe('persistDevPlansDecision', () => {
+  const baseSession = {
+    id: 'sess-dpd',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workingDirectory: '/work',
+    completed: true,
+    stage: 'plan' as const,
+    transcript: [],
+  };
+
+  it('sets devPlansDecision=true on session and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlansDecision } = await import('../session.js');
+    const updated = persistDevPlansDecision(baseSession, true);
+
+    expect(updated.devPlansDecision).toBe(true);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('sets devPlansDecision=false on session and saves', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlansDecision } = await import('../session.js');
+    const updated = persistDevPlansDecision(baseSession, false);
+
+    expect(updated.devPlansDecision).toBe(false);
+    expect(fsMock.writeFileSync).toHaveBeenCalled();
+  });
+
+  it('does not mutate the original session', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlansDecision } = await import('../session.js');
+    persistDevPlansDecision(baseSession, true);
+
+    expect((baseSession as Record<string, unknown>)['devPlansDecision']).toBeUndefined();
+  });
+
+  it('updates updatedAt', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { persistDevPlansDecision } = await import('../session.js');
+    const updated = persistDevPlansDecision(baseSession, true);
+
+    expect(updated.updatedAt).not.toBe(baseSession.updatedAt);
+  });
+});

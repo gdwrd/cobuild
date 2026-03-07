@@ -44,7 +44,7 @@ export interface Session {
   updatedAt: string;
   workingDirectory: string;
   completed: boolean;
-  stage?: 'interview' | 'spec' | 'architecture' | 'plan';
+  stage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
   finishedEarly?: boolean;
   transcript: InterviewMessage[];
   model?: string;
@@ -53,6 +53,7 @@ export interface Session {
   specArtifact?: SpecArtifact;
   architectureDecision?: boolean;
   planDecision?: boolean;
+  devPlansDecision?: boolean;
   architectureArtifact?: ArchitectureArtifact;
   planArtifact?: PlanArtifact;
   architectureGenerationAttempts?: number;
@@ -291,6 +292,19 @@ export function completePlanStage(session: Session): Session {
   };
   saveSession(updated);
   getLogger().info(`plan stage complete (session ${session.id})`);
+  return updated;
+}
+
+export function persistDevPlansDecision(session: Session, decision: boolean): Session {
+  const updated: Session = {
+    ...session,
+    devPlansDecision: decision,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `workflow decision: dev-plans=${decision} (session ${session.id})`,
+  );
   return updated;
 }
 

@@ -7,6 +7,7 @@ vi.mock('../../logging/logger.js', () => ({
 vi.mock('../../session/session.js', () => ({
   loadSession: vi.fn(() => null),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),
+  persistDevPlansDecision: vi.fn((session, _decision) => ({ ...session, updatedAt: 'now' })),
   persistArchitectureArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),
   persistPlanArtifact: vi.fn((session, _content, _filePath) => ({ ...session, updatedAt: 'now' })),
@@ -24,6 +25,7 @@ vi.mock('../plan-parser.js', () => ({
 
 import {
   persistWorkflowDecision,
+  persistDevPlansDecision,
   persistArchitectureArtifact,
   completeArchitectureStage,
   persistPlanArtifact,
@@ -92,6 +94,10 @@ beforeEach(() => {
     ...session,
     updatedAt: 'now',
   }));
+  vi.mocked(persistDevPlansDecision).mockImplementation((session) => ({
+    ...session,
+    updatedAt: 'now',
+  }));
   vi.mocked(extractPhases).mockReturnValue([]);
   vi.mocked(runArtifactPipeline).mockImplementation(async (session, _provider, generator, _type) => {
     const result = await generator.generate(session, _provider);
@@ -139,7 +145,7 @@ describe('runPostSpecWorkflow', () => {
     );
   });
 
-  it('runs full pipeline when user accepts both decisions', async () => {
+  it('runs full pipeline when user accepts all decisions', async () => {
     const session = makeSession();
     const provider = makeProvider();
     const options = makeOptions({ onDecision: vi.fn(async () => true) });
@@ -234,6 +240,7 @@ describe('runPostSpecWorkflow', () => {
       'generating-architecture',
       'asking-plan',
       'generating-plan',
+      'asking-dev-plans',
       'complete',
     ]);
   });
@@ -301,5 +308,84 @@ describe('runPostSpecWorkflow', () => {
     const options = makeOptions({ onDecision: vi.fn(async () => true) });
 
     await expect(runPostSpecWorkflow(session, provider, options)).rejects.toThrow('generation failed');
+  });
+
+  it('terminates at dev-plans-decision when user declines dev plan generation', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    let callCount = 0;
+    const onDecision = vi.fn(async () => {
+      callCount++;
+      return callCount <= 2; // yes to architecture, yes to plan, no to dev plans
+    });
+    const options = makeOptions({ onDecision });
+
+    const result = await runPostSpecWorkflow(session, provider, options);
+
+    expect(result.terminatedAt).toBe('dev-plans-decision');
+    expect(result.architectureFilePath).toBe('/work/docs/architecture.md');
+    expect(result.planFilePath).toBe('/work/docs/plan.md');
+    expect(vi.mocked(onDecision)).toHaveBeenCalledTimes(3);
+  });
+
+  it('persists dev plans decision when user accepts', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const options = makeOptions({ onDecision: vi.fn(async () => true) });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(persistDevPlansDecision)).toHaveBeenCalledOnce();
+    expect(vi.mocked(persistDevPlansDecision)).toHaveBeenCalledWith(expect.anything(), true);
+  });
+
+  it('persists dev plans decision when user declines', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    let callCount = 0;
+    const onDecision = vi.fn(async () => {
+      callCount++;
+      return callCount <= 2;
+    });
+    const options = makeOptions({ onDecision });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(vi.mocked(persistDevPlansDecision)).toHaveBeenCalledOnce();
+    expect(vi.mocked(persistDevPlansDecision)).toHaveBeenCalledWith(expect.anything(), false);
+  });
+
+  it('notifies asking-dev-plans stage before decision', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const stages: string[] = [];
+    const onStageUpdate = vi.fn((stage: string) => { stages.push(stage); });
+    const options = makeOptions({ onDecision: vi.fn(async () => true), onStageUpdate });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(stages).toContain('asking-dev-plans');
+    const devPlansIdx = stages.indexOf('asking-dev-plans');
+    const planIdx = stages.indexOf('generating-plan');
+    expect(devPlansIdx).toBeGreaterThan(planIdx);
+  });
+
+  it('notifies terminated stage when user declines dev plan generation', async () => {
+    const session = makeSession();
+    const provider = makeProvider();
+    const stages: string[] = [];
+    let callCount = 0;
+    const options = makeOptions({
+      onDecision: vi.fn(async () => {
+        callCount++;
+        return callCount <= 2;
+      }),
+      onStageUpdate: vi.fn((s) => { stages.push(s); }),
+    });
+
+    await runPostSpecWorkflow(session, provider, options);
+
+    expect(stages).toContain('terminated');
+    expect(stages).not.toContain('complete');
   });
 });

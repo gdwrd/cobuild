@@ -12,6 +12,7 @@ vi.mock('../../session/session.js', () => ({
   saveSession: vi.fn(),
   persistErrorState: vi.fn(),
   persistWorkflowDecision: vi.fn((session, _stage, _decision) => ({ ...session, updatedAt: 'now' })),
+  persistDevPlansDecision: vi.fn((session, _decision) => ({ ...session, updatedAt: 'now' })),
   persistArchitectureArtifact: vi.fn((session) => ({ ...session, updatedAt: 'now' })),
   completeArchitectureStage: vi.fn((session) => ({ ...session, stage: 'plan', updatedAt: 'now' })),
   persistPlanArtifact: vi.fn((session) => ({ ...session, updatedAt: 'now' })),
@@ -22,6 +23,7 @@ vi.mock('../../session/session.js', () => ({
 import {
   saveSession,
   persistWorkflowDecision,
+  persistDevPlansDecision,
   persistArchitectureArtifact,
   completeArchitectureStage,
   persistPlanArtifact,
@@ -193,6 +195,10 @@ beforeEach(() => {
     updatedAt: 'now',
   }));
   vi.mocked(persistExtractedPhases).mockImplementation((session) => ({
+    ...session,
+    updatedAt: 'now',
+  }));
+  vi.mocked(persistDevPlansDecision).mockImplementation((session) => ({
     ...session,
     updatedAt: 'now',
   }));

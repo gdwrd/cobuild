@@ -47,12 +47,12 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 1: Extend Artifact Pipeline for Dev Plans
 
-- [ ] Add dev plan stage to artifact pipeline
-- [ ] Implement workflow prompt asking user whether to generate dev plans
-- [ ] Implement immediate termination when user answers "no"
-- [ ] Implement continuation when user answers "yes"
-- [ ] Persist workflow decision in session
-- [ ] Log dev plan stage start
+- [x] Add dev plan stage to artifact pipeline
+- [x] Implement workflow prompt asking user whether to generate dev plans
+- [x] Implement immediate termination when user answers "no"
+- [x] Implement continuation when user answers "yes"
+- [x] Persist workflow decision in session
+- [x] Log dev plan stage start
 
 ---
 

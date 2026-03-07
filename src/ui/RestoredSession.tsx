@@ -4,11 +4,11 @@ import { getLogger } from '../logging/logger.js';
 
 export interface RestoredSessionProps {
   sessionId: string;
-  stage?: 'interview' | 'spec' | 'architecture' | 'plan';
+  stage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
   onContinue: () => void;
 }
 
-export function RestoredSession({ sessionId, stage = 'interview' as const, onContinue }: RestoredSessionProps) {
+export function RestoredSession({ sessionId, stage = 'interview', onContinue }: RestoredSessionProps) {
   const { exit } = useApp();
 
   useEffect(() => {

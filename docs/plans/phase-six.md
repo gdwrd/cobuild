@@ -147,12 +147,12 @@ This phase does not introduce new user-facing features. It focuses on reliabilit
 
 ### Task 11: Perform Final QA Pass
 
-- [ ] Run full workflow multiple times
-- [ ] Verify artifact files are created correctly
-- [ ] Verify logs capture all operations
-- [ ] Verify session resume behavior
-- [ ] Verify failure paths are clear and recoverable
-- [ ] Verify CLI UX clarity
+- [x] Run full workflow multiple times
+- [x] Verify artifact files are created correctly
+- [x] Verify logs capture all operations
+- [x] Verify session resume behavior
+- [x] Verify failure paths are clear and recoverable
+- [x] Verify CLI UX clarity
 
 ---
 

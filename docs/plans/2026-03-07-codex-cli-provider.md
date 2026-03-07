@@ -38,10 +38,10 @@
 - [x] Add unit and workflow tests covering `/model` and `/provider` behavior for both providers.
 
 ### Task 6: Update logs, errors, and user-facing text for multi-provider support
-- [ ] Replace Ollama-only wording in logs, transient errors, and UI copy where the text should now be provider-neutral.
-- [ ] Keep provider-specific error details where they help the user recover, including missing Codex CLI binary, failed Codex invocation, and Ollama connectivity failures.
-- [ ] Ensure provider name is included in relevant logs so mixed-provider issues can be diagnosed from session logs.
-- [ ] Add tests for the new provider-specific user messages and logging-sensitive branches where practical.
+- [x] Replace Ollama-only wording in logs, transient errors, and UI copy where the text should now be provider-neutral.
+- [x] Keep provider-specific error details where they help the user recover, including missing Codex CLI binary, failed Codex invocation, and Ollama connectivity failures.
+- [x] Ensure provider name is included in relevant logs so mixed-provider issues can be diagnosed from session logs.
+- [x] Add tests for the new provider-specific user messages and logging-sensitive branches where practical.
 
 ### Task 7: Document Codex CLI setup and revised command behavior
 - [ ] Update `README.md` requirements, installation, usage, startup flow, and slash-command sections to describe both Ollama and Codex CLI providers.

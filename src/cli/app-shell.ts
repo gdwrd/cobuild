@@ -71,7 +71,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
       const session = createAndSaveSession(config.provider);
       sessionId = session.id;
       sessionResolution = 'new';
-      logger.info(`new session created: ${session.id}`);
+      logger.info(`new session created: ${session.id} (provider=${config.provider})`);
     } else {
       const isResumeableExisting =
         existingSession &&
@@ -95,10 +95,10 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
         const session = createAndSaveSession(config.provider);
         sessionId = session.id;
         sessionResolution = 'new';
-        logger.info(`new session created: ${session.id}`);
+        logger.info(`new session created: ${session.id} (provider=${config.provider})`);
       }
     }
-    logger.info(`active session: ${sessionId} (${sessionResolution})`);
+    logger.info(`active session: ${sessionId} (${sessionResolution}, provider=${effectiveProvider})`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error(`session resolution failed: ${message}`);

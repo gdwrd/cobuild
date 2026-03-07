@@ -70,6 +70,24 @@ describe('checkOllama', () => {
       expect.objectContaining({ signal: expect.anything() })
     );
   });
+
+  it('success message mentions Ollama by name', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200 }));
+    const result = await checkOllama();
+    expect(result.message).toMatch(/Ollama/);
+  });
+
+  it('non-200 failure message mentions Ollama by name', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    const result = await checkOllama();
+    expect(result.message).toMatch(/Ollama/);
+  });
+
+  it('connection error message mentions Ollama by name', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+    const result = await checkOllama();
+    expect(result.message).toMatch(/Ollama/);
+  });
 });
 
 describe('checkCodexCli', () => {
@@ -107,6 +125,19 @@ describe('checkCodexCli — not found path', () => {
       process.env['PATH'] = originalPath;
     }
   });
+
+  it('failure message mentions codex CLI by name', async () => {
+    const originalPath = process.env['PATH'];
+    process.env['PATH'] = '';
+    try {
+      const result = checkCodexCli();
+      if (!result.ok) {
+        expect(result.message).toMatch(/codex/i);
+      }
+    } finally {
+      process.env['PATH'] = originalPath;
+    }
+  });
 });
 
 describe('checkProviderReadiness', () => {
@@ -132,5 +163,24 @@ describe('checkProviderReadiness', () => {
     const result = await checkProviderReadiness('ollama');
     expect(result.ok).toBe(false);
     expect(result.message).toMatch(/not reachable/i);
+  });
+
+  it('ollama failure message from checkProviderReadiness mentions Ollama by name', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+    const result = await checkProviderReadiness('ollama');
+    expect(result.message).toMatch(/Ollama/);
+  });
+
+  it('codex-cli failure message from checkProviderReadiness mentions codex by name', async () => {
+    const originalPath = process.env['PATH'];
+    process.env['PATH'] = '';
+    try {
+      const result = await checkProviderReadiness('codex-cli');
+      if (!result.ok) {
+        expect(result.message).toMatch(/codex/i);
+      }
+    } finally {
+      process.env['PATH'] = originalPath;
+    }
   });
 });

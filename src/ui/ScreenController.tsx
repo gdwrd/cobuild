@@ -135,7 +135,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
     const model = session.model ?? 'llama3';
     currentModelRef.current = model;
-    providerRef.current = createProvider(session.provider ?? 'ollama', model);
+    const activeProvider = session.provider ?? 'ollama';
+    getLogger().info(`screen: initializing provider=${activeProvider} model=${model} (session ${session.id})`);
+    providerRef.current = createProvider(activeProvider, model);
 
     // Proxy delegates to current provider ref, enabling /model switching
     const providerProxy: ModelProvider = {
@@ -172,7 +174,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       currentSessionRef.current = updated;
       if (updated.model && updated.model !== currentModelRef.current) {
         currentModelRef.current = updated.model;
-        providerRef.current = createProvider(updated.provider ?? 'ollama', updated.model);
+        const updatedProvider = updated.provider ?? 'ollama';
+        getLogger().info(`screen: model switched provider=${updatedProvider} model=${updated.model} (session ${updated.id})`);
+        providerRef.current = createProvider(updatedProvider, updated.model);
       }
     };
 
@@ -269,7 +273,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     setCompletedStages(resumeStages);
 
     const model = session.model ?? 'llama3';
-    providerRef.current = createProvider(session.provider ?? 'ollama', model);
+    const resumeProvider = session.provider ?? 'ollama';
+    getLogger().info(`dev-plan resume: initializing provider=${resumeProvider} model=${model} (session ${sessionId})`);
+    providerRef.current = createProvider(resumeProvider, model);
     const provider = providerRef.current;
 
     setGenerationStage('dev-plan');

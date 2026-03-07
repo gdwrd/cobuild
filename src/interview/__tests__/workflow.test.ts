@@ -324,7 +324,7 @@ describe('/model switching', () => {
 });
 
 describe('/provider command', () => {
-  it('returns Ollama info and continues interview without ending it', async () => {
+  it('returns active provider info and continues interview without ending it', async () => {
     const session = makeSession({
       transcript: [
         { role: 'assistant', content: 'Question?', timestamp: '2026-01-01T00:00:00.000Z' },

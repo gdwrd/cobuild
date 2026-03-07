@@ -68,14 +68,14 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 4: Implement Spec Structure Validator
 
-- [ ] Implement Markdown structure validation
-- [ ] Verify presence of required sections:
+- [x] Implement Markdown structure validation
+- [x] Verify presence of required sections:
   - project overview / description
   - functional requirements
   - acceptance criteria
-- [ ] Return structured validation result
-- [ ] Reject invalid generation output
-- [ ] Log validation errors
+- [x] Return structured validation result
+- [x] Reject invalid generation output
+- [x] Log validation errors
 
 ---
 

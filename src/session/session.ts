@@ -28,6 +28,16 @@ export interface PlanArtifact {
   generated: boolean;
 }
 
+export interface PlanPhase {
+  number: number;
+  title: string;
+  goal: string;
+  scope: string;
+  deliverables: string;
+  dependencies: string;
+  acceptanceCriteria: string;
+}
+
 export interface Session {
   id: string;
   createdAt: string;
@@ -47,6 +57,7 @@ export interface Session {
   planArtifact?: PlanArtifact;
   architectureGenerationAttempts?: number;
   planGenerationAttempts?: number;
+  extractedPhases?: PlanPhase[];
 }
 
 export function getSessionsDir(): string {
@@ -280,6 +291,19 @@ export function completePlanStage(session: Session): Session {
   };
   saveSession(updated);
   getLogger().info(`plan stage complete (session ${session.id})`);
+  return updated;
+}
+
+export function persistExtractedPhases(session: Session, phases: PlanPhase[]): Session {
+  const updated: Session = {
+    ...session,
+    extractedPhases: phases,
+    updatedAt: new Date().toISOString(),
+  };
+  saveSession(updated);
+  getLogger().info(
+    `artifact persistence: ${phases.length} extracted phases saved (session ${session.id})`,
+  );
   return updated;
 }
 

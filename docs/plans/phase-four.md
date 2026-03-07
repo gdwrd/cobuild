@@ -159,11 +159,11 @@ The artifact pipeline, validation logic, UI status flow, and session persistence
 
 ### Task 11: Implement Phase Extraction Parser
 
-- [ ] Parse validated high-level plan into structured phase objects
-- [ ] Extract phase number and title
-- [ ] Extract phase metadata fields
-- [ ] Persist extracted phases for future dev plan generation
-- [ ] Add unit tests for phase parser
+- [x] Parse validated high-level plan into structured phase objects
+- [x] Extract phase number and title
+- [x] Extract phase metadata fields
+- [x] Persist extracted phases for future dev plan generation
+- [x] Add unit tests for phase parser
 
 ---
 

@@ -225,6 +225,26 @@ describe('findLatestByWorkingDirectory', () => {
     expect(fsMock.readFileSync).toHaveBeenCalledTimes(1);
   });
 
+  it('skips completed sessions and returns the most recent incomplete one', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json', 'session-b.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync
+      .mockReturnValueOnce(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z', false))
+      .mockReturnValueOnce(makeSession('session-b', '/work', '2026-02-01T00:00:00.000Z', true));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    const result = findLatestByWorkingDirectory('/work');
+
+    expect(result?.id).toBe('session-a');
+  });
+
+  it('returns null when all matching sessions are completed', async () => {
+    fsMock.readdirSync.mockReturnValue(['session-a.json'] as unknown as ReturnType<typeof fs.readdirSync>);
+    fsMock.readFileSync.mockReturnValue(makeSession('session-a', '/work', '2026-01-01T00:00:00.000Z', true));
+
+    const { findLatestByWorkingDirectory } = await import('../session.js');
+    expect(findLatestByWorkingDirectory('/work')).toBeNull();
+  });
+
   it('skips corrupted session files', async () => {
     fsMock.readdirSync.mockReturnValue(['bad.json', 'good.json'] as unknown as ReturnType<typeof fs.readdirSync>);
     fsMock.readFileSync

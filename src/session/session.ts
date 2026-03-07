@@ -100,7 +100,7 @@ export function findLatestByWorkingDirectory(workingDirectory: string): Session 
     if (sessionId.includes(path.sep) || sessionId.includes('/')) continue;
     try {
       const session = loadSession(sessionId);
-      if (session && session.workingDirectory === workingDirectory) {
+      if (session && session.workingDirectory === workingDirectory && !session.completed) {
         sessions.push(session);
       }
     } catch (err) {

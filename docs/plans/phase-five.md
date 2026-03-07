@@ -131,11 +131,11 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 8: Implement Sequential Phase Loop
 
-- [ ] Implement loop over phases
-- [ ] Generate plan for phase 1..N sequentially
-- [ ] Update current phase state in session
-- [ ] Ensure generation waits for previous phase completion
-- [ ] Display UI progress for each phase
+- [x] Implement loop over phases
+- [x] Generate plan for phase 1..N sequentially
+- [x] Update current phase state in session
+- [x] Ensure generation waits for previous phase completion
+- [x] Display UI progress for each phase
 
 ---
 

@@ -192,27 +192,33 @@ describe('runStartup', () => {
     expect(result.message).toMatch(/interactive terminal/i);
   });
 
-  it('returns failure when ollama readiness check fails', async () => {
+  it('returns success with a startup notice when ollama readiness check fails', async () => {
     vi.mocked(checkProviderReadiness).mockResolvedValue({
       ok: false,
       message: 'Ollama is not reachable at http://localhost:11434 (connection refused).',
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
-    expect(result.success).toBe(false);
-    expect(result.message).toMatch(/not reachable/i);
+    expect(result.success).toBe(true);
+    expect(result.startupNotice).toMatch(/not reachable/i);
+    expect(result.providerStatuses).toEqual([
+      expect.objectContaining({ provider: 'ollama', ok: false }),
+      expect.objectContaining({ provider: 'codex-cli', ok: false }),
+    ]);
   });
 
-  it('returns failure when codex-cli readiness check fails for a new session', async () => {
-    vi.mocked(checkProviderReadiness).mockResolvedValue({
-      ok: false,
-      message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
-    });
+  it('returns success with a startup notice when codex-cli readiness check fails for a new session', async () => {
+    vi.mocked(checkProviderReadiness)
+      .mockResolvedValueOnce({ ok: true, message: 'Ollama is reachable at http://localhost:11434' })
+      .mockResolvedValueOnce({
+        ok: false,
+        message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
+      });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const });
-    expect(result.success).toBe(false);
-    expect(result.message).toMatch(/codex CLI is not available/i);
+    expect(result.success).toBe(true);
+    expect(result.startupNotice).toMatch(/Active provider codex-cli is not available yet/i);
   });
 
-  it('returns failure when codex-cli readiness check fails for a resumed codex-cli session', async () => {
+  it('returns success with a startup notice when codex-cli readiness check fails for a resumed codex-cli session', async () => {
     vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
       id: 'codex-session-id',
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -227,8 +233,8 @@ describe('runStartup', () => {
       message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
     });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
-    expect(result.success).toBe(false);
-    expect(result.message).toMatch(/codex CLI is not available/i);
+    expect(result.success).toBe(true);
+    expect(result.startupNotice).toMatch(/codex CLI is not available/i);
   });
 
   it('returns failure when directory bootstrap fails', async () => {

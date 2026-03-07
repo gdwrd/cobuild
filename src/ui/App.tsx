@@ -12,6 +12,7 @@ export interface AppProps {
   transcript?: InterviewMessage[];
   isThinking?: boolean;
   isComplete?: boolean;
+  noticeMessage?: string | null;
   errorMessage?: string | null;
   fatalErrorMessage?: string | null;
   allowEmptySubmit?: boolean;
@@ -24,6 +25,7 @@ export function App({
   transcript = [],
   isThinking = false,
   isComplete = false,
+  noticeMessage = null,
   errorMessage = null,
   fatalErrorMessage = null,
   allowEmptySubmit = false,
@@ -97,6 +99,12 @@ export function App({
       </Box>
 
       {/* Transient error */}
+      {noticeMessage && (
+        <Box paddingX={1} marginBottom={1}>
+          <Text color="yellow">{noticeMessage}</Text>
+        </Box>
+      )}
+
       {visibleError && (
         <Box paddingX={1} marginBottom={1}>
           <Text color="red">{'Error: '}{visibleError}</Text>

@@ -62,6 +62,19 @@ describe('createModelHandler', () => {
     expect(lister.listModels).toHaveBeenCalledOnce();
   });
 
+  it('supports manually setting a model without listing models', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister);
+    const handler = createModelHandler(options);
+
+    const result = await handler(['llama3.2']);
+
+    expect(lister.listModels).not.toHaveBeenCalled();
+    expect(saveSession).toHaveBeenCalledOnce();
+    expect(result.message).toBe('Model set to llama3.2.');
+  });
+
   it('returns handled=true and continueInterview=true when no models available', async () => {
     const session = makeSession();
     const lister = makeLister([]);
@@ -100,6 +113,21 @@ describe('createModelHandler', () => {
     await handler([]);
 
     expect(onSelectModel).toHaveBeenCalledWith(models);
+  });
+
+  it('returns a helpful manual override message when listModels fails', async () => {
+    const session = makeSession();
+    const options = makeOptions(session, {
+      listModels: vi.fn(async () => {
+        throw new Error('connection refused');
+      }),
+    });
+    const handler = createModelHandler(options);
+
+    const result = await handler([]);
+
+    expect(result.message).toContain('Unable to list models right now');
+    expect(result.message).toContain('/model <name>');
   });
 
   it('returns handled=true continueInterview=true when user cancels selection', async () => {

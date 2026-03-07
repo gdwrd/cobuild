@@ -13,10 +13,12 @@ import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
 import { createProvider } from '../../providers/factory.js';
 
+const { mockApp } = vi.hoisted(() => ({
+  mockApp: vi.fn(() => null),
+}));
+
 vi.mock('../App.js', () => ({
-  App: function MockApp() {
-    return null;
-  },
+  App: mockApp,
 }));
 
 vi.mock('../RestoredSession.js', () => ({
@@ -136,6 +138,10 @@ describe('ScreenController', () => {
     vi.restoreAllMocks();
   });
 
+  beforeEach(() => {
+    mockApp.mockClear();
+  });
+
   it('renders without throwing given a pending promise', () => {
     const stream = new PassThrough();
     const { unmount } = render(
@@ -191,6 +197,39 @@ describe('ScreenController', () => {
     );
     await new Promise(resolve => setTimeout(resolve, 200));
     expect(exitSpy).toHaveBeenCalledWith(1);
+    unmount();
+  });
+
+  it('passes startup notices through to the app instead of exiting', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          startupNotice: 'No AI providers are currently available.',
+          activeProvider: 'ollama' as const,
+          providerStatuses: [
+            { provider: 'ollama' as const, ok: false, message: 'Ollama unavailable' },
+            { provider: 'codex-cli' as const, ok: false, message: 'Codex unavailable' },
+          ],
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(exitSpy).not.toHaveBeenCalled();
+    expect(mockApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        noticeMessage: 'No AI providers are currently available.',
+      }),
+      expect.any(Object),
+    );
+
     unmount();
   });
 

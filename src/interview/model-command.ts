@@ -22,11 +22,29 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
   const logger = getLogger();
 
   return async function handleModel(_args: string[]): Promise<CommandResult> {
+    const session = getSession();
+    const requestedModel = _args.join(' ').trim();
     logger.info('/model: command invoked');
 
     if (!supportsModelListing) {
       logger.info('/model: model listing not supported for active provider');
       return { handled: true, continueInterview: true, message: MODEL_NOT_SUPPORTED_MESSAGE };
+    }
+
+    if (requestedModel) {
+      logger.info(`/model: applying manual model override "${requestedModel}"`);
+      const updatedSession: Session = {
+        ...session,
+        model: requestedModel,
+        updatedAt: new Date().toISOString(),
+      };
+      saveSession(updatedSession);
+      onSessionUpdate(updatedSession);
+      return {
+        handled: true,
+        continueInterview: true,
+        message: `Model set to ${requestedModel}.`,
+      };
     }
 
     logger.info('/model: listing installed models');
@@ -36,7 +54,18 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
       return { handled: true, continueInterview: true, message: 'Model listing is unavailable.' };
     }
 
-    const models = await modelLister.listModels();
+    let models: string[];
+    try {
+      models = await modelLister.listModels();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.error(`/model: failed to list models: ${detail}`);
+      return {
+        handled: true,
+        continueInterview: true,
+        message: `Unable to list models right now: ${detail}. You can still set a model manually with /model <name>.`,
+      };
+    }
 
     if (models.length === 0) {
       logger.info('/model: no models available');
@@ -54,7 +83,6 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
 
     logger.info(`/model: user selected model "${selected}"`);
 
-    const session = getSession();
     const updatedSession: Session = {
       ...session,
       model: selected,

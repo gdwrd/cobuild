@@ -7,12 +7,21 @@ import { createAndSaveSession, findLatestByWorkingDirectory } from '../session/s
 
 export type SessionResolution = 'new' | 'resumed';
 
+export interface ProviderReadinessStatus {
+  provider: ProviderName;
+  ok: boolean;
+  message: string;
+}
+
 export interface StartupResult {
   success: boolean;
   message: string;
   sessionId?: string;
   sessionResolution?: SessionResolution;
   sessionStage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
+  activeProvider?: ProviderName;
+  providerStatuses?: ProviderReadinessStatus[];
+  startupNotice?: string;
 }
 
 function isResumeable(session: ReturnType<typeof findLatestByWorkingDirectory>): boolean {
@@ -56,14 +65,28 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
     }
   }
 
-  const providerResult = await checkProviderReadiness(effectiveProvider);
+  const providerChecks = await Promise.all([
+    checkProviderReadiness('ollama'),
+    checkProviderReadiness('codex-cli'),
+  ]);
+  const providerStatuses: ProviderReadinessStatus[] = [
+    { provider: 'ollama', ...providerChecks[0] },
+    { provider: 'codex-cli', ...providerChecks[1] },
+  ];
+  const providerResult =
+    providerStatuses.find((status) => status.provider === effectiveProvider) ??
+    providerStatuses[0];
   logger.log(
     providerResult.ok ? 'info' : 'error',
     `provider check (${effectiveProvider}): ${providerResult.message}`,
   );
-  if (!providerResult.ok) {
-    return { success: false, message: providerResult.message };
-  }
+  const availableProviders = providerStatuses.filter((status) => status.ok);
+  const startupNotice =
+    availableProviders.length === 0
+      ? `No AI providers are currently available. Ollama: ${providerStatuses[0].message} Codex CLI: ${providerStatuses[1].message}`
+      : !providerResult.ok
+        ? `Active provider ${effectiveProvider} is not available yet. ${providerResult.message}`
+        : undefined;
 
   let sessionId: string;
   let sessionResolution: SessionResolution;
@@ -104,5 +127,14 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
 
   logger.info('startup complete');
 
-  return { success: true, message: 'cobuild started successfully', sessionId, sessionResolution, sessionStage };
+  return {
+    success: true,
+    message: 'cobuild started successfully',
+    sessionId,
+    sessionResolution,
+    sessionStage,
+    activeProvider: effectiveProvider,
+    providerStatuses,
+    startupNotice,
+  };
 }

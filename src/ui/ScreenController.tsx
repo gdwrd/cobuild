@@ -16,6 +16,7 @@ import { buildInterviewSystemPrompt } from '../interview/prompts.js';
 import { createFinishNowHandler } from '../interview/finish-now.js';
 import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
+import { parseCommand } from '../interview/commands.js';
 import { withRetry, RetryExhaustedError } from '../interview/retry.js';
 import { formatUserMessage, logFullError } from '../errors/errors.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
@@ -26,6 +27,8 @@ import { ensureDocsDir, generateFilename, generateArchitectureFilename, generate
 import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../artifacts/dev-plan-loop.js';
 import { getLogger } from '../logging/logger.js';
+import { checkProviderReadiness } from '../validation/env.js';
+import type { ProviderReadinessStatus } from '../cli/app-shell.js';
 
 type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'yesno' | 'error';
 
@@ -46,6 +49,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [interviewComplete, setInterviewComplete] = useState(false);
   const [fatalInterviewError, setFatalInterviewError] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isSelectingModel, setIsSelectingModel] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('generating');
   const [generationFilePath, setGenerationFilePath] = useState<string | undefined>(undefined);
@@ -59,6 +63,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [restoredDevPlanProgress, setRestoredDevPlanProgress] = useState<
     { completed: number; total: number } | undefined
   >(undefined);
+  const [, setProviderStatuses] = useState<ProviderReadinessStatus[]>([]);
+  const [isActiveProviderReady, setIsActiveProviderReady] = useState(true);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -70,6 +76,22 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const interviewStartedRef = useRef(false);
   const pipelineStartedRef = useRef(false);
   const isSelectingModelRef = useRef(false);
+  const commandRunnerRef = useRef<((input: string) => Promise<boolean>) | null>(null);
+
+  const updateProviderStatus = useCallback((status: ProviderReadinessStatus) => {
+    setProviderStatuses(current => {
+      const next = current.filter(entry => entry.provider !== status.provider);
+      next.push(status);
+      return next.sort((a, b) => a.provider.localeCompare(b.provider));
+    });
+  }, []);
+
+  const refreshProviderStatus = useCallback(async (provider: Session['provider'] = 'ollama') => {
+    const readiness = await checkProviderReadiness(provider);
+    updateProviderStatus({ provider, ...readiness });
+    setIsActiveProviderReady(readiness.ok);
+    return readiness;
+  }, [updateProviderStatus]);
 
   useEffect(() => {
     startupPromise
@@ -77,6 +99,11 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (result.success) {
           setSessionId(result.sessionId ?? '');
           setSessionStage(result.sessionStage ?? 'interview');
+          setProviderStatuses(result.providerStatuses ?? []);
+          setNoticeMessage(result.startupNotice ?? null);
+          const activeProvider = result.activeProvider ?? 'ollama';
+          const activeStatus = result.providerStatuses?.find(status => status.provider === activeProvider);
+          setIsActiveProviderReady(activeStatus?.ok ?? true);
           if (result.sessionResolution === 'resumed') {
             const resumeStage = result.sessionStage ?? 'interview';
             getLogger().info(`screen: restoring session ${result.sessionId} at stage ${resumeStage}`);
@@ -116,8 +143,6 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
   useEffect(() => {
     if (screen !== 'main' || interviewStartedRef.current || !sessionId) return;
-    if (sessionStage === 'dev-plans') return;
-    interviewStartedRef.current = true;
 
     const session = loadSession(sessionId);
     if (!session) {
@@ -138,6 +163,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const activeProvider = session.provider ?? 'ollama';
     getLogger().info(`screen: initializing provider=${activeProvider} model=${model} (session ${session.id})`);
     providerRef.current = createProvider(activeProvider, model);
+    commandRunnerRef.current = null;
 
     // Proxy delegates to current provider ref, enabling /model switching
     const providerProxy: ModelProvider = {
@@ -172,12 +198,14 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
     const onSessionUpdate = (updated: Session): void => {
       currentSessionRef.current = updated;
-      if (updated.model && updated.model !== currentModelRef.current) {
-        currentModelRef.current = updated.model;
-        const updatedProvider = updated.provider ?? 'ollama';
-        getLogger().info(`screen: model switched provider=${updatedProvider} model=${updated.model} (session ${updated.id})`);
-        providerRef.current = createProvider(updatedProvider, updated.model);
-      }
+      const updatedProvider = updated.provider ?? 'ollama';
+      const updatedModel = updated.model ?? currentModelRef.current ?? 'llama3';
+      currentModelRef.current = updatedModel;
+      getLogger().info(`screen: session updated provider=${updatedProvider} model=${updatedModel} (session ${updated.id})`);
+      providerRef.current = createProvider(updatedProvider, updatedModel);
+      void refreshProviderStatus(updatedProvider).then(readiness => {
+        setNoticeMessage(readiness.ok ? null : `Active provider ${updatedProvider} is unavailable. ${readiness.message}`);
+      });
     };
 
     const onSelectModel = async (models: string[]): Promise<string | null> => {
@@ -201,18 +229,14 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       return models.includes(trimmed) ? trimmed : null;
     };
 
-    setIsThinking(true);
-    runInterviewLoop(session, providerProxy, systemPrompt, onUserInput, onAssistantResponse, {
-      '/finish-now': createFinishNowHandler({
+    const providerHandler = (args: string[]) =>
+      createProviderHandler({
         getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
         onSessionUpdate,
-        provider: providerProxy,
-        systemPrompt,
-        onResponse: async (response) => {
-          await onAssistantResponse(response, true);
-        },
-      }),
-      '/model': createModelHandler({
+        checkReadiness: async provider => refreshProviderStatus(provider),
+      })(args);
+    const modelHandler = (args: string[]) =>
+      createModelHandler({
         getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
         onSessionUpdate,
         modelLister: {
@@ -223,8 +247,42 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         },
         onSelectModel,
         supportsModelListing: supportsModelListing(providerRef.current!),
-      }),
-      '/provider': createProviderHandler(session.provider ?? 'ollama'),
+      })(args);
+    const finishNowHandler = createFinishNowHandler({
+      getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
+      onSessionUpdate,
+      provider: providerProxy,
+      systemPrompt,
+      onResponse: async (response) => {
+        await onAssistantResponse(response, true);
+      },
+    });
+    commandRunnerRef.current = async (input: string) => {
+      const parsed = parseCommand(input);
+      if (!parsed) return false;
+      const handler =
+        parsed.command === '/provider'
+          ? providerHandler
+          : parsed.command === '/model'
+            ? modelHandler
+            : finishNowHandler;
+      const result = await handler(parsed.args);
+      if (result.message) {
+        await onAssistantResponse(result.message, false);
+      }
+      return result.handled;
+    };
+    if (!isActiveProviderReady || sessionStage === 'dev-plans') {
+      setIsThinking(false);
+      return;
+    }
+
+    interviewStartedRef.current = true;
+    setIsThinking(true);
+    runInterviewLoop(session, providerProxy, systemPrompt, onUserInput, onAssistantResponse, {
+      '/finish-now': finishNowHandler,
+      '/model': modelHandler,
+      '/provider': providerHandler,
     })
       .then((finalSession) => {
         // Reload from disk so that session state written by command handlers (e.g. /finish-now
@@ -237,12 +295,14 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         logFullError(getLogger(), 'interview loop', err);
         setFatalInterviewError(formatUserMessage(err));
         setIsThinking(false);
+        interviewStartedRef.current = false;
       });
-  }, [screen, sessionId]);
+  }, [screen, sessionId, sessionStage, isActiveProviderReady, refreshProviderStatus, exit]);
 
   useEffect(() => {
     if (screen !== 'main' || sessionStage !== 'dev-plans' || !sessionId) return;
     if (pipelineStartedRef.current) return;
+    if (!isActiveProviderReady) return;
     pipelineStartedRef.current = true;
 
     const session = loadSession(sessionId);
@@ -310,7 +370,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         setGenerationError(msg);
         setGenerationStatus('error');
       });
-  }, [screen, sessionId, sessionStage]);
+  }, [screen, sessionId, sessionStage, isActiveProviderReady, exit]);
 
   useEffect(() => {
     if (!interviewComplete) return;
@@ -454,7 +514,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           setGenerationStatus('error');
         }
       });
-  }, [interviewComplete, retryTrigger]);
+  }, [interviewComplete, retryTrigger, isActiveProviderReady]);
 
   const handleRetry = useCallback(() => {
     getLogger().info(`generation screen: user requested retry after retry exhaustion`);
@@ -481,7 +541,20 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
 
   const handleSubmit = useCallback(
     (input: string) => {
-      if (!userInputResolverRef.current) return;
+      if (!userInputResolverRef.current) {
+        if (parseCommand(input) && commandRunnerRef.current) {
+          void commandRunnerRef.current(input).catch((err: unknown) => {
+            setTransientError(err instanceof Error ? err.message : String(err));
+          });
+          return;
+        }
+        if (!isActiveProviderReady) {
+          setTransientError('The active provider is unavailable. Use /provider <ollama|codex-cli> or /model <name> to adjust the session before continuing.');
+          return;
+        }
+        setTransientError('cobuild is still initializing. Try again in a moment.');
+        return;
+      }
       if (!isSelectingModelRef.current) {
         if (!input.startsWith('/')) {
           setTranscript((t) => [
@@ -494,7 +567,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       userInputResolverRef.current(input);
       userInputResolverRef.current = null;
     },
-    [],
+    [isActiveProviderReady],
   );
 
   if (screen === 'startup') {
@@ -558,6 +631,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       transcript={transcript}
       isThinking={isThinking}
       isComplete={interviewComplete}
+      noticeMessage={noticeMessage}
       errorMessage={transientError}
       fatalErrorMessage={fatalInterviewError}
       allowEmptySubmit={isSelectingModel}

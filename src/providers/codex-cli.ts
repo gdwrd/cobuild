@@ -1,4 +1,7 @@
 import { execFile } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { getLogger } from '../logging/logger.js';
 import type { ModelMessage, ModelProvider } from '../interview/controller.js';
 
@@ -18,24 +21,25 @@ export class CodexCliProvider implements ModelProvider {
   async generate(messages: ModelMessage[]): Promise<string> {
     const logger = getLogger();
     const prompt = buildCodexPrompt(messages);
+    const tempDir = mkdtempSync(join(tmpdir(), 'cobuild-codex-'));
+    const outputPath = join(tempDir, 'last-message.txt');
 
     logger.info(`codex-cli: generate request, ${messages.length} messages`);
     logger.debug(`codex-cli: prompt length=${prompt.length}`);
 
-    let stdout: string;
     try {
-      stdout = await new Promise<string>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const child = execFile(
           'codex',
-          ['--quiet'],
+          ['exec', '-', '--skip-git-repo-check', '--color', 'never', '--output-last-message', outputPath],
           { timeout: CODEX_TIMEOUT_MS, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
-          (err, out, errOut) => {
+          (err, _out, errOut) => {
             if (err) {
               (err as NodeJS.ErrnoException & { stderr?: string }).stderr =
                 typeof errOut === 'string' ? errOut.trim() : '';
               reject(err);
             } else {
-              resolve(out as string);
+              resolve();
             }
           },
         );
@@ -62,11 +66,15 @@ export class CodexCliProvider implements ModelProvider {
       throw new Error(`codex CLI failed: ${fullDetail}`);
     }
 
-    const content = stdout.trim();
-    if (!content) {
-      throw new Error('codex CLI returned empty response');
+    try {
+      const content = readFileSync(outputPath, 'utf8').trim();
+      if (!content) {
+        throw new Error('codex CLI returned empty response');
+      }
+      logger.info(`codex-cli: response received (length=${content.length})`);
+      return content;
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
     }
-    logger.info(`codex-cli: response received (length=${content.length})`);
-    return content;
   }
 }

@@ -12,8 +12,16 @@ vi.mock('../../logging/logger.js', () => ({
 
 const mockStdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 const mockExecFile = vi.fn();
+const mockMkdtempSync = vi.fn();
+const mockReadFileSync = vi.fn();
+const mockRmSync = vi.fn();
 vi.mock('node:child_process', () => ({
   execFile: (...args: unknown[]) => mockExecFile(...args),
+}));
+vi.mock('node:fs', () => ({
+  mkdtempSync: (...args: unknown[]) => mockMkdtempSync(...args),
+  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
+  rmSync: (...args: unknown[]) => mockRmSync(...args),
 }));
 
 describe('buildCodexPrompt', () => {
@@ -63,10 +71,12 @@ describe('CodexCliProvider', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockMkdtempSync.mockReturnValue('/tmp/cobuild-codex-123');
+    mockReadFileSync.mockReturnValue('response text');
   });
 
   it('returns trimmed stdout on success', async () => {
-    mockSuccess('  response text  ');
+    mockSuccess('');
 
     const provider = new CodexCliProvider();
     const result = await provider.generate([{ role: 'user', content: 'Hello' }]);
@@ -75,7 +85,7 @@ describe('CodexCliProvider', () => {
   });
 
   it('calls codex with the formatted prompt via stdin', async () => {
-    mockSuccess('ok');
+    mockSuccess('');
 
     const provider = new CodexCliProvider();
     await provider.generate([
@@ -85,7 +95,7 @@ describe('CodexCliProvider', () => {
 
     expect(mockExecFile).toHaveBeenCalledWith(
       'codex',
-      ['--quiet'],
+      ['exec', '-', '--skip-git-repo-check', '--color', 'never', '--output-last-message', '/tmp/cobuild-codex-123/last-message.txt'],
       expect.objectContaining({ encoding: 'utf8' }),
       expect.any(Function),
     );
@@ -94,7 +104,8 @@ describe('CodexCliProvider', () => {
   });
 
   it('throws when stdout is whitespace only', async () => {
-    mockSuccess('   ');
+    mockSuccess('');
+    mockReadFileSync.mockReturnValue('   ');
 
     const provider = new CodexCliProvider();
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
@@ -136,5 +147,17 @@ describe('CodexCliProvider', () => {
     await expect(provider.generate([{ role: 'user', content: 'Hi' }])).rejects.toThrow(
       'codex CLI failed: timed out after',
     );
+  });
+
+  it('cleans up the temp output directory after success', async () => {
+    mockSuccess('');
+
+    const provider = new CodexCliProvider();
+    await provider.generate([{ role: 'user', content: 'Hi' }]);
+
+    expect(mockRmSync).toHaveBeenCalledWith('/tmp/cobuild-codex-123', {
+      recursive: true,
+      force: true,
+    });
   });
 });

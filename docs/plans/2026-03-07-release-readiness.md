@@ -21,11 +21,11 @@
 - [x] Add a minimal `.github/` baseline, including at least a bug report issue template.
 
 ### Task 3: Bring public documentation in sync with current behavior
-- [ ] Update `README.md` so startup behavior matches the current implementation where cobuild can launch even if no provider is installed.
-- [ ] Update `README.md` to document provider switching with `/provider`.
-- [ ] Update `README.md` to document the current `/model` behavior, including manual model overrides when model listing is unavailable.
-- [ ] Add a troubleshooting section to `README.md` for common Ollama and Codex CLI failures.
-- [ ] Update `RELEASE_NOTES.md` so it reflects current multi-provider functionality instead of the older Ollama-only release description.
+- [x] Update `README.md` so startup behavior matches the current implementation where cobuild can launch even if no provider is installed.
+- [x] Update `README.md` to document provider switching with `/provider`.
+- [x] Update `README.md` to document the current `/model` behavior, including manual model overrides when model listing is unavailable.
+- [x] Add a troubleshooting section to `README.md` for common Ollama and Codex CLI failures.
+- [x] Update `RELEASE_NOTES.md` so it reflects current multi-provider functionality instead of the older Ollama-only release description.
 
 ### Task 4: Clean up repository and publish-surface hygiene
 - [ ] Decide whether `CLAUDE.md`, `skills/`, and tracked `docs/plans/completed/` content should remain in the public repository.

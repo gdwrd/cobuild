@@ -25,7 +25,7 @@ The workflow is interactive and stateful:
 
 - Node.js `>= 18.0.0`
 - A real interactive terminal (`TTY`) for the full session
-- One of the following AI providers:
+- At least one of the following AI providers (cobuild will start without one installed, but generation requires a working provider):
 
 ### Ollama (default)
 
@@ -103,10 +103,12 @@ On startup, `cobuild`:
 
 1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
 2. Verifies that stdin is attached to a TTY.
-3. Runs a provider readiness check for the selected or resumed provider:
+3. Checks readiness for all known providers in parallel:
    - Ollama: verifies Ollama responds at `http://localhost:11434/api/tags`
    - Codex CLI: verifies the `codex` binary is available on your `PATH`
 4. Resolves the active session for the current working directory.
+
+`cobuild` does not exit if the active provider is unavailable. Instead it starts normally and displays a startup notice in the UI. You can switch to a working provider during the interview with `/provider <name>`.
 
 When resuming a session, the provider saved in the session is used regardless of any `--provider` flag passed on the command line.
 
@@ -137,8 +139,8 @@ These commands are available during the interview:
 | Command | Description |
 | --- | --- |
 | `/finish-now` | End the interview immediately and ask the model to infer missing details so generation can begin |
-| `/model` | List installed Ollama models and switch the session to a different model by number or exact name. Not available for Codex CLI sessions — model selection for Codex CLI is managed externally in Codex itself |
-| `/provider` | Show the active provider. For Codex CLI sessions, also notes that model selection is managed externally |
+| `/model` | List installed Ollama models and switch by number or name. Pass a model name directly to override without listing: `/model mistral`. If Ollama is unreachable, listing fails but manual override still works. Not available for Codex CLI sessions — model selection for Codex CLI is managed externally in Codex itself |
+| `/provider` | Show the active provider and its availability status. Switch providers mid-session with `/provider <ollama\|codex-cli>` — the new provider is validated and persisted in the session |
 
 Unknown slash commands are ignored.
 
@@ -300,7 +302,8 @@ Behavior on failure:
 - Runs locally at `http://localhost:11434`
 - `cobuild` checks `/api/tags` on startup and uses `/api/chat` for generation
 - Responses are non-streaming
-- Supports in-app model switching via `/model`
+- Supports in-app model listing and switching via `/model`
+- Supports manual model name override via `/model <name>` even when Ollama is temporarily unreachable
 
 ### Codex CLI
 
@@ -308,6 +311,8 @@ Behavior on failure:
 - Authentication, model selection, and Codex configuration are managed externally in Codex itself
 - The `/model` command is disabled for Codex CLI sessions
 - A 120-second per-call timeout applies
+
+You can switch between providers at any time during the interview using `/provider <ollama|codex-cli>`. The switch is validated against the target provider and persisted in the session.
 
 There is no support yet for:
 
@@ -325,6 +330,51 @@ There is no support yet for:
 - Running multiple `cobuild` processes in the same project directory can create session conflicts.
 - The `--verbose` flag currently records a startup log entry but does not change logger filtering.
 - Windows support is not documented or tested in the codebase.
+
+## Troubleshooting
+
+### Ollama is not running or not reachable
+
+`cobuild` checks Ollama at `http://localhost:11434/api/tags` on startup. If it is unavailable, a notice appears in the UI but the session still starts. Common causes:
+
+- Ollama is not installed. See [ollama.com](https://ollama.com) for installation instructions.
+- Ollama is installed but not running. Start it with `ollama serve` (or the Ollama app on macOS).
+- Ollama is running on a non-default port. cobuild does not currently support a configurable Ollama URL.
+- No models are installed. Pull at least one model: `ollama pull llama3`.
+
+If Ollama becomes available while the interview is in progress, use `/provider ollama` to switch to it.
+
+### Codex CLI is not found or not working
+
+`cobuild` looks for the `codex` binary on your `PATH` by running `codex --version`. If it is missing or fails:
+
+- Verify the binary is installed and on your `PATH`: `which codex` or `codex --version`.
+- Check that any required Codex authentication and configuration is complete before running `cobuild`. cobuild does not manage Codex credentials.
+
+If Codex CLI is your preferred provider and it is already installed, switch to it during the interview: `/provider codex-cli`.
+
+### No providers are available
+
+If both Ollama and Codex CLI are unavailable at startup, `cobuild` will show a warning but still launch. You can use the interview to explore the project description, but generation will fail when the interview completes. Set up at least one provider before letting `cobuild` generate artifacts.
+
+### Model listing fails during `/model`
+
+If `/model` reports that it cannot reach Ollama to list models, you can still set a model manually:
+
+```sh
+/model mistral
+/model llama3:latest
+```
+
+This bypasses the listing step and sets the model name directly in the session.
+
+### The prompt is too large
+
+If `cobuild` warns that the prompt is too large, the interview transcript has grown past the internal limit of roughly 8000 estimated tokens. Use `/finish-now` to end the interview immediately. `cobuild` will ask the model to infer any missing details and proceed to generation.
+
+### Multiple cobuild processes in the same directory
+
+Running more than one `cobuild` process in the same project directory at the same time can cause session conflicts. Only one `cobuild` process should be active per directory at a time.
 
 ## Development
 

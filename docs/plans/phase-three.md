@@ -154,10 +154,10 @@ The phase is complete when the CLI automatically generates and persists a valid 
 
 ### Task 12: Verify End-to-End Spec Generation Flow
 
-- [ ] Run cobuild from a fresh folder
-- [ ] Complete an interview session
-- [ ] Verify spec file is created in `docs/`
-- [ ] Verify filename format is correct
-- [ ] Verify existing files are not overwritten
-- [ ] Verify session state reflects spec completion
-- [ ] Verify logs contain generation details
+- [x] Run cobuild from a fresh folder
+- [x] Complete an interview session
+- [x] Verify spec file is created in `docs/`
+- [x] Verify filename format is correct
+- [x] Verify existing files are not overwritten
+- [x] Verify session state reflects spec completion
+- [x] Verify logs contain generation details

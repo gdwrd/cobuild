@@ -232,7 +232,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         getLogger().error(`generation screen: spec generation failed: ${msg}`);
         // RetryExhaustedError: onRetryExhausted already persisted error state inside the generator
         if (!(err instanceof RetryExhaustedError)) {
-          const s = currentSessionRef.current;
+          const s = loadSession(sessionId) ?? currentSessionRef.current;
           if (s) {
             persistErrorState(s, msg);
           }

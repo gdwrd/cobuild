@@ -38,13 +38,18 @@ export class CodexCliProvider implements ModelProvider {
         err instanceof Error &&
         ((err as NodeJS.ErrnoException & { killed?: boolean }).killed === true ||
           (err as NodeJS.ErrnoException).code === 'ETIMEDOUT');
+      const stderr =
+        err instanceof Error && typeof (err as NodeJS.ErrnoException & { stderr?: string }).stderr === 'string'
+          ? (err as NodeJS.ErrnoException & { stderr?: string }).stderr!.trim()
+          : '';
       const detail = isTimeout
         ? `timed out after ${CODEX_TIMEOUT_MS}ms`
         : err instanceof Error
           ? err.message
           : String(err);
-      logger.error(`codex-cli: generate error: ${detail}`);
-      throw new Error(`codex CLI failed: ${detail}`);
+      const fullDetail = stderr ? `${detail}; stderr: ${stderr}` : detail;
+      logger.error(`codex-cli: generate error: ${fullDetail}`);
+      throw new Error(`codex CLI failed: ${fullDetail}`);
     }
 
     const content = stdout.trim();

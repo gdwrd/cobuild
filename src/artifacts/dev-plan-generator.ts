@@ -4,6 +4,7 @@ import { saveSession, persistErrorState } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import { buildDevPlanMessages, logDevPlanPromptMetadata } from './dev-plan-prompt.js';
 import { withRetry, DEFAULT_MAX_ATTEMPTS } from '../interview/retry.js';
+import { assertValidDevPlan } from './dev-plan-validator.js';
 
 export interface DevPlanResult {
   content: string;
@@ -39,19 +40,22 @@ export class DevPlanGenerator {
     logDevPlanPromptMetadata(session, phase, messages, previousDevPlans);
     logger.debug(`dev-plan generator: raw request messages: ${JSON.stringify(messages)}`);
 
-    const updatedSession = incrementDevPlanGenerationAttempts(session);
+    let updatedSession = session;
 
     logger.info(
-      `dev-plan generator: starting provider call for phase ${phase.number} with up to ${DEFAULT_MAX_ATTEMPTS} retries (session ${updatedSession.id})`,
+      `dev-plan generator: starting provider call for phase ${phase.number} with up to ${DEFAULT_MAX_ATTEMPTS} retries (session ${session.id})`,
     );
     const content = await withRetry(
       async () => {
+        updatedSession = incrementDevPlanGenerationAttempts(updatedSession);
         const raw = await provider.generate(messages);
         logger.debug(`dev-plan generator: raw response: ${JSON.stringify(raw)}`);
         logger.info(
           `dev-plan generator: response received for phase ${phase.number} (length=${raw.length}, session ${updatedSession.id})`,
         );
-        return normalizeDevPlanOutput(raw);
+        const normalized = normalizeDevPlanOutput(raw);
+        assertValidDevPlan(normalized, phase.number);
+        return normalized;
       },
       {
         maxAttempts: DEFAULT_MAX_ATTEMPTS,

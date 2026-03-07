@@ -141,11 +141,11 @@ This phase completes the full artifact pipeline for cobuild.
 
 ### Task 9: Implement Retry Handling for Phase Generation
 
-- [ ] Integrate retry executor with dev plan generator
-- [ ] Retry failed generation up to 5 times
-- [ ] Log retry attempts
-- [ ] Persist attempt count in session
-- [ ] Surface retry UI on exhaustion
+- [x] Integrate retry executor with dev plan generator
+- [x] Retry failed generation up to 5 times
+- [x] Log retry attempts
+- [x] Persist attempt count in session
+- [x] Surface retry UI on exhaustion
 
 ---
 

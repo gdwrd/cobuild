@@ -24,7 +24,8 @@ import {
 import type { Session, PlanPhase } from '../../session/session.js';
 import type { ModelProvider } from '../../interview/controller.js';
 
-const VALID_DEV_PLAN = `# Plan: Foundation Setup
+const makeValidDevPlan = (phaseNumber: number): string =>
+  `# Plan: Phase ${phaseNumber} – Foundation Setup
 
 ## Overview
 
@@ -45,6 +46,8 @@ This phase sets up the project foundation including toolchain and initial struct
 - [ ] Install TypeScript
 - [ ] Configure tsconfig.json
 `;
+
+const VALID_DEV_PLAN = makeValidDevPlan(1);
 
 const makeSession = (overrides: Partial<Session> = {}): Session => ({
   id: 'sess-1',
@@ -164,13 +167,14 @@ describe('DevPlanGenerator', () => {
   it('returns a DevPlanResult with correct phaseNumber', async () => {
     const session = makeSession();
     const phase = makePhase({ number: 3 });
-    const provider = makeProvider('  ' + VALID_DEV_PLAN + '  ');
+    const validPlan3 = makeValidDevPlan(3);
+    const provider = makeProvider('  ' + validPlan3 + '  ');
     const generator = new DevPlanGenerator();
 
     const result = await generator.generate(session, provider, phase, []);
 
     expect(result.phaseNumber).toBe(3);
-    expect(result.content).toBe(VALID_DEV_PLAN.trim());
+    expect(result.content).toBe(validPlan3.trim());
   });
 
   it('normalizes whitespace in model response', async () => {
@@ -206,6 +210,35 @@ describe('DevPlanGenerator', () => {
     const generator = new DevPlanGenerator();
 
     await expect(generator.generate(session, provider, phase, [])).rejects.toThrow('provider down');
+  });
+
+  it('throws when content fails dev plan validation', async () => {
+    const session = makeSession();
+    const phase = makePhase({ number: 1 });
+    const provider = makeProvider('# Not a valid plan at all');
+    const generator = new DevPlanGenerator();
+
+    await expect(generator.generate(session, provider, phase, [])).rejects.toThrow(
+      'Dev plan validation failed',
+    );
+  });
+
+  it('increments attempt count on each retry attempt inside withRetry', async () => {
+    const session = makeSession({ devPlanGenerationAttempts: 0 });
+    const phase = makePhase();
+    const provider = makeProvider();
+    const generator = new DevPlanGenerator();
+
+    vi.mocked(withRetry).mockImplementationOnce(async (fn) => {
+      await fn();
+      return fn();
+    });
+
+    await generator.generate(session, provider, phase, []);
+
+    const savedCalls = vi.mocked(saveSession).mock.calls.map((c) => (c[0] as Session).devPlanGenerationAttempts);
+    expect(savedCalls).toContain(1);
+    expect(savedCalls).toContain(2);
   });
 
   it('uses withRetry for the provider call', async () => {
@@ -287,7 +320,7 @@ describe('DevPlanGenerator', () => {
   it('user message contains previous dev plans when provided', async () => {
     const session = makeSession();
     const phase = makePhase({ number: 2 });
-    const provider = makeProvider();
+    const provider = makeProvider(makeValidDevPlan(2));
     const generator = new DevPlanGenerator();
     const previousPlans = ['# Plan: Phase One\n\nContent for phase one.'];
 

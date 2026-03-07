@@ -15,6 +15,13 @@ export interface StartupResult {
   sessionStage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
 }
 
+function isResumeable(session: ReturnType<typeof findLatestByWorkingDirectory>): boolean {
+  return !!(
+    session &&
+    (!session.completed || (session.stage === 'dev-plans' && !session.devPlansComplete))
+  );
+}
+
 export async function runStartup(config: RuntimeConfig): Promise<StartupResult> {
   const bootstrapResult = bootstrapDirectories();
 
@@ -44,12 +51,8 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
 
   if (!config.newSession) {
     existingSession = findLatestByWorkingDirectory(process.cwd());
-    const isResumeable =
-      existingSession &&
-      (!existingSession.completed ||
-        (existingSession.stage === 'dev-plans' && !existingSession.devPlansComplete));
-    if (isResumeable && existingSession) {
-      effectiveProvider = existingSession.provider ?? 'ollama';
+    if (isResumeable(existingSession)) {
+      effectiveProvider = existingSession!.provider ?? 'ollama';
     }
   }
 
@@ -73,11 +76,7 @@ export async function runStartup(config: RuntimeConfig): Promise<StartupResult> 
       sessionResolution = 'new';
       logger.info(`new session created: ${session.id} (provider=${config.provider})`);
     } else {
-      const isResumeableExisting =
-        existingSession &&
-        (!existingSession.completed ||
-          (existingSession.stage === 'dev-plans' && !existingSession.devPlansComplete));
-      if (isResumeableExisting && existingSession) {
+      if (isResumeable(existingSession) && existingSession) {
         logger.info(
           `resuming existing session: ${existingSession.id} at stage ${existingSession.stage ?? 'interview'} (provider=${existingSession.provider ?? 'ollama'})`,
         );

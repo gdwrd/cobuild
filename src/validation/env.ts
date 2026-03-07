@@ -55,6 +55,18 @@ export function checkCodexCli(): ValidationResult {
       message: `codex CLI is not available (${detail}). Install Codex CLI and ensure it is on your PATH.`,
     };
   }
+  if (result.signal) {
+    return {
+      ok: false,
+      message: `codex CLI is not available (killed by signal ${result.signal}). Check your Codex CLI installation.`,
+    };
+  }
+  if (result.status !== 0) {
+    return {
+      ok: false,
+      message: `codex CLI is not available (exited with code ${result.status}). Check your Codex CLI installation.`,
+    };
+  }
   return { ok: true, message: 'codex CLI is available' };
 }
 

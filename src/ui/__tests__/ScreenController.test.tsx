@@ -225,7 +225,7 @@ describe('ScreenController write failure handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
     vi.mocked(completeSpecStage).mockReturnValue(mockSession);
@@ -347,7 +347,7 @@ describe('ScreenController retry exhaustion handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
     vi.mocked(completeSpecStage).mockReturnValue(mockSession);
@@ -409,7 +409,7 @@ describe('ScreenController codex-cli provider', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(codexSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(codexSession);
     vi.mocked(completeSpecStage).mockReturnValue(codexSession);
@@ -433,8 +433,8 @@ describe('ScreenController codex-cli provider', () => {
   });
 
   it('starts interview loop with the codex-cli provider instance', async () => {
-    const mockProvider = { generate: vi.fn(() => new Promise(() => {})) };
-    vi.mocked(createProvider).mockReturnValue(mockProvider);
+    const mockProvider = { generate: vi.fn<() => Promise<string>>(() => new Promise(() => {})) };
+    vi.mocked(createProvider).mockReturnValue(mockProvider as unknown as ReturnType<typeof createProvider>);
 
     const stream = new PassThrough();
     const { unmount } = render(
@@ -530,7 +530,7 @@ describe('ScreenController dev-plans resume', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn(), listModels: vi.fn() });
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(devPlanSession);
     vi.mocked(runDevPlanLoop).mockReturnValue(new Promise(() => {}));
   });

@@ -210,6 +210,26 @@ describe('createAndSaveSession', () => {
     expect(fsMock.writeFileSync).toHaveBeenCalled();
     expect(fsMock.renameSync).toHaveBeenCalled();
   });
+
+  it('persists the ollama provider when specified', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { createAndSaveSession } = await import('../session.js');
+    const session = createAndSaveSession('ollama');
+
+    expect(session.provider).toBe('ollama');
+  });
+
+  it('persists the codex-cli provider when specified', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { createAndSaveSession } = await import('../session.js');
+    const session = createAndSaveSession('codex-cli');
+
+    expect(session.provider).toBe('codex-cli');
+  });
 });
 
 describe('findLatestByWorkingDirectory', () => {

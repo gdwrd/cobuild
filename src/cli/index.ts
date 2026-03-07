@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { program } from 'commander';
+import { program, Option } from 'commander';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -30,7 +30,7 @@ program
   .version(version, '-v, --version', 'Print the current version')
   .option('--new-session', 'Start a new session, discarding any existing session')
   .option('--verbose', 'Enable verbose logging')
-  .option('--provider <provider>', 'AI provider to use: ollama (default) or codex-cli')
+  .addOption(new Option('--provider <provider>', 'AI provider to use').choices(['ollama', 'codex-cli']).default('ollama'))
   .addHelpText(
     'after',
     `
@@ -41,9 +41,8 @@ Examples:
   cobuild --help                    Show this help message
 `
   )
-  .action(async (opts: { newSession?: boolean; verbose?: boolean; provider?: string }) => {
-    const rawProvider = opts.provider;
-    const provider = rawProvider === 'codex-cli' ? 'codex-cli' : 'ollama';
+  .action(async (opts: { newSession?: boolean; verbose?: boolean; provider: string }) => {
+    const provider = opts.provider as 'ollama' | 'codex-cli';
     const config = createConfig({
       version,
       newSession: opts.newSession ?? false,

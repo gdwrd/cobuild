@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { checkTTY, checkOllama, checkCodexCli, checkProviderReadiness } from '../env.js';
+
+const mockSpawnSync = vi.fn();
+vi.mock('node:child_process', () => ({
+  spawnSync: (...args: unknown[]) => mockSpawnSync(...args),
+}));
 
 describe('checkTTY', () => {
   afterEach(() => {
@@ -91,56 +96,61 @@ describe('checkOllama', () => {
 });
 
 describe('checkCodexCli', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
+  beforeEach(() => {
+    vi.resetAllMocks();
   });
 
-  it('returns ok=true when codex binary is found', async () => {
-    const { spawnSync } = await import('node:child_process');
-    vi.spyOn({ spawnSync }, 'spawnSync').mockReturnValue({ status: 0, error: undefined } as ReturnType<typeof spawnSync>);
-    // Use vi.mock is not available at this point; test via the actual binary check or stub node:child_process
-    // Since we cannot easily mock ESM child_process here, we test the error path directly.
-    // If codex is not installed (likely in CI), checkCodexCli returns ok=false — that is tested below.
+  it('returns ok=true when codex exits with status 0', () => {
+    mockSpawnSync.mockReturnValue({ status: 0, error: undefined, signal: null });
     const result = checkCodexCli();
-    // We only assert the shape, not the value, since codex may or may not be installed.
-    expect(typeof result.ok).toBe('boolean');
-    expect(typeof result.message).toBe('string');
-    expect(result.message.length).toBeGreaterThan(0);
-  });
-});
-
-describe('checkCodexCli — not found path', () => {
-  it('returns ok=false with actionable message when codex is not on PATH', async () => {
-    // Simulate ENOENT by temporarily overriding PATH so codex cannot be found
-    const originalPath = process.env['PATH'];
-    process.env['PATH'] = '';
-    try {
-      const result = checkCodexCli();
-      // On most systems with empty PATH the binary will not be found
-      if (!result.ok) {
-        expect(result.message).toMatch(/codex CLI is not available/i);
-        expect(result.message).toMatch(/PATH/i);
-      }
-    } finally {
-      process.env['PATH'] = originalPath;
-    }
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe('codex CLI is available');
   });
 
-  it('failure message mentions codex CLI by name', async () => {
-    const originalPath = process.env['PATH'];
-    process.env['PATH'] = '';
-    try {
-      const result = checkCodexCli();
-      if (!result.ok) {
-        expect(result.message).toMatch(/codex/i);
-      }
-    } finally {
-      process.env['PATH'] = originalPath;
-    }
+  it('returns ok=false with actionable message when codex binary is not found (ENOENT)', () => {
+    mockSpawnSync.mockReturnValue({
+      status: null,
+      error: Object.assign(new Error('spawnSync codex ENOENT'), { code: 'ENOENT' }),
+      signal: null,
+    });
+    const result = checkCodexCli();
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/codex CLI is not available/i);
+    expect(result.message).toMatch(/PATH/i);
+  });
+
+  it('failure message mentions codex CLI by name', () => {
+    mockSpawnSync.mockReturnValue({
+      status: null,
+      error: Object.assign(new Error('spawnSync codex ENOENT'), { code: 'ENOENT' }),
+      signal: null,
+    });
+    const result = checkCodexCli();
+    expect(result.message).toMatch(/codex/i);
+  });
+
+  it('returns ok=false when codex exits with non-zero status', () => {
+    mockSpawnSync.mockReturnValue({ status: 1, error: undefined, signal: null });
+    const result = checkCodexCli();
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/codex CLI is not available/i);
+    expect(result.message).toMatch(/exited with code 1/i);
+  });
+
+  it('returns ok=false when codex is killed by signal', () => {
+    mockSpawnSync.mockReturnValue({ status: null, error: undefined, signal: 'SIGTERM' });
+    const result = checkCodexCli();
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/codex CLI is not available/i);
+    expect(result.message).toMatch(/SIGTERM/);
   });
 });
 
 describe('checkProviderReadiness', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -152,10 +162,11 @@ describe('checkProviderReadiness', () => {
     expect(result.message).toMatch(/reachable/i);
   });
 
-  it('delegates to checkCodexCli for codex-cli provider and returns ValidationResult', async () => {
+  it('delegates to checkCodexCli for codex-cli provider and returns ok=true when binary is available', async () => {
+    mockSpawnSync.mockReturnValue({ status: 0, error: undefined, signal: null });
     const result = await checkProviderReadiness('codex-cli');
-    expect(typeof result.ok).toBe('boolean');
-    expect(typeof result.message).toBe('string');
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe('codex CLI is available');
   });
 
   it('returns ollama failure message when ollama is unreachable', async () => {
@@ -172,15 +183,13 @@ describe('checkProviderReadiness', () => {
   });
 
   it('codex-cli failure message from checkProviderReadiness mentions codex by name', async () => {
-    const originalPath = process.env['PATH'];
-    process.env['PATH'] = '';
-    try {
-      const result = await checkProviderReadiness('codex-cli');
-      if (!result.ok) {
-        expect(result.message).toMatch(/codex/i);
-      }
-    } finally {
-      process.env['PATH'] = originalPath;
-    }
+    mockSpawnSync.mockReturnValue({
+      status: null,
+      error: Object.assign(new Error('spawnSync codex ENOENT'), { code: 'ENOENT' }),
+      signal: null,
+    });
+    const result = await checkProviderReadiness('codex-cli');
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/codex/i);
   });
 });

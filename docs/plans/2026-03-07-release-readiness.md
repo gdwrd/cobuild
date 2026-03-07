@@ -51,7 +51,7 @@
 - [x] Document the release verification steps in the repository so future releases follow the same flow.
 
 ### Task 8: Run the final release pass
-- [ ] Run the full validation command set on a clean working tree.
-- [ ] Review `npm pack --dry-run --cache /tmp/cobuild-npm-cache` output one final time before release.
-- [ ] Finalize release notes for the actual shipped scope.
-- [ ] Create the release tag and publish the GitHub release only after CI is green.
+- [x] Run the full validation command set on a clean working tree.
+- [x] Review `npm pack --dry-run --cache /tmp/cobuild-npm-cache` output one final time before release.
+- [x] Finalize release notes for the actual shipped scope.
+- [x] Create the release tag and publish the GitHub release only after CI is green.

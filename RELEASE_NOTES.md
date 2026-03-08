@@ -1,8 +1,8 @@
-# cobuild v0.1.0 — Release Notes
+# cobuild v0.1.1 — Release Notes
 
 ## Overview
 
-cobuild v0.1.0 is the first public release. It provides an interactive, AI-powered CLI workflow that takes a software project idea through a structured interview and generates a full set of planning artifacts using a locally running AI model. Two providers are supported: Ollama (default) and Codex CLI.
+cobuild v0.1.1 is the release candidate for the first public npm release. It provides an interactive, AI-powered CLI workflow that takes a software project idea through a structured interview and generates a full set of planning artifacts using a locally running AI model. Two providers are supported: Ollama (default) and Codex CLI.
 
 ## What's included
 

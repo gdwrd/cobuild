@@ -409,4 +409,4 @@ npm run integration-test  # Build, then run the end-to-end verification script
 
 ## Release
 
-The current package version is `0.1.1`. Release notes are in `RELEASE_NOTES.md`.
+The current package version is `0.1.2`. Release notes are in `RELEASE_NOTES.md`.

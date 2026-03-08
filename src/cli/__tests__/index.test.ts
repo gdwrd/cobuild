@@ -10,7 +10,7 @@ describe('CLI entrypoint', () => {
     const __dirname = dirname(__filename);
     const pkgPath = join(__dirname, '..', '..', '..', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { name: string; bin: Record<string, string> };
-    expect(pkg.name).toBe('cobuild');
+    expect(pkg.name).toBe('@gdwrd/cobuild');
     expect(pkg.bin['cobuild']).toBeDefined();
   });
 });

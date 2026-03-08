@@ -55,10 +55,10 @@ Model selection for Codex CLI is managed externally in Codex itself. The `/model
 
 ## Installation
 
-Install from the package:
+Install from npm:
 
 ```sh
-npm install -g cobuild
+npm install -g @gdwrd/cobuild
 ```
 
 Install for local development:

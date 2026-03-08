@@ -32,7 +32,7 @@ cobuild v0.1.0 is the first public release. It provides an interactive, AI-power
 ## Installation
 
 ```sh
-npm install -g cobuild
+npm install -g @gdwrd/cobuild
 ```
 
 ## Known limitations

@@ -9,14 +9,48 @@ vi.mock('../../logging/logger.js', () => ({
   }),
 }));
 
-import { isSlashCommand, parseCommand, createCommandRouter } from '../commands.js';
+import { isSlashCommand, parseCommand, createCommandRouter, HELP_MESSAGE, buildUnknownCommandMessage, KNOWN_COMMANDS } from '../commands.js';
 import type { CommandResult } from '../commands.js';
+
+describe('KNOWN_COMMANDS', () => {
+  it('includes /help', () => {
+    expect(KNOWN_COMMANDS).toContain('/help');
+  });
+
+  it('includes /finish-now, /model, /provider', () => {
+    expect(KNOWN_COMMANDS).toContain('/finish-now');
+    expect(KNOWN_COMMANDS).toContain('/model');
+    expect(KNOWN_COMMANDS).toContain('/provider');
+  });
+});
+
+describe('HELP_MESSAGE', () => {
+  it('mentions all known commands', () => {
+    expect(HELP_MESSAGE).toContain('/finish-now');
+    expect(HELP_MESSAGE).toContain('/model');
+    expect(HELP_MESSAGE).toContain('/provider');
+    expect(HELP_MESSAGE).toContain('/help');
+  });
+});
+
+describe('buildUnknownCommandMessage', () => {
+  it('includes the unknown command input', () => {
+    const msg = buildUnknownCommandMessage('/foo');
+    expect(msg).toContain('/foo');
+  });
+
+  it('includes the help message', () => {
+    const msg = buildUnknownCommandMessage('/bar');
+    expect(msg).toContain(HELP_MESSAGE);
+  });
+});
 
 describe('isSlashCommand', () => {
   it('returns true for slash-prefixed input', () => {
     expect(isSlashCommand('/finish-now')).toBe(true);
     expect(isSlashCommand('/model')).toBe(true);
     expect(isSlashCommand('/provider')).toBe(true);
+    expect(isSlashCommand('/help')).toBe(true);
   });
 
   it('returns true with leading whitespace', () => {
@@ -35,6 +69,7 @@ describe('parseCommand', () => {
     expect(parseCommand('/finish-now')).toEqual({ command: '/finish-now', args: [] });
     expect(parseCommand('/model')).toEqual({ command: '/model', args: [] });
     expect(parseCommand('/provider')).toEqual({ command: '/provider', args: [] });
+    expect(parseCommand('/help')).toEqual({ command: '/help', args: [] });
   });
 
   it('parses command with args', () => {

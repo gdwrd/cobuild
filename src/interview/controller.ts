@@ -1,6 +1,6 @@
 import { Session, appendInterviewMessage, getTranscript, completeInterview } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
-import { isSlashCommand, parseCommand, createCommandRouter } from './commands.js';
+import { isSlashCommand, parseCommand, createCommandRouter, buildUnknownCommandMessage } from './commands.js';
 import type { CommandHandler, SlashCommand } from './commands.js';
 import { MAX_PROMPT_TOKENS, isPromptTooLarge } from './prompts.js';
 
@@ -166,7 +166,8 @@ export async function runInterviewLoop(
         }
         continue;
       }
-      logger.info(`interview loop: unrecognized slash command "${userInput.trim()}", ignoring (session ${session.id})`);
+      logger.info(`interview loop: unrecognized slash command "${userInput.trim()}", sending help (session ${session.id})`);
+      await onAssistantResponse(buildUnknownCommandMessage(userInput.trim()), false);
       continue;
     }
 

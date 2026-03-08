@@ -99,7 +99,7 @@ cobuild -v                      # Print version
 
 ## Runtime Flow
 
-On startup, `cobuild`:
+On startup, `cobuild` runs a staged startup sequence displayed in the terminal:
 
 1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
 2. Verifies that stdin is attached to a TTY.
@@ -107,6 +107,8 @@ On startup, `cobuild`:
    - Ollama: verifies Ollama responds at `http://localhost:11434/api/tags`
    - Codex CLI: verifies the `codex` binary is available on your `PATH`
 4. Resolves the active session for the current working directory.
+
+Each step appears as it completes in the startup screen. If a resumed session is found, an interstitial screen shows the session's stage, provider, model, and any resumable dev-plan progress before continuing.
 
 `cobuild` does not exit if the active provider is unavailable. Instead it starts normally and displays a startup notice in the UI. You can switch to a working provider during the interview with `/provider <name>`.
 
@@ -118,6 +120,26 @@ Session resolution behavior:
 - Otherwise, `cobuild` resumes the latest unfinished session for the current working directory.
 - If the latest session is already complete, `cobuild` starts a new one.
 - Dev-plan generation is also resumable. If a previous run stopped mid-phase, `cobuild` resumes from the first incomplete phase.
+
+## UI Layout
+
+Every screen in `cobuild` is wrapped in a persistent shell with:
+
+- A status bar showing: `cobuild vX.Y.Z`, current stage, session ID (first 8 chars), active provider, and model. If the provider is unavailable, `[UNAVAILABLE]` appears in red. When resuming a session, a context note (e.g. `resumed from dev-plans`) is shown.
+- A notice area (below screen content) for persistent warnings such as an unavailable provider.
+- A transient error area that auto-dismisses after 5 seconds.
+- A footer showing available commands and keybindings for the current screen.
+
+Per-screen footers:
+
+| Screen | Commands | Keys |
+| --- | --- | --- |
+| Interview | `/finish-now /model /provider /help` | `ctrl+c: quit` |
+| Restored session | — | `ctrl+c: quit` |
+| Yes/no decision | — | `y: yes  n: no  ctrl+c: quit` |
+| Generation | — | `ctrl+c: quit` |
+
+The generation screen uses a workflow stepper that shows each stage (`spec`, `architecture`, `plan`, `dev-plan`) with its status: completed (with file path), active, pending, or skipped. Phase counts, retry state, and stop reasons are shown inline.
 
 ## Interview Experience
 
@@ -141,8 +163,9 @@ These commands are available during the interview:
 | `/finish-now` | End the interview immediately and ask the model to infer missing details so generation can begin |
 | `/model` | List installed Ollama models and switch by number or name. Pass a model name directly to override without listing: `/model mistral`. If Ollama is unreachable, listing fails but manual override still works. Not available for Codex CLI sessions — model selection for Codex CLI is managed externally in Codex itself |
 | `/provider` | Show the active provider and its availability status. Switch providers mid-session with `/provider <ollama\|codex-cli>` — the new provider is validated and persisted in the session |
+| `/help` | Print the full command reference inline in the interview transcript |
 
-Unknown slash commands are ignored.
+Unknown slash commands display the `/help` message listing all available commands instead of being silently ignored.
 
 ### Prompt Size Guardrail
 
@@ -397,7 +420,7 @@ npm run integration-test  # Build, then run the end-to-end verification script
 | Path | Purpose |
 | --- | --- |
 | `src/cli/` | CLI entrypoint, config, and startup orchestration |
-| `src/ui/` | Ink UI screens for interview, restore, yes/no prompts, and generation |
+| `src/ui/` | Ink UI: `AppShell` (shared chrome), `ScreenController` (screen router), `StartupScreen`, `ErrorScreen`, `RestoredSession`, `App` (interview), `ModelSelectPrompt`, `YesNoPrompt`, `GenerationScreen` (workflow stepper), `ExecutionConsole` (dormant execution pane), `FlowWrapper` (lifecycle chrome), and `types.ts` (shared UI state contracts) |
 | `src/interview/` | Interview loop, prompts, slash commands, and retry logic |
 | `src/providers/` | Model provider implementations |
 | `src/artifacts/` | Artifact prompts, generators, validators, file output, and dev-plan workflow |

@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import React from 'react';
 import { render } from 'ink';
 import { createConfig } from './config.js';
-import { runStartup } from './app-shell.js';
+import { runStartup, createStartupProgressChannel } from './app-shell.js';
 import { ScreenController } from '../ui/ScreenController.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +39,15 @@ Examples:
   cobuild --new-session             Start cobuild with a fresh session
   cobuild --provider codex-cli      Start cobuild using the Codex CLI provider
   cobuild --help                    Show this help message
+
+Interview slash commands (type during the interview):
+  /finish-now   End the interview now and begin artifact generation
+  /model        List and switch Ollama models (/model <name> to override directly)
+  /provider     Switch provider mid-session (/provider ollama|codex-cli)
+  /help         Show the full command reference inline
+
+The UI shows a persistent status bar (version, stage, provider, model) and
+per-screen keybinding hints. Use ctrl+c to quit at any point.
 `
   )
   .action(async (opts: { newSession?: boolean; verbose?: boolean; provider: string }) => {
@@ -50,9 +59,10 @@ Examples:
       provider,
     });
 
-    const startupPromise = runStartup(config);
+    const { channel: startupProgressChannel, onProgress } = createStartupProgressChannel();
+    const startupPromise = runStartup(config, onProgress);
 
-    render(React.createElement(ScreenController, { startupPromise, version }));
+    render(React.createElement(ScreenController, { startupPromise, startupProgressChannel, version }));
   });
 
 program.parse(process.argv);

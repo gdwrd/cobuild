@@ -1,40 +1,48 @@
 import { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import type { InterviewMessage } from '../session/session.js';
+import { ModelSelectPrompt } from './ModelSelectPrompt.js';
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-const SLASH_COMMANDS = ['/finish-now', '/model', '/provider'];
-const ERROR_DISPLAY_MS = 5000;
 
+/**
+ * App — the interview (main) screen view.
+ *
+ * Renders only interview-specific content: transcript, thinking spinner, input
+ * prompt, and fatal-error state. Shared chrome (status bar, notices, footer)
+ * is provided by the surrounding AppShell in ScreenController.
+ *
+ * Transcript layout:
+ *   - Assistant turns: leading ◆ in cyan, content below with left indent
+ *   - User turns: leading ▶ in white/dim, content inline
+ *   - Turns separated by a blank line for easy scanning
+ *
+ * When modelSelectOptions is provided, a ModelSelectPrompt is shown above
+ * the input area instead of appending a plain-text list to the transcript.
+ */
 export interface AppProps {
-  sessionId: string;
-  version: string;
   transcript?: InterviewMessage[];
   isThinking?: boolean;
   isComplete?: boolean;
-  noticeMessage?: string | null;
-  errorMessage?: string | null;
   fatalErrorMessage?: string | null;
   allowEmptySubmit?: boolean;
+  /** When set, show a dedicated model selection UI instead of a transcript message. */
+  modelSelectOptions?: string[];
   onSubmit?: (input: string) => void;
 }
 
 export function App({
-  sessionId,
-  version,
   transcript = [],
   isThinking = false,
   isComplete = false,
-  noticeMessage = null,
-  errorMessage = null,
   fatalErrorMessage = null,
   allowEmptySubmit = false,
+  modelSelectOptions,
   onSubmit,
 }: AppProps) {
   const { exit } = useApp();
   const [input, setInput] = useState('');
   const [spinnerFrame, setSpinnerFrame] = useState(0);
-  const [visibleError, setVisibleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isThinking) return;
@@ -43,13 +51,6 @@ export function App({
     }, 80);
     return () => clearInterval(interval);
   }, [isThinking]);
-
-  useEffect(() => {
-    if (!errorMessage) return;
-    setVisibleError(errorMessage);
-    const timer = setTimeout(() => setVisibleError(null), ERROR_DISPLAY_MS);
-    return () => clearTimeout(timer);
-  }, [errorMessage]);
 
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
@@ -80,14 +81,21 @@ export function App({
     <Box flexDirection="column">
       {/* Transcript area */}
       <Box flexDirection="column" paddingX={1} paddingY={1}>
-        {transcript.map((msg, i) => (
-          <Box key={i} marginBottom={1}>
-            <Text color={msg.role === 'assistant' ? 'cyan' : 'white'}>
-              {msg.role === 'assistant' ? '◆ ' : '▶ '}
-              {msg.content}
-            </Text>
-          </Box>
-        ))}
+        {transcript.map((msg, i) =>
+          msg.role === 'assistant' ? (
+            <Box key={i} flexDirection="column" marginBottom={1}>
+              <Text color="cyan">{'◆ assistant'}</Text>
+              <Box marginLeft={2}>
+                <Text wrap="wrap">{msg.content}</Text>
+              </Box>
+            </Box>
+          ) : (
+            <Box key={i} flexDirection="row" marginBottom={1}>
+              <Text dimColor>{'▶ '}</Text>
+              <Text wrap="wrap">{msg.content}</Text>
+            </Box>
+          ),
+        )}
         {isThinking && (
           <Box>
             <Text color="cyan">
@@ -98,32 +106,12 @@ export function App({
         )}
       </Box>
 
-      {/* Transient error */}
-      {noticeMessage && (
-        <Box paddingX={1} marginBottom={1}>
-          <Text color="yellow">{noticeMessage}</Text>
-        </Box>
+      {/* Model selection prompt — shown instead of transcript message when selecting */}
+      {modelSelectOptions && modelSelectOptions.length > 0 && (
+        <ModelSelectPrompt models={modelSelectOptions} />
       )}
 
-      {visibleError && (
-        <Box paddingX={1} marginBottom={1}>
-          <Text color="red">{'Error: '}{visibleError}</Text>
-        </Box>
-      )}
-
-      {/* Status bar */}
-      <Box borderStyle="single" paddingX={1}>
-        <Text color={isComplete ? 'magenta' : isThinking ? 'yellow' : 'green'}>
-          {isComplete ? '[complete]' : isThinking ? '[thinking]' : '[ready]'}
-        </Text>
-        <Text dimColor>
-          {'  cobuild v'}
-          {version}
-          {'  session: '}
-          {sessionId.slice(0, 8)}
-        </Text>
-      </Box>
-
+      {/* Interview state / input area */}
       {fatalErrorMessage ? (
         <Box paddingX={1} paddingY={1} flexDirection="column">
           <Text color="red">Fatal error: {fatalErrorMessage}</Text>
@@ -134,24 +122,13 @@ export function App({
           <Text color="magenta">Interview complete. Press ctrl+c to exit.</Text>
         </Box>
       ) : (
-        <>
-          {/* Input prompt area */}
-          <Box paddingX={1} paddingY={1}>
-            <Text bold color="cyan">
-              {'▶ '}
-            </Text>
-            <Text>{input}</Text>
-            {!isThinking && <Text>{'█'}</Text>}
-          </Box>
-
-          {/* Footer: slash commands */}
-          <Box paddingX={1}>
-            <Text dimColor>
-              {SLASH_COMMANDS.join('  ')}
-              {'  ctrl+c: quit'}
-            </Text>
-          </Box>
-        </>
+        <Box paddingX={1} paddingY={1}>
+          <Text bold color="cyan">
+            {'▶ '}
+          </Text>
+          <Text>{input}</Text>
+          {!isThinking && <Text>{'█'}</Text>}
+        </Box>
       )}
     </Box>
   );

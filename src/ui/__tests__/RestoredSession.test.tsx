@@ -162,4 +162,73 @@ describe('RestoredSession', () => {
     });
     expect(output).toContain('Press Enter to continue');
   });
+
+  it('shows provider name when provided', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      provider: 'ollama',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('ollama');
+  });
+
+  it('shows model name when provided', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      model: 'llama3',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('llama3');
+  });
+
+  it('shows provider unavailable warning when providerReady is false', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      provider: 'ollama',
+      providerReady: false,
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('unavailable');
+  });
+
+  it('shows resume interview next action for interview stage', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      stage: 'interview',
+      providerReady: true,
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Resume interview');
+  });
+
+  it('shows resume artifact generation next action for spec stage', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      stage: 'spec',
+      providerReady: true,
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Resume artifact generation');
+  });
+
+  it('shows dev plan resume next action with remaining count', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      stage: 'dev-plans',
+      devPlanProgress: { completed: 2, total: 5 },
+      providerReady: true,
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('3 phases remaining');
+  });
+
+  it('shows provider unavailable next action when provider is not ready', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      stage: 'interview',
+      providerReady: false,
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Provider unavailable');
+  });
 });

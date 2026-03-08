@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as path from 'node:path';
-import { Box, Text, useApp } from 'ink';
-import type { StartupResult } from '../cli/app-shell.js';
+import { useApp } from 'ink';
+import type { StartupResult, StartupProgressChannel, StartupStep } from '../cli/app-shell.js';
+import { AppShell } from './AppShell.js';
+import { StartupScreen } from './StartupScreen.js';
+import { ErrorScreen } from './ErrorScreen.js';
 import { App } from './App.js';
 import { RestoredSession } from './RestoredSession.js';
-import { GenerationScreen } from './GenerationScreen.js';
+import { GenerationScreen, STAGE_DISPLAY_LABELS, DEV_PLAN_PHASE_LABEL_PREFIX } from './GenerationScreen.js';
 import type { GenerationStatus, GenerationStage, CompletedStage } from './GenerationScreen.js';
 import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
@@ -16,7 +19,7 @@ import { buildInterviewSystemPrompt } from '../interview/prompts.js';
 import { createFinishNowHandler } from '../interview/finish-now.js';
 import { createModelHandler } from '../interview/model-command.js';
 import { createProviderHandler } from '../interview/provider-command.js';
-import { parseCommand } from '../interview/commands.js';
+import { parseCommand, HELP_MESSAGE } from '../interview/commands.js';
 import { withRetry, RetryExhaustedError } from '../interview/retry.js';
 import { formatUserMessage, logFullError } from '../errors/errors.js';
 import { runArtifactPipeline } from '../artifacts/generator.js';
@@ -28,21 +31,49 @@ import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../artifacts/dev-plan-loop.js';
 import { getLogger } from '../logging/logger.js';
 import { checkProviderReadiness } from '../validation/env.js';
-import type { ProviderReadinessStatus } from '../cli/app-shell.js';
+import type { Screen, SessionStage, StatusHeaderData, FooterHelpData } from './types.js';
+import { ExecutionConsole } from './ExecutionConsole.js';
+import { INITIAL_EXECUTION_STATE } from './types.js';
 
-type Screen = 'startup' | 'restored' | 'main' | 'generating' | 'yesno' | 'error';
+const INTERVIEW_FOOTER: FooterHelpData = {
+  commands: ['/finish-now', '/model', '/provider', '/help'],
+  keybindings: ['ctrl+c: quit'],
+};
+
+const QUIT_FOOTER: FooterHelpData = {
+  commands: [],
+  keybindings: ['ctrl+c: quit'],
+};
+
+const RESTORED_FOOTER: FooterHelpData = {
+  commands: [],
+  keybindings: ['enter: continue', 'ctrl+c: quit'],
+};
+
+const YESNO_FOOTER: FooterHelpData = {
+  commands: [],
+  keybindings: ['y: yes', 'n: no', 'ctrl+c: quit'],
+};
+
+const GENERATING_FOOTER: FooterHelpData = {
+  commands: [],
+  keybindings: ['ctrl+c: quit'],
+};
+
+const TRANSIENT_ERROR_DISPLAY_MS = 5000;
 
 export interface ScreenControllerProps {
   startupPromise: Promise<StartupResult>;
   version: string;
+  /** Optional channel for receiving staged startup progress updates. */
+  startupProgressChannel?: StartupProgressChannel;
 }
 
-export function ScreenController({ startupPromise, version }: ScreenControllerProps) {
+export function ScreenController({ startupPromise, startupProgressChannel, version }: ScreenControllerProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>('startup');
-  const [statusMessage] = useState('Starting cobuild...');
   const [sessionId, setSessionId] = useState('');
-  const [sessionStage, setSessionStage] = useState<'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans'>('interview');
+  const [sessionStage, setSessionStage] = useState<SessionStage>('interview');
   const [errorMessage, setErrorMessage] = useState('');
   const [transcript, setTranscript] = useState<InterviewMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -59,12 +90,16 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const [workflowTerminatedEarly, setWorkflowTerminatedEarly] = useState(false);
   const [devPlanProgress, setDevPlanProgress] = useState<{ current: number; total: number } | undefined>(undefined);
 
+  const [modelSelectOptions, setModelSelectOptions] = useState<string[] | undefined>(undefined);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [restoredDevPlanProgress, setRestoredDevPlanProgress] = useState<
     { completed: number; total: number } | undefined
   >(undefined);
-  const [, setProviderStatuses] = useState<ProviderReadinessStatus[]>([]);
+  const [startupSteps, setStartupSteps] = useState<ReadonlyArray<StartupStep>>([]);
   const [isActiveProviderReady, setIsActiveProviderReady] = useState(true);
+  const [currentProvider, setCurrentProvider] = useState<string>('ollama');
+  const [currentModel, setCurrentModel] = useState<string | undefined>(undefined);
+  const [resumabilityContext, setResumabilityContext] = useState<string | undefined>(undefined);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
 
@@ -78,20 +113,26 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
   const isSelectingModelRef = useRef(false);
   const commandRunnerRef = useRef<((input: string) => Promise<boolean>) | null>(null);
 
-  const updateProviderStatus = useCallback((status: ProviderReadinessStatus) => {
-    setProviderStatuses(current => {
-      const next = current.filter(entry => entry.provider !== status.provider);
-      next.push(status);
-      return next.sort((a, b) => a.provider.localeCompare(b.provider));
+  // Subscribe to staged startup progress events
+  useEffect(() => {
+    if (!startupProgressChannel) return;
+    startupProgressChannel.subscribe((steps) => {
+      setStartupSteps(steps);
     });
-  }, []);
+  }, [startupProgressChannel]);
+
+  // Auto-dismiss transient errors after a short delay
+  useEffect(() => {
+    if (!transientError) return;
+    const timer = setTimeout(() => setTransientError(null), TRANSIENT_ERROR_DISPLAY_MS);
+    return () => clearTimeout(timer);
+  }, [transientError]);
 
   const refreshProviderStatus = useCallback(async (provider: Session['provider'] = 'ollama') => {
     const readiness = await checkProviderReadiness(provider);
-    updateProviderStatus({ provider, ...readiness });
     setIsActiveProviderReady(readiness.ok);
     return readiness;
-  }, [updateProviderStatus]);
+  }, []);
 
   useEffect(() => {
     startupPromise
@@ -99,21 +140,25 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         if (result.success) {
           setSessionId(result.sessionId ?? '');
           setSessionStage(result.sessionStage ?? 'interview');
-          setProviderStatuses(result.providerStatuses ?? []);
           setNoticeMessage(result.startupNotice ?? null);
           const activeProvider = result.activeProvider ?? 'ollama';
+          setCurrentProvider(activeProvider);
           const activeStatus = result.providerStatuses?.find(status => status.provider === activeProvider);
           setIsActiveProviderReady(activeStatus?.ok ?? true);
           if (result.sessionResolution === 'resumed') {
             const resumeStage = result.sessionStage ?? 'interview';
+            setResumabilityContext(`resumed from ${resumeStage}`);
             getLogger().info(`screen: restoring session ${result.sessionId} at stage ${resumeStage}`);
-            if (resumeStage === 'dev-plans' && result.sessionId) {
+            if (result.sessionId) {
               const s = loadSession(result.sessionId);
               if (s) {
-                const completed = s.completedPhaseCount ?? (s.devPlanArtifacts?.length ?? 0);
-                const total = s.extractedPhases?.length ?? 0;
-                if (total > 0) {
-                  setRestoredDevPlanProgress({ completed, total });
+                setCurrentModel(s.model ?? undefined);
+                if (resumeStage === 'dev-plans') {
+                  const completed = s.completedPhaseCount ?? (s.devPlanArtifacts?.length ?? 0);
+                  const total = s.extractedPhases?.length ?? 0;
+                  if (total > 0) {
+                    setRestoredDevPlanProgress({ completed, total });
+                  }
                 }
               }
             }
@@ -161,6 +206,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const model = session.model ?? 'llama3';
     currentModelRef.current = model;
     const activeProvider = session.provider ?? 'ollama';
+    setCurrentProvider(activeProvider);
+    setCurrentModel(model);
     getLogger().info(`screen: initializing provider=${activeProvider} model=${model} (session ${session.id})`);
     providerRef.current = createProvider(activeProvider, model);
     commandRunnerRef.current = null;
@@ -201,6 +248,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       const updatedProvider = updated.provider ?? 'ollama';
       const updatedModel = updated.model ?? currentModelRef.current ?? 'llama3';
       currentModelRef.current = updatedModel;
+      setCurrentProvider(updatedProvider);
+      setCurrentModel(updatedModel);
       getLogger().info(`screen: session updated provider=${updatedProvider} model=${updatedModel} (session ${updated.id})`);
       providerRef.current = createProvider(updatedProvider, updatedModel);
       void refreshProviderStatus(updatedProvider).then(readiness => {
@@ -209,16 +258,14 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     };
 
     const onSelectModel = async (models: string[]): Promise<string | null> => {
-      const modelList = models.map((m, i) => `${i + 1}. ${m}`).join('\n');
-      await onAssistantResponse(
-        `Available models:\n${modelList}\n\nType a model name or number to switch, or press Enter to keep current.`,
-        false,
-      );
+      // Show the dedicated ModelSelectPrompt component instead of a transcript message.
+      setModelSelectOptions(models);
       isSelectingModelRef.current = true;
       setIsSelectingModel(true);
       const choice = await onUserInput();
       isSelectingModelRef.current = false;
       setIsSelectingModel(false);
+      setModelSelectOptions(undefined);
       setIsThinking(true);
       const trimmed = choice.trim();
       if (!trimmed) return null;
@@ -229,6 +276,11 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       return models.includes(trimmed) ? trimmed : null;
     };
 
+    const helpHandler = async (_args: string[]) => ({
+      handled: true,
+      continueInterview: true,
+      message: HELP_MESSAGE,
+    });
     const providerHandler = (args: string[]) =>
       createProviderHandler({
         getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
@@ -265,7 +317,9 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
           ? providerHandler
           : parsed.command === '/model'
             ? modelHandler
-            : finishNowHandler;
+            : parsed.command === '/help'
+              ? helpHandler
+              : finishNowHandler;
       const result = await handler(parsed.args);
       if (result.message) {
         await onAssistantResponse(result.message, false);
@@ -283,6 +337,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       '/finish-now': finishNowHandler,
       '/model': modelHandler,
       '/provider': providerHandler,
+      '/help': helpHandler,
     })
       .then((finalSession) => {
         // Reload from disk so that session state written by command handlers (e.g. /finish-now
@@ -322,13 +377,13 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     // Populate completed stages from existing session artifacts
     const resumeStages: CompletedStage[] = [];
     if (session.specArtifact) {
-      resumeStages.push({ label: 'Project specification', filePath: session.specArtifact.filePath });
+      resumeStages.push({ label: STAGE_DISPLAY_LABELS.spec, filePath: session.specArtifact.filePath });
     }
     if (session.architectureArtifact) {
-      resumeStages.push({ label: 'Architecture document', filePath: session.architectureArtifact.filePath });
+      resumeStages.push({ label: STAGE_DISPLAY_LABELS.architecture, filePath: session.architectureArtifact.filePath });
     }
     if (session.planArtifact) {
-      resumeStages.push({ label: 'High-level development plan', filePath: session.planArtifact.filePath });
+      resumeStages.push({ label: STAGE_DISPLAY_LABELS.plan, filePath: session.planArtifact.filePath });
     }
     setCompletedStages(resumeStages);
 
@@ -336,6 +391,8 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const resumeProvider = session.provider ?? 'ollama';
     getLogger().info(`dev-plan resume: initializing provider=${resumeProvider} model=${model} (session ${sessionId})`);
     providerRef.current = createProvider(resumeProvider, model);
+    setCurrentProvider(resumeProvider);
+    setCurrentModel(model);
     const provider = providerRef.current;
 
     setGenerationStage('dev-plan');
@@ -348,7 +405,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       onPhaseComplete: (phaseNumber, filePath) => {
         setCompletedStages((prev) => [
           ...prev,
-          { label: `Dev plan — phase ${phaseNumber}`, filePath },
+          { label: `${DEV_PLAN_PHASE_LABEL_PREFIX} ${phaseNumber}`, filePath },
         ]);
       },
     })
@@ -381,6 +438,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     pipelineStartedRef.current = true;
 
     setScreen('generating');
+    setSessionStage('spec');
 
     const makeOnDecision = (question: string): Promise<boolean> =>
       new Promise<boolean>((resolve) => {
@@ -398,7 +456,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       const artifactPath = resolveOutputPath(dir, artifactFilename);
       writeArtifactFile(artifactPath, content);
       getLogger().info(`generation screen: ${type} saved to ${artifactPath}`);
-      const label = type === 'architecture' ? 'Architecture document' : 'High-level development plan';
+      const label = type === 'architecture' ? STAGE_DISPLAY_LABELS.architecture : STAGE_DISPLAY_LABELS.plan;
       setCompletedStages((prev) => [...prev, { label, filePath: artifactPath }]);
       return artifactPath;
     };
@@ -413,12 +471,20 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
       onDecision: makeOnDecision,
       writeArtifactFile: makeWriteArtifact,
       onStageUpdate: (stage: string) => {
-        if (stage === 'generating-architecture') {
+        if (stage === 'asking-architecture') {
+          setSessionStage('architecture');
+        } else if (stage === 'generating-architecture') {
           setGenerationStage('architecture');
+          setSessionStage('architecture');
           setScreen('generating');
+        } else if (stage === 'asking-plan') {
+          setSessionStage('plan');
         } else if (stage === 'generating-plan') {
           setGenerationStage('plan');
+          setSessionStage('plan');
           setScreen('generating');
+        } else if (stage === 'complete') {
+          setSessionStage('dev-plans');
         }
       },
       onRestoreCompletedStage: (label: string, filePath: string) => {
@@ -431,7 +497,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     const postSpecPromise = existingSpec
       ? (() => {
           setGenerationFilePath(existingSpec.filePath);
-          setCompletedStages([{ label: 'Project specification', filePath: existingSpec.filePath }]);
+          setCompletedStages([{ label: STAGE_DISPLAY_LABELS.spec, filePath: existingSpec.filePath }]);
           getLogger().info(`generation screen: spec already exists, resuming post-spec workflow (session ${session.id})`);
           const specSession = loadSession(session.id) ?? session;
           return runPostSpecWorkflow(specSession, provider, postSpecOptions);
@@ -458,7 +524,7 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
             const afterSpecStage = completeSpecStage(afterArtifact);
             getLogger().info(`generation screen: spec saved to ${filePath}`);
             setGenerationFilePath(filePath);
-            setCompletedStages((prev) => [...prev, { label: 'Project specification', filePath }]);
+            setCompletedStages((prev) => [...prev, { label: STAGE_DISPLAY_LABELS.spec, filePath }]);
 
             const specSession = loadSession(afterSpecStage.id) ?? afterSpecStage;
             return runPostSpecWorkflow(specSession, provider, postSpecOptions);
@@ -478,13 +544,14 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
         const devPlanResult = await runDevPlanLoop(devPlanSession, provider, {
           onPhaseStart: (phaseNumber, total) => {
             setGenerationStage('dev-plan');
+            setSessionStage('dev-plans');
             setDevPlanProgress({ current: phaseNumber, total });
             setScreen('generating');
           },
           onPhaseComplete: (phaseNumber, filePath) => {
             setCompletedStages((prev) => [
               ...prev,
-              { label: `Dev plan — phase ${phaseNumber}`, filePath },
+              { label: `${DEV_PLAN_PHASE_LABEL_PREFIX} ${phaseNumber}`, filePath },
             ]);
           },
         });
@@ -570,72 +637,109 @@ export function ScreenController({ startupPromise, version }: ScreenControllerPr
     [isActiveProviderReady],
   );
 
+  // Build the status bar data for AppShell when a session is active
+  const statusBar: StatusHeaderData | undefined = sessionId
+    ? {
+        sessionId,
+        stage: sessionStage,
+        provider: currentProvider,
+        model: currentModel,
+        providerReady: isActiveProviderReady,
+        version,
+        resumabilityContext,
+      }
+    : undefined;
+
   if (screen === 'startup') {
     return (
-      <Box flexDirection="column" paddingX={1} paddingY={1}>
-        <Text bold color="cyan">
-          cobuild v{version}
-        </Text>
-        <Text dimColor>{'  '}{statusMessage}</Text>
-      </Box>
-    );
-  }
-
-  if (screen === 'restored') {
-    return (
-      <RestoredSession
-        sessionId={sessionId}
-        stage={sessionStage}
-        devPlanProgress={restoredDevPlanProgress}
-        onContinue={() => setScreen('main')}
-      />
+      <AppShell>
+        <StartupScreen version={version} steps={startupSteps} />
+      </AppShell>
     );
   }
 
   if (screen === 'error') {
     return (
-      <Box paddingX={1} paddingY={1}>
-        <Text color="red">Error: {errorMessage}</Text>
-      </Box>
+      <AppShell>
+        <ErrorScreen message={errorMessage} />
+      </AppShell>
+    );
+  }
+
+  if (screen === 'restored') {
+    return (
+      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={RESTORED_FOOTER}>
+        <RestoredSession
+          sessionId={sessionId}
+          stage={sessionStage}
+          provider={currentProvider}
+          model={currentModel}
+          providerReady={isActiveProviderReady}
+          devPlanProgress={restoredDevPlanProgress}
+          onContinue={() => setScreen('main')}
+        />
+      </AppShell>
     );
   }
 
   if (screen === 'generating') {
     return (
-      <GenerationScreen
-        status={generationStatus}
-        filePath={generationFilePath}
-        errorMessage={generationError}
-        currentStage={generationStage}
-        completedStages={completedStages}
-        terminatedEarly={workflowTerminatedEarly}
-        devPlanProgress={devPlanProgress}
-        onRetry={handleRetry}
-      />
+      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={GENERATING_FOOTER}>
+        <GenerationScreen
+          status={generationStatus}
+          filePath={generationFilePath}
+          errorMessage={generationError}
+          currentStage={generationStage}
+          completedStages={completedStages}
+          terminatedEarly={workflowTerminatedEarly}
+          devPlanProgress={devPlanProgress}
+          onRetry={handleRetry}
+        />
+      </AppShell>
     );
   }
 
   if (screen === 'yesno') {
     return (
-      <YesNoPrompt
-        question={yesNoQuestion}
-        onAnswer={handleYesNoAnswer}
-      />
+      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={YESNO_FOOTER}>
+        <YesNoPrompt
+          question={yesNoQuestion}
+          onAnswer={handleYesNoAnswer}
+        />
+      </AppShell>
     );
   }
 
+  // 'execution' — dormant ralphex execution console (no code transitions here yet).
+  // Wire in a real runner by:
+  //   1. Adding executionState to ScreenController useState (driven via applyExecutionEvent)
+  //   2. Transitioning screen to 'execution' when a plan run starts
+  //   3. Implementing onUserAction handler for retry / continue / inspect-logs
+  if (screen === 'execution') {
+    return (
+      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={QUIT_FOOTER}>
+        <ExecutionConsole state={INITIAL_EXECUTION_STATE} />
+      </AppShell>
+    );
+  }
+
+  // 'main' — interview screen
   return (
-    <App
-      sessionId={sessionId}
-      version={version}
-      transcript={transcript}
-      isThinking={isThinking}
-      isComplete={interviewComplete}
-      noticeMessage={noticeMessage}
-      errorMessage={transientError}
-      fatalErrorMessage={fatalInterviewError}
-      allowEmptySubmit={isSelectingModel}
-      onSubmit={handleSubmit}
-    />
+    <AppShell
+      statusBar={statusBar}
+      notice={noticeMessage ?? undefined}
+      transientError={transientError ?? undefined}
+      footer={INTERVIEW_FOOTER}
+    >
+      <App
+        transcript={transcript}
+        isThinking={isThinking}
+        isComplete={interviewComplete}
+        fatalErrorMessage={fatalInterviewError}
+        allowEmptySubmit={isSelectingModel}
+        modelSelectOptions={modelSelectOptions}
+        onSubmit={handleSubmit}
+      />
+    </AppShell>
   );
 }

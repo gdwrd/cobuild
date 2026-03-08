@@ -31,6 +31,7 @@ import {
   runInterviewTurn,
   runInterviewLoop,
 } from '../controller.js';
+import { buildUnknownCommandMessage } from '../commands.js';
 import type { ModelProvider } from '../controller.js';
 import { MAX_PROMPT_TOKENS } from '../prompts.js';
 import type { Session } from '../../session/session.js';
@@ -399,7 +400,7 @@ describe('runInterviewLoop', () => {
     expect(finalSession.completed).toBe(true);
   });
 
-  it('ignores unrecognized slash commands and re-prompts', async () => {
+  it('responds with help message for unrecognized slash commands and re-prompts', async () => {
     const session = makeSession([{ role: 'assistant', content: 'Question?' }]);
     const provider = makeProvider(`Done! ${COMPLETION_MARKER}`);
     let callCount = 0;
@@ -417,9 +418,11 @@ describe('runInterviewLoop', () => {
 
     await runInterviewLoop(session, provider, 'system', onUserInput, onAssistantResponse);
 
-    // called twice: once for /unknown-cmd (ignored), once for real answer
+    // called twice: once for /unknown-cmd (sends help), once for real answer
     expect(onUserInput).toHaveBeenCalledTimes(2);
     expect(provider.generate).toHaveBeenCalledTimes(1);
+    // unknown command triggers a help response
+    expect(onAssistantResponse).toHaveBeenCalledWith(buildUnknownCommandMessage('/unknown-cmd'), false);
   });
 
   it('sends PROMPT_TOO_LARGE_MESSAGE and continues loop when initial turn prompt is too large', async () => {

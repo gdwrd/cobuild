@@ -1,8 +1,20 @@
 import { getLogger } from '../logging/logger.js';
 
-export type SlashCommand = '/finish-now' | '/model' | '/provider';
+export type SlashCommand = '/finish-now' | '/model' | '/provider' | '/help';
 
-export const KNOWN_COMMANDS: SlashCommand[] = ['/finish-now', '/model', '/provider'];
+export const KNOWN_COMMANDS: SlashCommand[] = ['/finish-now', '/model', '/provider', '/help'];
+
+export const HELP_MESSAGE = [
+  'Available commands:',
+  '  /finish-now   — end the interview now and generate your spec',
+  '  /model        — list available models or switch to a named model (/model <name>)',
+  '  /provider     — switch provider (/provider ollama | codex-cli)',
+  '  /help         — show this command reference',
+].join('\n');
+
+export function buildUnknownCommandMessage(input: string): string {
+  return `Unknown command: ${input}\n\n${HELP_MESSAGE}`;
+}
 
 export interface ParsedCommand {
   command: SlashCommand;

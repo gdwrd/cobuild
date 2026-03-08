@@ -13,12 +13,29 @@ import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
 import { createProvider } from '../../providers/factory.js';
 
-const { mockApp } = vi.hoisted(() => ({
+const { mockApp, mockAppShell } = vi.hoisted(() => ({
   mockApp: vi.fn(() => null),
+  mockAppShell: vi.fn(({ children }: { children?: React.ReactNode }) => children ?? null),
 }));
 
 vi.mock('../App.js', () => ({
   App: mockApp,
+}));
+
+vi.mock('../AppShell.js', () => ({
+  AppShell: mockAppShell,
+}));
+
+vi.mock('../StartupScreen.js', () => ({
+  StartupScreen: function MockStartupScreen() {
+    return null;
+  },
+}));
+
+vi.mock('../ErrorScreen.js', () => ({
+  ErrorScreen: function MockErrorScreen() {
+    return null;
+  },
 }));
 
 vi.mock('../RestoredSession.js', () => ({
@@ -54,6 +71,8 @@ vi.mock('../../artifacts/spec-generator.js', () => ({
 vi.mock('../../artifacts/file-output.js', () => ({
   ensureDocsDir: vi.fn(() => '/tmp/docs'),
   generateFilename: vi.fn(() => 'project-spec.md'),
+  generateArchitectureFilename: vi.fn(() => 'project-arch.md'),
+  generatePlanFilename: vi.fn(() => 'project-plan.md'),
   resolveOutputPath: vi.fn(() => '/tmp/docs/project-spec.md'),
   sanitizeFilename: vi.fn((name: string) => name),
   writeArtifactFile: vi.fn(),
@@ -140,6 +159,7 @@ describe('ScreenController', () => {
 
   beforeEach(() => {
     mockApp.mockClear();
+    mockAppShell.mockClear();
   });
 
   it('renders without throwing given a pending promise', () => {
@@ -200,7 +220,7 @@ describe('ScreenController', () => {
     unmount();
   });
 
-  it('passes startup notices through to the app instead of exiting', async () => {
+  it('passes startup notices to AppShell notice prop instead of exiting', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const stream = new PassThrough();
     const { unmount } = render(
@@ -223,9 +243,9 @@ describe('ScreenController', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
 
     expect(exitSpy).not.toHaveBeenCalled();
-    expect(mockApp).toHaveBeenCalledWith(
+    expect(mockAppShell).toHaveBeenCalledWith(
       expect.objectContaining({
-        noticeMessage: 'No AI providers are currently available.',
+        notice: 'No AI providers are currently available.',
       }),
       expect.any(Object),
     );
@@ -249,6 +269,21 @@ describe('ScreenController', () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
     unmount();
   });
+
+  it('renders App inside AppShell for main screen', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(mockAppShell).toHaveBeenCalled();
+    expect(mockApp).toHaveBeenCalled();
+    unmount();
+  });
 });
 
 describe('ScreenController write failure handling', () => {
@@ -264,6 +299,7 @@ describe('ScreenController write failure handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
     vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
@@ -386,6 +422,7 @@ describe('ScreenController retry exhaustion handling', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
     vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(mockSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(mockSession);
@@ -448,6 +485,7 @@ describe('ScreenController codex-cli provider', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
     vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(codexSession);
     vi.mocked(persistSpecArtifact).mockReturnValue(codexSession);
@@ -569,6 +607,7 @@ describe('ScreenController dev-plans resume', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
     vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
     vi.mocked(loadSession).mockReturnValue(devPlanSession);
     vi.mocked(runDevPlanLoop).mockReturnValue(new Promise(() => {}));

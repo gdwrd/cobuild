@@ -5,6 +5,9 @@ import { getLogger } from '../logging/logger.js';
 export interface RestoredSessionProps {
   sessionId: string;
   stage?: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans';
+  provider?: string;
+  model?: string;
+  providerReady?: boolean;
   devPlanProgress?: { completed: number; total: number };
   onContinue: () => void;
 }
@@ -24,9 +27,37 @@ function stageLabel(stage: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev
   }
 }
 
+function nextActionLabel(
+  stage: 'interview' | 'spec' | 'architecture' | 'plan' | 'dev-plans',
+  devPlanProgress?: { completed: number; total: number },
+  providerReady?: boolean,
+): string {
+  if (providerReady === false) {
+    return 'Provider unavailable — use /provider to switch before continuing';
+  }
+  switch (stage) {
+    case 'interview':
+      return 'Resume interview';
+    case 'spec':
+    case 'architecture':
+    case 'plan':
+      return 'Resume artifact generation';
+    case 'dev-plans': {
+      if (devPlanProgress) {
+        const remaining = devPlanProgress.total - devPlanProgress.completed;
+        return `Resume dev plan generation (${remaining} phase${remaining === 1 ? '' : 's'} remaining)`;
+      }
+      return 'Resume dev plan generation';
+    }
+  }
+}
+
 export function RestoredSession({
   sessionId,
   stage = 'interview',
+  provider,
+  model,
+  providerReady,
   devPlanProgress,
   onContinue,
 }: RestoredSessionProps) {
@@ -51,6 +82,9 @@ export function RestoredSession({
     }
   });
 
+  const providerIsReady = providerReady !== false;
+  const nextAction = nextActionLabel(stage, devPlanProgress, providerReady);
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text bold color="cyan">
@@ -58,14 +92,30 @@ export function RestoredSession({
       </Text>
       <Text> </Text>
       <Text>Resuming previous session:</Text>
-      <Text dimColor>{'  Session: '}{sessionId.slice(0, 8)}</Text>
-      <Text dimColor>{'  Stage:   '}{stageLabel(stage)}</Text>
+      <Text dimColor>{'  Session:  '}{sessionId.slice(0, 8)}</Text>
+      <Text dimColor>{'  Stage:    '}{stageLabel(stage)}</Text>
+      {provider && (
+        <Box flexDirection="row">
+          <Text dimColor>{'  Provider: '}{provider}</Text>
+          {!providerIsReady && (
+            <Text color="yellow"> (unavailable)</Text>
+          )}
+        </Box>
+      )}
+      {model && (
+        <Text dimColor>{'  Model:    '}{model}</Text>
+      )}
       {devPlanProgress !== undefined && (
         <Text dimColor>
           {'  Progress: '}
           {devPlanProgress.completed} of {devPlanProgress.total} phases complete
         </Text>
       )}
+      <Text> </Text>
+      <Box flexDirection="row">
+        <Text dimColor>Next: </Text>
+        <Text color={providerIsReady ? 'green' : 'yellow'}>{nextAction}</Text>
+      </Box>
       <Text> </Text>
       <Text dimColor>Press Enter to continue...</Text>
     </Box>

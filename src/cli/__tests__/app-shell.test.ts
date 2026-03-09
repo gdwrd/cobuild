@@ -247,4 +247,97 @@ describe('runStartup', () => {
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/permission denied/i);
   });
+
+  it('emits provider step actionHint when active provider is down but alternative is available', async () => {
+    vi.mocked(checkProviderReadiness)
+      .mockResolvedValueOnce({ ok: false, message: 'ollama not reachable' })
+      .mockResolvedValueOnce({ ok: true, message: 'codex-cli ready' });
+    const steps: import('../app-shell.js').StartupStep[] = [];
+    const onProgress = vi.fn((s: ReadonlyArray<import('../app-shell.js').StartupStep>) => {
+      steps.splice(0, steps.length, ...s);
+    });
+    const result = await runStartup(
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      onProgress,
+    );
+    expect(result.success).toBe(true);
+    const providerStep = steps.find((s) => s.id === 'provider');
+    expect(providerStep?.status).toBe('warning');
+    expect(providerStep?.actionHint).toMatch(/codex-cli is available/i);
+    expect(providerStep?.actionHint).toMatch(/--new-session --provider codex-cli/);
+  });
+
+  it('does not emit actionHint when active provider is down and no alternative is available', async () => {
+    vi.mocked(checkProviderReadiness).mockResolvedValue({ ok: false, message: 'not reachable' });
+    const steps: import('../app-shell.js').StartupStep[] = [];
+    const onProgress = vi.fn((s: ReadonlyArray<import('../app-shell.js').StartupStep>) => {
+      steps.splice(0, steps.length, ...s);
+    });
+    await runStartup(
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      onProgress,
+    );
+    const providerStep = steps.find((s) => s.id === 'provider');
+    expect(providerStep?.actionHint).toBeUndefined();
+  });
+
+  it('emits session step detail "new session" for a fresh session', async () => {
+    const steps: import('../app-shell.js').StartupStep[] = [];
+    const onProgress = vi.fn((s: ReadonlyArray<import('../app-shell.js').StartupStep>) => {
+      steps.splice(0, steps.length, ...s);
+    });
+    await runStartup(
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      onProgress,
+    );
+    const sessionStep = steps.find((s) => s.id === 'session');
+    expect(sessionStep?.detail).toBe('new session');
+  });
+
+  it('emits session step detail with human-readable stage label for resumed session', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'resumed-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'ollama' as const,
+      stage: 'spec',
+    });
+    const steps: import('../app-shell.js').StartupStep[] = [];
+    const onProgress = vi.fn((s: ReadonlyArray<import('../app-shell.js').StartupStep>) => {
+      steps.splice(0, steps.length, ...s);
+    });
+    await runStartup(
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      onProgress,
+    );
+    const sessionStep = steps.find((s) => s.id === 'session');
+    expect(sessionStep?.detail).toBe('resumed · spec generation');
+  });
+
+  it('emits session step detail with dev-plans stage label for resumed dev-plans session', async () => {
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'resumed-devplans-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'ollama' as const,
+      stage: 'dev-plans',
+      devPlansComplete: false,
+    });
+    const steps: import('../app-shell.js').StartupStep[] = [];
+    const onProgress = vi.fn((s: ReadonlyArray<import('../app-shell.js').StartupStep>) => {
+      steps.splice(0, steps.length, ...s);
+    });
+    await runStartup(
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      onProgress,
+    );
+    const sessionStep = steps.find((s) => s.id === 'session');
+    expect(sessionStep?.detail).toBe('resumed · dev plan generation');
+  });
 });

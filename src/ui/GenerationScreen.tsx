@@ -244,7 +244,7 @@ export function GenerationScreen({
   // Synthesize a completedStages entry when only the legacy filePath prop is provided
   const effectiveCompletedStages =
     completedStages.length === 0 && filePath
-      ? [{ label: 'Project specification', filePath }]
+      ? [{ label: STAGE_DISPLAY_LABELS.spec, filePath }]
       : completedStages;
 
   useEffect(() => {
@@ -255,15 +255,13 @@ export function GenerationScreen({
     return () => clearInterval(interval);
   }, [status]);
 
-  useEffect(() => {
-    if (status !== 'success') return;
-    const timer = setTimeout(() => exit(), 1500);
-    return () => clearTimeout(timer);
-  }, [status, exit]);
-
   useInput((char, key) => {
     // ctrl+c always exits cleanly regardless of status
     if (key.ctrl && char === 'c') {
+      exit();
+      return;
+    }
+    if (status === 'success') {
       exit();
       return;
     }
@@ -342,13 +340,18 @@ export function GenerationScreen({
 
       {/* Status footer — shown below the stepper */}
       {status === 'success' && summaryLabel && (
-        <Box marginTop={1}>
+        <Box flexDirection="column" marginTop={1}>
           <Text color="green">{summaryLabel}</Text>
+          <Text dimColor>Artifacts saved to docs/. Press any key to exit.</Text>
         </Box>
       )}
       {status === 'retry-exhausted' && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="red">{'Generation failed after all retry attempts.'}</Text>
+          <Text color="red">
+            {'Generation failed at '}
+            <Text bold>{STAGE_DISPLAY_LABELS[currentStage ?? 'spec']}</Text>
+            {' after all retry attempts.'}
+          </Text>
           {errorMessage && <Text dimColor>{errorMessage}</Text>}
           <Text> </Text>
           <Text>
@@ -359,8 +362,12 @@ export function GenerationScreen({
         </Box>
       )}
       {status === 'error' && (
-        <Box marginTop={1}>
-          <Text dimColor>Press any key to exit.</Text>
+        <Box flexDirection="column" marginTop={1}>
+          <Text dimColor>
+            {'Failed at '}
+            {STAGE_DISPLAY_LABELS[currentStage ?? 'spec']}
+            {'. Press any key to exit.'}
+          </Text>
         </Box>
       )}
     </Box>

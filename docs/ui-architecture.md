@@ -29,8 +29,74 @@ All cross-component UI state contracts live in `src/ui/types.ts`:
 - `StatusHeaderData` — props for the persistent status bar (session ID, stage, provider, model, provider readiness, optional resumability context)
 - `FooterHelpData` — commands and keybindings arrays for the per-screen footer
 - `SharedUIState` — a combined shape for all shared chrome data
+- `ScrollState`, `INITIAL_SCROLL_STATE` — viewport scroll position for bounded content areas (transcript, output log); supports auto-follow and explicit scrollback
+- `SelectionState` — keyboard-driven picker cursor state shared by ModelSelectPrompt and any future selection UI
+- `BannerData` — dismissible notice banner with id, message, level, and dismissible flag so ScreenController can track which banners the user has cleared
+- `CompletionState` — non-auto-exiting terminal state for completed flows (generation, execution), including summary text, artifact paths, and next-action hint
 - `ExecutionState`, `ExecutionEvent`, `applyExecutionEvent` — the execution console state model and event reducer
 - `FlowLifecyclePhase`, `RalphexRunMetadata`, `FlowWrapperState` — lifecycle wrapper types used by `FlowWrapper`
+
+## Improved Interaction Model
+
+### Scroll state (transcript and output viewports)
+
+Long content areas (interview transcript, execution output) use `ScrollState` to bound their
+viewport height and track position. The rule is:
+
+- `autoFollow: true` — viewport follows new content; user sees the latest output automatically.
+- `autoFollow: false` — user has scrolled back; viewport stays at `scrollbackLines` from the
+  bottom. A "[scrolled — press End to follow]" indicator should be shown so the user knows they
+  are not at the tail.
+- The viewport transitions back to `autoFollow: true` when the user presses End / G, or when
+  new content arrives while the user is already at the bottom.
+
+Screen components that own a scrollable area keep `ScrollState` in local `useState`. They do not
+expose scroll state up to ScreenController; it is purely local rendering state.
+
+### Selection state (keyboard-driven pickers)
+
+`SelectionState` tracks the currently highlighted item in a picker (e.g. ModelSelectPrompt).
+Screens that render a picker initialise `SelectionState` locally and update it on arrow key
+presses. The picker highlights the selected row, shows the current model as context, and confirms
+on Enter. This avoids requiring the user to type numbers or model names.
+
+### Dismissible banners
+
+`BannerData` extends the existing notice system with an `id` and a `dismissible` flag.
+ScreenController maintains a `Set<string>` of dismissed banner IDs so that cleared notices do not
+re-appear when the user navigates back to a screen. Non-dismissible banners (e.g. provider
+unavailable) persist until the underlying condition changes.
+
+The AppShell `notice` prop continues to accept a plain string for backwards compatibility.
+Future callers should prefer passing a `BannerData` via a `banner` prop so the dismissible
+behaviour is available. The AppShell renders dismissal hints in the footer area rather than
+inline in the banner, following the same convention as other keybindings.
+
+### Non-auto-exiting completion
+
+`CompletionState` replaces the fixed 1500 ms auto-exit on generation success.
+When a flow completes, ScreenController populates a `CompletionState` object and the screen
+renders a stable completion view:
+
+- A summary line (e.g. "All artifacts generated.")
+- Each artifact path on its own line, formatted for easy copying
+- A next-action hint (e.g. "Review docs/plans/ then run cobuild to continue")
+- Footer updated to show only "ctrl+c: quit"
+
+The screen stays visible until the user presses ctrl+c. This ensures users on slow terminals or
+after a context switch can still see what was generated.
+
+### Footer conventions
+
+Each screen supplies its own `FooterHelpData`. Key hints that are already surfaced by the shared
+footer **must not** be duplicated inside the screen component. Specifically:
+
+- `ctrl+c: quit` is always present in the footer; screens must not echo it inline.
+- `y/n  ←/→ select  Enter confirm` belongs in `YesNoPrompt`'s `FooterHelpData`, not in
+  component JSX.
+- `Enter to continue` belongs in `RestoredSession`'s `FooterHelpData`, not in component JSX.
+
+This makes it easy to update keybindings in one place.
 
 ## Execution-Ready Seam
 
@@ -58,9 +124,10 @@ Each screen has its own `FooterHelpData` constant defined at the top of `ScreenC
 | Constant | Screen | Commands | Keybindings |
 | --- | --- | --- | --- |
 | `INTERVIEW_FOOTER` | Interview (`main`) | `/finish-now /model /provider /help` | `ctrl+c: quit` |
-| `QUIT_FOOTER` | Restored session, execution | — | `ctrl+c: quit` |
+| `RESTORED_FOOTER` | Restored session | — | `enter: continue  ctrl+c: quit` |
 | `YESNO_FOOTER` | Decision prompts (`yesno`) | — | `y: yes  n: no  ctrl+c: quit` |
 | `GENERATING_FOOTER` | Generation stepper | — | `ctrl+c: quit` |
+| `EXECUTION_FOOTER` | Execution console | — | `r: retry  l: inspect logs  y: continue  ctrl+c: quit` |
 
 To add controls for a new screen, define a new `FooterHelpData` constant and pass it to `AppShell` in the corresponding render branch.
 

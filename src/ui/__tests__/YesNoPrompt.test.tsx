@@ -64,4 +64,49 @@ describe('YesNoPrompt', () => {
     const { unmount } = renderPrompt('', onAnswer);
     unmount();
   });
+
+  it('does not render an inline cobuild header (AppShell provides chrome)', () => {
+    const onAnswer = vi.fn();
+    const stream = new PassThrough();
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const { unmount } = render(
+      React.createElement(YesNoPrompt, { question: 'Generate architecture document?', onAnswer }),
+      {
+        stdout: stream as unknown as NodeJS.WriteStream,
+        stdin: createInputStream(),
+      },
+    );
+    const raw = Buffer.concat(chunks).toString();
+    /* eslint-disable no-control-regex */
+    const output = raw
+      .replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '')
+      .replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
+    /* eslint-enable no-control-regex */
+    expect(output).not.toContain('cobuild');
+    unmount();
+  });
+
+  it('shows Yes and No options', () => {
+    const onAnswer = vi.fn();
+    const stream = new PassThrough();
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const { unmount } = render(
+      React.createElement(YesNoPrompt, { question: 'Proceed?', onAnswer }),
+      {
+        stdout: stream as unknown as NodeJS.WriteStream,
+        stdin: createInputStream(),
+      },
+    );
+    const raw = Buffer.concat(chunks).toString();
+    /* eslint-disable no-control-regex */
+    const output = raw
+      .replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '')
+      .replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
+    /* eslint-enable no-control-regex */
+    expect(output).toContain('Yes');
+    expect(output).toContain('No');
+    unmount();
+  });
 });

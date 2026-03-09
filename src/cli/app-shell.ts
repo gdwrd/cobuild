@@ -31,6 +31,8 @@ export interface StartupStep {
   status: 'pending' | 'running' | 'ok' | 'warning' | 'failed';
   /** Optional short detail shown alongside the step status. */
   detail?: string;
+  /** Optional actionable hint shown below the step (e.g. an alternative provider is available). */
+  actionHint?: string;
 }
 
 /** Callback invoked with the current step list whenever any step changes. */
@@ -58,8 +60,8 @@ export async function runStartup(
   onProgress?: StartupProgressCallback,
 ): Promise<StartupResult> {
   const steps: StartupStep[] = [
-    { id: 'bootstrap', label: 'Initializing directories', status: 'running' },
-    { id: 'tty', label: 'Checking TTY', status: 'pending' },
+    { id: 'bootstrap', label: 'Setting up workspace', status: 'running' },
+    { id: 'tty', label: 'Verifying terminal', status: 'pending' },
     { id: 'provider', label: 'Checking provider', status: 'pending' },
     { id: 'session', label: 'Resolving session', status: 'pending' },
   ];
@@ -135,10 +137,16 @@ export async function runStartup(
         ? `Active provider ${effectiveProvider} is not available yet. ${providerResult.message}`
         : undefined;
 
+  const availableAlternatives = availableProviders.filter((p) => p.provider !== effectiveProvider);
+  const providerActionHint =
+    !providerResult.ok && availableAlternatives.length > 0
+      ? `${availableAlternatives[0].provider} is available — use --new-session --provider ${availableAlternatives[0].provider} to switch`
+      : undefined;
   steps[2] = {
     ...steps[2],
     status: providerResult.ok ? 'ok' : 'warning',
     detail: providerResult.ok ? undefined : providerResult.message,
+    actionHint: providerActionHint,
   };
   emit();
 
@@ -176,7 +184,19 @@ export async function runStartup(
       }
     }
     logger.info(`active session: ${sessionId} (${sessionResolution}, provider=${effectiveProvider})`);
-    steps[3] = { ...steps[3], status: 'ok', detail: sessionResolution === 'resumed' ? `resumed (${sessionStage ?? 'interview'})` : 'new session' };
+    const HUMAN_STAGE: Record<string, string> = {
+      interview: 'interview',
+      spec: 'spec generation',
+      architecture: 'architecture generation',
+      plan: 'plan generation',
+      'dev-plans': 'dev plan generation',
+    };
+    const stageLabel = HUMAN_STAGE[sessionStage ?? 'interview'] ?? (sessionStage ?? 'interview');
+    steps[3] = {
+      ...steps[3],
+      status: 'ok',
+      detail: sessionResolution === 'resumed' ? `resumed · ${stageLabel}` : 'new session',
+    };
     emit();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

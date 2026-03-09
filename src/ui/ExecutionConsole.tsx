@@ -1,4 +1,4 @@
-import { Box, Text } from 'ink';
+import { Box, Text, useApp, useInput } from 'ink';
 import type { ExecutionState, ExecutionUserAction, ValidationCommandProgress } from './types.js';
 
 /**
@@ -122,13 +122,7 @@ function ValidationSection({ progress }: { progress: ValidationCommandProgress[]
   );
 }
 
-function StatusFooter({
-  state,
-  onUserAction,
-}: {
-  state: ExecutionState;
-  onUserAction?: (action: ExecutionUserAction) => void;
-}) {
+function StatusFooter({ state }: { state: ExecutionState }) {
   if (state.phase === 'complete') {
     return (
       <Box marginTop={1}>
@@ -168,8 +162,6 @@ function StatusFooter({
     );
   }
 
-  // Suppress unused variable warning — onUserAction is part of the component contract
-  void onUserAction;
   return null;
 }
 
@@ -177,13 +169,43 @@ function StatusFooter({
 // Main component
 // ---------------------------------------------------------------------------
 
+/**
+ * Pure key handler for ExecutionConsole keyboard shortcuts.
+ * Exported for unit testing — the component calls this from useInput.
+ */
+export function handleConsoleKey(
+  input: string,
+  key: { return: boolean },
+  phase: ExecutionState['phase'],
+  onUserAction: ((action: ExecutionUserAction) => void) | undefined,
+): void {
+  if (!onUserAction) return;
+  const lc = input.toLowerCase();
+  if (lc === 'r' && phase === 'failed') {
+    onUserAction('retry');
+  } else if (lc === 'l' && (phase === 'failed' || phase === 'complete')) {
+    onUserAction('inspect-logs');
+  } else if ((lc === 'y' || key.return) && phase === 'awaiting-confirmation') {
+    onUserAction('continue');
+  }
+}
+
 export function ExecutionConsole({ state, onUserAction }: ExecutionConsoleProps) {
+  const { exit } = useApp();
+  useInput((input, key) => {
+    if (key.ctrl && input === 'c') {
+      exit();
+      return;
+    }
+    handleConsoleKey(input, key, state.phase, onUserAction);
+  });
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <TaskHeader state={state} />
       <OutputPane lines={state.outputLines} />
       <ValidationSection progress={state.validationProgress} />
-      <StatusFooter state={state} onUserAction={onUserAction} />
+      <StatusFooter state={state} />
     </Box>
   );
 }

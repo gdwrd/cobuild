@@ -87,10 +87,6 @@ export function RestoredSession({
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold color="cyan">
-        cobuild — Session Restored
-      </Text>
-      <Text> </Text>
       <Text>Resuming previous session:</Text>
       <Text dimColor>{'  Session:  '}{sessionId.slice(0, 8)}</Text>
       <Text dimColor>{'  Stage:    '}{stageLabel(stage)}</Text>
@@ -116,8 +112,6 @@ export function RestoredSession({
         <Text dimColor>Next: </Text>
         <Text color={providerIsReady ? 'green' : 'yellow'}>{nextAction}</Text>
       </Box>
-      <Text> </Text>
-      <Text dimColor>Press Enter to continue...</Text>
     </Box>
   );
 }

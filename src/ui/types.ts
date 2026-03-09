@@ -121,6 +121,104 @@ export interface SharedUIState {
 }
 
 // ---------------------------------------------------------------------------
+// Scroll state — viewport position for long content areas
+// ---------------------------------------------------------------------------
+
+/**
+ * Scroll position state for a bounded viewport (e.g. interview transcript, output log).
+ *
+ * When autoFollow is true the viewport always shows the latest content.
+ * When false, scrollbackLines tracks how far back from the bottom the user has scrolled.
+ *
+ * Transition rules:
+ *   - autoFollow → false when the user presses a scroll-back key
+ *   - autoFollow → true when the user scrolls back to the bottom, or presses a
+ *     "follow" key (e.g. End / G)
+ */
+export interface ScrollState {
+  /** Whether the viewport should auto-scroll to follow new content. */
+  autoFollow: boolean;
+  /** Lines scrolled back from the bottom; 0 when at the bottom or in autoFollow mode. */
+  scrollbackLines: number;
+}
+
+/** Initial scroll state: following new content (at the bottom). */
+export const INITIAL_SCROLL_STATE: ScrollState = {
+  autoFollow: true,
+  scrollbackLines: 0,
+};
+
+// ---------------------------------------------------------------------------
+// Selection state — keyboard-driven picker prompts
+// ---------------------------------------------------------------------------
+
+/**
+ * Selection cursor state for keyboard-driven picker prompts.
+ *
+ * Shared by ModelSelectPrompt and any future selection UI so they use the
+ * same navigation model. All indices are 0-based.
+ */
+export interface SelectionState {
+  /** Currently highlighted item index (0-based). */
+  selectedIndex: number;
+  /** Total number of selectable items. */
+  itemCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Dismissible banner — persistent notices that the user can dismiss
+// ---------------------------------------------------------------------------
+
+/**
+ * A dismissible banner displayed in the notice area of AppShell.
+ *
+ * Banners with dismissible: true can be cleared by user action (e.g. pressing
+ * a dismiss key). Non-dismissible banners require the underlying condition to
+ * be resolved (e.g. provider becomes reachable) before they disappear.
+ *
+ * The id field allows ScreenController to track which banners have been
+ * dismissed across screen transitions so they do not reappear.
+ */
+export interface BannerData {
+  /** Stable identifier for this banner (e.g. 'provider-unavailable', 'session-halted'). */
+  id: string;
+  /** Human-readable message shown to the user. */
+  message: string;
+  level: 'info' | 'warning' | 'error';
+  /** Whether the user can dismiss this banner. False for persistent conditions. */
+  dismissible: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Completion state — non-auto-exiting flow completion summary
+// ---------------------------------------------------------------------------
+
+/**
+ * Terminal state for a completed generation or execution flow.
+ *
+ * Instead of auto-exiting on a fixed timer, screens in a completed state render
+ * this summary and wait for explicit user input. This ensures artifact paths and
+ * next-step instructions remain visible until the user is ready to exit.
+ *
+ * Usage:
+ *   - GenerationScreen: populated by ScreenController once all stages finish
+ *   - Future ExecutionConsole: populated when the plan run reaches 'complete'
+ */
+export interface CompletionState {
+  /** Whether the flow has completed without errors. */
+  isComplete: boolean;
+  /** Human-readable one-line summary (e.g. "All artifacts generated successfully."). */
+  summary?: string;
+  /** Absolute paths of files produced during the flow, shown for easy copy/paste. */
+  artifactPaths?: string[];
+  /**
+   * Short description of the next expected action for the user,
+   * e.g. "Review docs/plans/ then run cobuild to continue" or "Run ralphex to execute".
+   */
+  nextAction?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Execution state — dormant shape for future ralphex plan runs
 // ---------------------------------------------------------------------------
 
@@ -343,7 +441,7 @@ export function applyExecutionEvent(state: ExecutionState, event: ExecutionEvent
       };
 
     case 'task-complete':
-      return { ...state, phase: 'complete', currentTask: undefined };
+      return { ...state, phase: 'running', currentTask: undefined };
 
     case 'validation-start':
       return {

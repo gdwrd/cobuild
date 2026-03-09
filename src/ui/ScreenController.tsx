@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import * as path from 'node:path';
 import { useApp } from 'ink';
 import type { StartupResult, StartupProgressChannel, StartupStep } from '../cli/app-shell.js';
@@ -31,17 +31,13 @@ import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../artifacts/dev-plan-loop.js';
 import { getLogger } from '../logging/logger.js';
 import { checkProviderReadiness } from '../validation/env.js';
-import type { Screen, SessionStage, StatusHeaderData, FooterHelpData } from './types.js';
+import type { Screen, SessionStage, StatusHeaderData, FooterHelpData, FlowWrapperState, FlowLifecyclePhase, ExecutionUserAction } from './types.js';
+import { applyExecutionEvent, INITIAL_EXECUTION_STATE } from './types.js';
 import { ExecutionConsole } from './ExecutionConsole.js';
-import { INITIAL_EXECUTION_STATE } from './types.js';
+import { FlowWrapper } from './FlowWrapper.js';
 
 const INTERVIEW_FOOTER: FooterHelpData = {
   commands: ['/finish-now', '/model', '/provider', '/help'],
-  keybindings: ['ctrl+c: quit'],
-};
-
-const QUIT_FOOTER: FooterHelpData = {
-  commands: [],
   keybindings: ['ctrl+c: quit'],
 };
 
@@ -52,7 +48,7 @@ const RESTORED_FOOTER: FooterHelpData = {
 
 const YESNO_FOOTER: FooterHelpData = {
   commands: [],
-  keybindings: ['y: yes', 'n: no', 'ctrl+c: quit'],
+  keybindings: ['y: yes', 'n: no', '←/→: select', 'Enter: confirm', 'ctrl+c: quit'],
 };
 
 const GENERATING_FOOTER: FooterHelpData = {
@@ -60,7 +56,37 @@ const GENERATING_FOOTER: FooterHelpData = {
   keybindings: ['ctrl+c: quit'],
 };
 
+const EXECUTION_FOOTER: FooterHelpData = {
+  commands: [],
+  keybindings: ['r: retry', 'l: inspect logs', 'y: continue', 'ctrl+c: quit'],
+};
+
 const TRANSIENT_ERROR_DISPLAY_MS = 5000;
+
+/** Derive a FlowWrapperState from ExecutionState so the execution screen reuses FlowWrapper chrome. */
+function toExecutionFlowWrapperState(execState: ReturnType<typeof applyExecutionEvent>): FlowWrapperState {
+  const phase: FlowLifecyclePhase =
+    execState.phase === 'idle' || execState.phase === 'preflight'
+      ? 'preflight'
+      : execState.phase === 'awaiting-confirmation'
+        ? 'start-confirmation'
+        : execState.phase === 'running' || execState.phase === 'paused'
+          ? 'running'
+          : execState.phase === 'validating'
+            ? 'validating'
+            : execState.phase === 'failed'
+              ? 'failure'
+              : 'complete';
+  return {
+    phase,
+    interactive: execState.phase === 'awaiting-confirmation',
+    confirmationMessage: execState.confirmationMessage,
+    failureReason: execState.failureReason,
+    metadata: execState.currentTask
+      ? { planFile: execState.currentTask.planFile, taskLabel: execState.currentTask.label }
+      : undefined,
+  };
+}
 
 export interface ScreenControllerProps {
   startupPromise: Promise<StartupResult>;
@@ -102,6 +128,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
   const [resumabilityContext, setResumabilityContext] = useState<string | undefined>(undefined);
 
   const [yesNoQuestion, setYesNoQuestion] = useState('');
+  const [executionState, dispatchExecutionEvent] = useReducer(applyExecutionEvent, INITIAL_EXECUTION_STATE);
 
   const userInputResolverRef = useRef<((input: string) => void) | null>(null);
   const yesNoResolverRef = useRef<((answer: boolean) => void) | null>(null);
@@ -269,10 +296,6 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
       setIsThinking(true);
       const trimmed = choice.trim();
       if (!trimmed) return null;
-      const byIndex = Number(trimmed);
-      if (Number.isInteger(byIndex) && byIndex >= 1 && byIndex <= models.length) {
-        return models[byIndex - 1];
-      }
       return models.includes(trimmed) ? trimmed : null;
     };
 
@@ -592,12 +615,47 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     pipelineStartedRef.current = false;
     setGenerationStatus('generating');
     setGenerationError(undefined);
-    setGenerationStage('spec');
-    setCompletedStages([]);
-    setGenerationFilePath(undefined);
+    // Pre-populate completed stages from the reloaded session to avoid a visual
+    // flicker where already-completed stages briefly appear as "pending" before
+    // the pipeline effect restores them.
+    {
+      const resumeStages: Array<{ label: string; filePath: string }> = [];
+      let nextStage: GenerationStage = 'spec';
+      if (fresh?.specArtifact) {
+        resumeStages.push({ label: STAGE_DISPLAY_LABELS.spec, filePath: fresh.specArtifact.filePath });
+        nextStage = 'architecture';
+      }
+      if (fresh?.architectureArtifact) {
+        resumeStages.push({ label: STAGE_DISPLAY_LABELS.architecture, filePath: fresh.architectureArtifact.filePath });
+        nextStage = 'plan';
+      }
+      if (fresh?.planArtifact) {
+        resumeStages.push({ label: STAGE_DISPLAY_LABELS.plan, filePath: fresh.planArtifact.filePath });
+        nextStage = 'dev-plan';
+      }
+      setGenerationStage(nextStage);
+      setGenerationFilePath(resumeStages.length > 0 ? resumeStages[resumeStages.length - 1].filePath : undefined);
+      setCompletedStages(resumeStages);
+    }
+    setDevPlanProgress(undefined);
     setWorkflowTerminatedEarly(false);
     setRetryTrigger((n) => n + 1);
   }, [sessionId]);
+
+  const handleExecutionUserAction = useCallback((action: ExecutionUserAction) => {
+    getLogger().info(`execution: user action: ${action}`);
+    switch (action) {
+      case 'retry':
+        dispatchExecutionEvent({ type: 'phase-change', phase: 'preflight' });
+        break;
+      case 'continue':
+        dispatchExecutionEvent({ type: 'phase-change', phase: 'running' });
+        break;
+      case 'inspect-logs':
+        // Future: surface full log viewer; output is already visible in the output pane.
+        break;
+    }
+  }, []);
 
   const handleYesNoAnswer = useCallback((answer: boolean) => {
     if (!yesNoResolverRef.current) return;
@@ -710,15 +768,27 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     );
   }
 
-  // 'execution' — dormant ralphex execution console (no code transitions here yet).
-  // Wire in a real runner by:
-  //   1. Adding executionState to ScreenController useState (driven via applyExecutionEvent)
-  //   2. Transitioning screen to 'execution' when a plan run starts
-  //   3. Implementing onUserAction handler for retry / continue / inspect-logs
+  // 'execution' — ralphex execution console, driven by applyExecutionEvent reducer.
+  // To activate: transition screen to 'execution' and dispatch ExecutionEvents via dispatchExecutionEvent.
+  // The FlowWrapper provides outer lifecycle chrome; ExecutionConsole renders running content.
   if (screen === 'execution') {
+    const execFlowState = toExecutionFlowWrapperState(executionState);
+    // Terminal phases (failed/complete) are handled exclusively by FlowWrapper's
+    // FailureFooter/CompletionFooter to avoid contradictory duplicate messages.
+    const showConsole =
+      executionState.phase === 'running' ||
+      executionState.phase === 'validating' ||
+      executionState.phase === 'paused';
     return (
-      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={QUIT_FOOTER}>
-        <ExecutionConsole state={INITIAL_EXECUTION_STATE} />
+      <AppShell statusBar={statusBar} notice={noticeMessage ?? undefined} footer={EXECUTION_FOOTER}>
+        <FlowWrapper
+          state={execFlowState}
+          onConfirm={() => handleExecutionUserAction('continue')}
+        >
+          {showConsole && (
+            <ExecutionConsole state={executionState} onUserAction={handleExecutionUserAction} />
+          )}
+        </FlowWrapper>
       </AppShell>
     );
   }
@@ -738,6 +808,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         fatalErrorMessage={fatalInterviewError}
         allowEmptySubmit={isSelectingModel}
         modelSelectOptions={modelSelectOptions}
+        currentModel={currentModel}
         onSubmit={handleSubmit}
       />
     </AppShell>

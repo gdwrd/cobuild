@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from 'ink';
 import React from 'react';
 import { PassThrough } from 'node:stream';
-import { ExecutionConsole } from '../ExecutionConsole.js';
+import { ExecutionConsole, handleConsoleKey } from '../ExecutionConsole.js';
 import type { ExecutionState } from '../types.js';
 import { applyExecutionEvent, INITIAL_EXECUTION_STATE } from '../types.js';
 
@@ -57,10 +57,10 @@ describe('applyExecutionEvent', () => {
     expect(state.validationProgress).toHaveLength(0);
   });
 
-  it('task-complete sets complete phase and clears currentTask', () => {
+  it('task-complete returns to running phase and clears currentTask', () => {
     let state = applyExecutionEvent(INITIAL_EXECUTION_STATE, { type: 'task-start', task: SAMPLE_TASK });
     state = applyExecutionEvent(state, { type: 'task-complete' });
-    expect(state.phase).toBe('complete');
+    expect(state.phase).toBe('running');
     expect(state.currentTask).toBeUndefined();
   });
 
@@ -341,5 +341,86 @@ describe('ExecutionEvent type coverage', () => {
       state = applyExecutionEvent(state, event);
       expect(state).toBeDefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ExecutionConsole keyboard interaction — useInput wiring
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// handleConsoleKey — pure key handler unit tests
+// ---------------------------------------------------------------------------
+
+describe('handleConsoleKey', () => {
+  const noKey = { return: false };
+  const returnKey = { return: true };
+
+  it('calls retry when "r" is pressed in failed phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('r', noKey, 'failed', handler);
+    expect(handler).toHaveBeenCalledWith('retry');
+  });
+
+  it('calls retry when "R" is pressed in failed phase (case-insensitive)', () => {
+    const handler = vi.fn();
+    handleConsoleKey('R', noKey, 'failed', handler);
+    expect(handler).toHaveBeenCalledWith('retry');
+  });
+
+  it('does not call retry when "r" is pressed in non-failed phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('r', noKey, 'complete', handler);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('calls inspect-logs when "l" is pressed in failed phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('l', noKey, 'failed', handler);
+    expect(handler).toHaveBeenCalledWith('inspect-logs');
+  });
+
+  it('calls inspect-logs when "L" is pressed in complete phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('L', noKey, 'complete', handler);
+    expect(handler).toHaveBeenCalledWith('inspect-logs');
+  });
+
+  it('does not call inspect-logs when "l" pressed in running phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('l', noKey, 'running', handler);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('calls continue when "y" is pressed in awaiting-confirmation phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('y', noKey, 'awaiting-confirmation', handler);
+    expect(handler).toHaveBeenCalledWith('continue');
+  });
+
+  it('calls continue when Enter is pressed in awaiting-confirmation phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('', returnKey, 'awaiting-confirmation', handler);
+    expect(handler).toHaveBeenCalledWith('continue');
+  });
+
+  it('does not call continue when "y" pressed in non-awaiting-confirmation phase', () => {
+    const handler = vi.fn();
+    handleConsoleKey('y', noKey, 'running', handler);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not call any action when onUserAction is undefined', () => {
+    // Should not throw
+    handleConsoleKey('r', noKey, 'failed', undefined);
+    handleConsoleKey('l', noKey, 'complete', undefined);
+    handleConsoleKey('y', noKey, 'awaiting-confirmation', undefined);
+  });
+
+  it('does not call any action for unrecognized keys', () => {
+    const handler = vi.fn();
+    handleConsoleKey('q', noKey, 'failed', handler);
+    handleConsoleKey('x', noKey, 'complete', handler);
+    expect(handler).not.toHaveBeenCalled();
   });
 });

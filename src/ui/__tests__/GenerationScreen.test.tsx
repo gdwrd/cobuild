@@ -328,4 +328,92 @@ describe('GenerationScreen', () => {
       expect(frame).toContain('Per-phase dev plans');
     }
   });
+
+  // -------------------------------------------------------------------------
+  // Stable success completion (no auto-exit)
+  // -------------------------------------------------------------------------
+
+  it('shows press-any-key hint in success state instead of auto-exiting', () => {
+    const frame = renderToString({
+      status: 'success',
+      filePath: '/tmp/docs/spec.md',
+    });
+    expect(frame).toContain('Press any key to exit');
+  });
+
+  it('shows artifacts path hint in success state', () => {
+    const frame = renderToString({
+      status: 'success',
+      filePath: '/tmp/docs/spec.md',
+    });
+    expect(frame).toContain('docs/');
+  });
+
+  it('shows press-any-key hint in success state for full dev-plan run', () => {
+    const completed: CompletedStage[] = [
+      { label: 'Project specification', filePath: '/tmp/docs/spec.md' },
+      { label: 'Architecture document', filePath: '/tmp/docs/arch.md' },
+      { label: 'High-level development plan', filePath: '/tmp/docs/plan.md' },
+      { label: 'Dev plan — phase 1', filePath: '/tmp/docs/plans/p1.md' },
+    ];
+    const frame = renderToString({ status: 'success', completedStages: completed });
+    expect(frame).toContain('Press any key to exit');
+  });
+
+  // -------------------------------------------------------------------------
+  // Retry-exhausted: stage-aware messaging
+  // -------------------------------------------------------------------------
+
+  it('shows failed stage name in retry-exhausted footer', () => {
+    const frame = renderToString({
+      status: 'retry-exhausted',
+      currentStage: 'architecture',
+      errorMessage: 'All retries failed',
+    });
+    expect(frame).toContain('Architecture document');
+    expect(frame).toContain('after all retry attempts');
+  });
+
+  it('shows failed stage name for spec in retry-exhausted footer', () => {
+    const frame = renderToString({
+      status: 'retry-exhausted',
+      currentStage: 'spec',
+      errorMessage: 'Model did not respond',
+    });
+    expect(frame).toContain('Project specification');
+    expect(frame).toContain('after all retry attempts');
+  });
+
+  it('shows failed stage name for plan in retry-exhausted footer', () => {
+    const frame = renderToString({
+      status: 'retry-exhausted',
+      currentStage: 'plan',
+    });
+    expect(frame).toContain('High-level development plan');
+    expect(frame).toContain('after all retry attempts');
+  });
+
+  // -------------------------------------------------------------------------
+  // Error state: stage-aware messaging
+  // -------------------------------------------------------------------------
+
+  it('shows failed stage name in error footer', () => {
+    const frame = renderToString({
+      status: 'error',
+      currentStage: 'architecture',
+      errorMessage: 'Unexpected error',
+    });
+    expect(frame).toContain('Architecture document');
+    expect(frame).toContain('Press any key to exit');
+  });
+
+  it('shows failed stage name for dev-plan in error footer', () => {
+    const frame = renderToString({
+      status: 'error',
+      currentStage: 'dev-plan',
+      errorMessage: 'Dev plan generation failed',
+    });
+    expect(frame).toContain('Per-phase dev plans');
+    expect(frame).toContain('Press any key to exit');
+  });
 });

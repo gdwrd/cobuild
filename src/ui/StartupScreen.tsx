@@ -45,17 +45,24 @@ export function StartupScreen({ version, steps }: StartupScreenProps) {
       <Text> </Text>
       {steps && steps.length > 0 ? (
         steps.map((step) => (
-          <Box key={step.id} flexDirection="row" gap={1}>
-            <Text color={stepColor(step.status)}>{stepIcon(step.status)}</Text>
-            <Text dimColor={step.status === 'pending'}>{step.label}</Text>
-            {step.detail && step.status === 'failed' && (
-              <Text color="red"> — {step.detail}</Text>
-            )}
-            {step.detail && step.status === 'warning' && (
-              <Text color="yellow"> — {step.detail}</Text>
-            )}
-            {step.detail && step.status !== 'failed' && step.status !== 'warning' && (
-              <Text dimColor> — {step.detail}</Text>
+          <Box key={step.id} flexDirection="column">
+            <Box flexDirection="row" gap={1}>
+              <Text color={stepColor(step.status)}>{stepIcon(step.status)}</Text>
+              <Text dimColor={step.status === 'pending'}>{step.label}</Text>
+              {step.detail && step.status === 'failed' && (
+                <Text color="red"> — {step.detail}</Text>
+              )}
+              {step.detail && step.status === 'warning' && (
+                <Text color="yellow"> — {step.detail}</Text>
+              )}
+              {step.detail && step.status !== 'failed' && step.status !== 'warning' && (
+                <Text dimColor> — {step.detail}</Text>
+              )}
+            </Box>
+            {step.actionHint && (
+              <Box paddingLeft={3}>
+                <Text color="cyan">{'→ '}{step.actionHint}</Text>
+              </Box>
             )}
           </Box>
         ))

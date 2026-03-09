@@ -135,11 +135,12 @@ Per-screen footers:
 | Screen | Commands | Keys |
 | --- | --- | --- |
 | Interview | `/finish-now /model /provider /help` | `ctrl+c: quit` |
-| Restored session | — | `ctrl+c: quit` |
+| Restored session | — | `enter: continue  ctrl+c: quit` |
 | Yes/no decision | — | `y: yes  n: no  ctrl+c: quit` |
 | Generation | — | `ctrl+c: quit` |
+| Execution | — | `r: retry  l: inspect logs  y: continue  ctrl+c: quit` |
 
-The generation screen uses a workflow stepper that shows each stage (`spec`, `architecture`, `plan`, `dev-plan`) with its status: completed (with file path), active, pending, or skipped. Phase counts, retry state, and stop reasons are shown inline.
+The generation screen uses a workflow stepper that shows each stage (`spec`, `architecture`, `plan`, `dev-plan`) with its status: completed (with file path), active, pending, or skipped. Phase counts, retry state, and stop reasons are shown inline. On success the stepper freezes in its final state and waits for any key press before exiting — it does not auto-exit after a timeout.
 
 ## Interview Experience
 
@@ -153,6 +154,22 @@ The interview is driven by a system prompt that instructs the model to:
 The transcript is persisted after every user and assistant message.
 
 If you stop the process and run `cobuild` again in the same directory, the session resumes from the last saved point.
+
+### Transcript Viewport
+
+The transcript shows up to 10 messages at a time. When the conversation grows longer, use `PgUp` and `PgDn` to scroll back through earlier messages. The viewport auto-follows new messages when scrolled to the bottom. Scroll indicators appear above and below the visible window when messages are hidden.
+
+### Input Editing
+
+The input field supports cursor movement and basic editing:
+
+- Left/Right arrow: move the cursor one character
+- ctrl+a: jump to the start of the line
+- ctrl+e: jump to the end of the line
+- Backspace: delete the character before the cursor
+- Delete: delete the character at the cursor (forward delete)
+
+When the buffer is empty, a hint reminds you to type a message or use `/help`.
 
 ### Slash Commands
 
@@ -185,7 +202,7 @@ After the interview completes, `cobuild` always generates the spec first. The re
 6. Ask whether to generate per-phase dev plans
 7. If yes, generate each phase plan sequentially
 
-The yes/no prompts are interactive and support `y`, `n`, arrow keys, and Enter.
+The yes/no prompts are interactive and support `y` (Yes), `n` (No), up/left arrows (move to Yes), down/right arrows (move to No), and Enter to confirm the highlighted option.
 
 If you decline any optional stage, the workflow stops cleanly and keeps the artifacts already generated.
 
@@ -420,7 +437,7 @@ npm run integration-test  # Build, then run the end-to-end verification script
 | Path | Purpose |
 | --- | --- |
 | `src/cli/` | CLI entrypoint, config, and startup orchestration |
-| `src/ui/` | Ink UI: `AppShell` (shared chrome), `ScreenController` (screen router), `StartupScreen`, `ErrorScreen`, `RestoredSession`, `App` (interview), `ModelSelectPrompt`, `YesNoPrompt`, `GenerationScreen` (workflow stepper), `ExecutionConsole` (dormant execution pane), `FlowWrapper` (lifecycle chrome), and `types.ts` (shared UI state contracts) |
+| `src/ui/` | Ink UI: `AppShell` (shared chrome), `ScreenController` (screen router), `StartupScreen`, `ErrorScreen`, `RestoredSession`, `App` (interview with bounded transcript viewport and cursor-aware input), `ModelSelectPrompt` (keyboard-driven model picker), `YesNoPrompt`, `GenerationScreen` (workflow stepper with stable completion state), `ExecutionConsole` (execution output pane with scrollback, validation summaries, and action prompts; wired but awaiting a ralphex runner), `FlowWrapper` (lifecycle chrome shared by generation and execution flows), and `types.ts` (shared UI state contracts including `ExecutionState` and `applyExecutionEvent` reducer) |
 | `src/interview/` | Interview loop, prompts, slash commands, and retry logic |
 | `src/providers/` | Model provider implementations |
 | `src/artifacts/` | Artifact prompts, generators, validators, file output, and dev-plan workflow |

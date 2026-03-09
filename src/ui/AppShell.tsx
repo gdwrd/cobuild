@@ -32,36 +32,44 @@ export function AppShell({ statusBar, notice, transientError, footer, children }
   return (
     <Box flexDirection="column">
       {statusBar && (
-        <Box borderStyle="single" paddingX={1} flexDirection="row">
-          <Text dimColor>
-            {'cobuild v'}{statusBar.version}
-            {'  '}{statusBar.stage}
-            {'  session:'}{statusBar.sessionId.slice(0, 8)}
-            {'  '}{statusBar.provider}
-            {statusBar.model ? `/${statusBar.model}` : ''}
-          </Text>
-          {!statusBar.providerReady && (
-            <Text color="red"> [UNAVAILABLE]</Text>
-          )}
-          {statusBar.resumabilityContext && (
-            <Text dimColor>{'  '}{statusBar.resumabilityContext}</Text>
-          )}
+        <Box borderStyle="single" paddingX={1} flexDirection="column">
+          {/* Row 1: identity — always compact enough for narrow terminals */}
+          <Box flexDirection="row">
+            <Text dimColor>
+              {'cobuild v'}{statusBar.version}
+              {'  '}{statusBar.stage}
+              {'  sess:'}{statusBar.sessionId.slice(0, 8)}
+            </Text>
+          </Box>
+          {/* Row 2: provider context and resumability */}
+          <Box flexDirection="row">
+            <Text dimColor>
+              {statusBar.provider}
+              {statusBar.model ? `/${statusBar.model}` : ''}
+            </Text>
+            {!statusBar.providerReady && (
+              <Text color="red"> [UNAVAILABLE]</Text>
+            )}
+            {statusBar.resumabilityContext && (
+              <Text dimColor>{'  '}{statusBar.resumabilityContext}</Text>
+            )}
+          </Box>
         </Box>
       )}
 
-      {children}
-
       {notice && (
-        <Box paddingX={1} marginBottom={1}>
+        <Box paddingX={1}>
           <Text color="yellow">Notice: {notice}</Text>
         </Box>
       )}
 
       {transientError && (
-        <Box paddingX={1} marginBottom={1}>
+        <Box paddingX={1}>
           <Text color="red">Error: {transientError}</Text>
         </Box>
       )}
+
+      {children}
 
       {footer && (footer.commands.length > 0 || footer.keybindings.length > 0) && (
         <Box paddingX={1} flexDirection="row">

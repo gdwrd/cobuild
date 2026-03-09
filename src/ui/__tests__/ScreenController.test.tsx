@@ -56,6 +56,18 @@ vi.mock('../YesNoPrompt.js', () => ({
   },
 }));
 
+vi.mock('../FlowWrapper.js', () => ({
+  FlowWrapper: function MockFlowWrapper({ children }: { children?: React.ReactNode }) {
+    return children ?? null;
+  },
+}));
+
+vi.mock('../ExecutionConsole.js', () => ({
+  ExecutionConsole: function MockExecutionConsole() {
+    return null;
+  },
+}));
+
 vi.mock('../../artifacts/workflow-controller.js', () => ({
   runPostSpecWorkflow: vi.fn(() => Promise.resolve({ terminatedAt: 'architecture-decision', finalSession: {} })),
 }));
@@ -661,6 +673,77 @@ describe('ScreenController dev-plans resume', () => {
       }),
     );
 
+    unmount();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Execution state (applyExecutionEvent integration) and screen wiring
+// ---------------------------------------------------------------------------
+
+import { applyExecutionEvent, INITIAL_EXECUTION_STATE } from '../types.js';
+
+describe('ScreenController execution state (applyExecutionEvent integration)', () => {
+  it('INITIAL_EXECUTION_STATE has idle phase', () => {
+    expect(INITIAL_EXECUTION_STATE.phase).toBe('idle');
+  });
+
+  it('applyExecutionEvent task-start transitions to running', () => {
+    const task = {
+      label: 'Task 1: Setup',
+      planFile: '/plan.md',
+      phaseNumber: 1,
+      phaseTitle: 'Setup',
+    };
+    const next = applyExecutionEvent(INITIAL_EXECUTION_STATE, { type: 'task-start', task });
+    expect(next.phase).toBe('running');
+    expect(next.currentTask).toEqual(task);
+  });
+
+  it('applyExecutionEvent failure sets phase to failed', () => {
+    const next = applyExecutionEvent(INITIAL_EXECUTION_STATE, { type: 'failure', reason: 'process died' });
+    expect(next.phase).toBe('failed');
+    expect(next.failureReason).toBe('process died');
+  });
+
+  it('applyExecutionEvent confirmation-request sets awaiting-confirmation', () => {
+    const next = applyExecutionEvent(INITIAL_EXECUTION_STATE, {
+      type: 'confirmation-request',
+      message: 'Continue with destructive step?',
+    });
+    expect(next.phase).toBe('awaiting-confirmation');
+    expect(next.confirmationMessage).toBe('Continue with destructive step?');
+  });
+
+  it('applyExecutionEvent phase-change to preflight resets phase for retry', () => {
+    let state = applyExecutionEvent(INITIAL_EXECUTION_STATE, { type: 'failure', reason: 'err' });
+    state = applyExecutionEvent(state, { type: 'phase-change', phase: 'preflight' });
+    expect(state.phase).toBe('preflight');
+  });
+
+  it('renders without throwing on startup success (FlowWrapper and ExecutionConsole mocks active)', async () => {
+    vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      stage: 'interview' as const,
+      transcript: [],
+    });
+    vi.mocked(createProvider).mockReturnValue({ generate: vi.fn<() => Promise<string>>(), listModels: vi.fn() } as unknown as ReturnType<typeof createProvider>);
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
     unmount();
   });
 });

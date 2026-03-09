@@ -15,7 +15,7 @@ export function YesNoPrompt({ question, onAnswer }: YesNoPromptProps) {
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
       exit();
-      process.exit(1);
+      return;
     }
 
     if (confirmed) return;
@@ -56,10 +56,6 @@ export function YesNoPrompt({ question, onAnswer }: YesNoPromptProps) {
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold color="cyan">
-        cobuild — Next Step
-      </Text>
-      <Text> </Text>
       <Text>{question}</Text>
       <Text> </Text>
       {confirmed ? (
@@ -72,11 +68,6 @@ export function YesNoPrompt({ question, onAnswer }: YesNoPromptProps) {
           <Text color={!selected ? 'red' : 'white'} bold={!selected}>
             {!selected ? '▶ No' : '  No'}
           </Text>
-        </Box>
-      )}
-      {!confirmed && (
-        <Box marginTop={1}>
-          <Text dimColor>y/n  ←/→ select  Enter confirm  ctrl+c quit</Text>
         </Box>
       )}
     </Box>

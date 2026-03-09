@@ -155,12 +155,12 @@ describe('RestoredSession', () => {
     expect(output).toContain('abcdef12');
   });
 
-  it('renders Press Enter to continue prompt', () => {
+  it('does not render inline Press Enter hint (footer handles it)', () => {
     const output = renderRestored({
       sessionId: 'session-id',
       onContinue: vi.fn(),
     });
-    expect(output).toContain('Press Enter to continue');
+    expect(output).not.toContain('Press Enter to continue');
   });
 
   it('shows provider name when provided', () => {
@@ -230,5 +230,23 @@ describe('RestoredSession', () => {
       onContinue: vi.fn(),
     });
     expect(output).toContain('Provider unavailable');
+  });
+
+  it('does not render an inline cobuild session header (AppShell provides chrome)', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      onContinue: vi.fn(),
+    });
+    // The AppShell status bar provides the cobuild header; no inline duplicate
+    expect(output).not.toContain('cobuild — Session Restored');
+  });
+
+  it('shows resuming session content without a standalone title header', () => {
+    const output = renderRestored({
+      sessionId: 'session-id',
+      stage: 'interview',
+      onContinue: vi.fn(),
+    });
+    expect(output).toContain('Resuming previous session');
   });
 });

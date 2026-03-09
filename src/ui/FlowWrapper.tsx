@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useApp, useInput } from 'ink';
 import type { FlowLifecyclePhase, FlowWrapperState } from './types.js';
 
 /**
@@ -59,13 +59,7 @@ function PreflightHeader() {
   );
 }
 
-function StartConfirmationView({
-  state,
-  onConfirm,
-}: {
-  state: FlowWrapperState;
-  onConfirm?: () => void;
-}) {
+function StartConfirmationView({ state }: { state: FlowWrapperState }) {
   const { metadata, confirmationMessage } = state;
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
@@ -86,7 +80,6 @@ function StartConfirmationView({
       </Box>
       <Text dimColor>
         Press <Text bold>Enter</Text> to begin
-        {onConfirm ? '' : ' (no handler registered)'}
         {', '}
         <Text bold>ctrl+c</Text>
         {' to quit.'}
@@ -223,14 +216,13 @@ function phaseContent(
   phase: FlowLifecyclePhase,
   state: FlowWrapperState,
   children: React.ReactNode | undefined,
-  onConfirm: (() => void) | undefined,
 ): React.ReactNode {
   switch (phase) {
     case 'preflight':
       return <PreflightHeader />;
 
     case 'start-confirmation':
-      return <StartConfirmationView state={state} onConfirm={onConfirm} />;
+      return <StartConfirmationView state={state} />;
 
     case 'running':
       return (
@@ -250,17 +242,38 @@ function phaseContent(
       );
 
     case 'failure':
-      return <FailureFooter state={state} />;
+      return (
+        <Box flexDirection="column">
+          {children}
+          <FailureFooter state={state} />
+        </Box>
+      );
 
     case 'complete':
-      return <CompletionFooter state={state} />;
+      return (
+        <Box flexDirection="column">
+          {children}
+          <CompletionFooter state={state} />
+        </Box>
+      );
   }
 }
 
 export function FlowWrapper({ state, onConfirm, children }: FlowWrapperProps) {
+  const { exit } = useApp();
+  useInput((char, key) => {
+    if (key.ctrl && char === 'c') {
+      exit();
+      return;
+    }
+    if (state.phase === 'start-confirmation' && (key.return || char.toLowerCase() === 'y')) {
+      onConfirm?.();
+    }
+  });
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      {phaseContent(state.phase, state, children, onConfirm)}
+      {phaseContent(state.phase, state, children)}
     </Box>
   );
 }

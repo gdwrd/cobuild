@@ -7,11 +7,16 @@ import type {
   StageProgressData,
   NoticeData,
   SharedUIState,
+  ScrollState,
+  SelectionState,
+  BannerData,
+  CompletionState,
   ExecutionPhase,
   ExecutionTask,
   ValidationCommandProgress,
   ExecutionState,
 } from '../types.js';
+import { INITIAL_SCROLL_STATE } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Type-level compile checks: if any of these object literals fail to
@@ -60,6 +65,50 @@ const sharedState: SharedUIState = {
 
 const minimalSharedState: SharedUIState = {
   header: minimalHeader,
+};
+
+// ---------------------------------------------------------------------------
+// New shared state type literals — compile checks
+// ---------------------------------------------------------------------------
+
+const followingScroll: ScrollState = {
+  autoFollow: true,
+  scrollbackLines: 0,
+};
+
+const scrolledBack: ScrollState = {
+  autoFollow: false,
+  scrollbackLines: 5,
+};
+
+const selection: SelectionState = {
+  selectedIndex: 2,
+  itemCount: 8,
+};
+
+const dismissibleBanner: BannerData = {
+  id: 'provider-unavailable',
+  message: 'Active provider is not reachable. Use /provider to switch.',
+  level: 'warning',
+  dismissible: false,
+};
+
+const infoBanner: BannerData = {
+  id: 'session-halted',
+  message: 'Previous run was halted. Press R to retry from the failed phase.',
+  level: 'info',
+  dismissible: true,
+};
+
+const minimalCompletion: CompletionState = {
+  isComplete: true,
+};
+
+const fullCompletion: CompletionState = {
+  isComplete: true,
+  summary: 'All artifacts generated.',
+  artifactPaths: ['/project/docs/plans/2026-01-01-spec.md', '/project/docs/plans/2026-01-01-arch.md'],
+  nextAction: 'Review docs/plans/ then run ralphex to execute.',
 };
 
 const task: ExecutionTask = {
@@ -231,6 +280,78 @@ describe('UI state types — ValidationCommandProgress', () => {
   it.each(['pending', 'running', 'passed', 'failed'] as const)('status "%s" is valid', (status) => {
     const v: ValidationCommandProgress = { command: 'npm test', status };
     expect(v.status).toBe(status);
+  });
+});
+
+describe('UI state types — ScrollState', () => {
+  it('INITIAL_SCROLL_STATE has autoFollow true and zero scrollback', () => {
+    expect(INITIAL_SCROLL_STATE.autoFollow).toBe(true);
+    expect(INITIAL_SCROLL_STATE.scrollbackLines).toBe(0);
+  });
+
+  it('constructs an auto-following scroll state', () => {
+    expect(followingScroll.autoFollow).toBe(true);
+    expect(followingScroll.scrollbackLines).toBe(0);
+  });
+
+  it('constructs a scrolled-back state', () => {
+    expect(scrolledBack.autoFollow).toBe(false);
+    expect(scrolledBack.scrollbackLines).toBe(5);
+  });
+});
+
+describe('UI state types — SelectionState', () => {
+  it('holds selectedIndex and itemCount', () => {
+    expect(selection.selectedIndex).toBe(2);
+    expect(selection.itemCount).toBe(8);
+  });
+
+  it('accepts zero-based selectedIndex at boundary values', () => {
+    const first: SelectionState = { selectedIndex: 0, itemCount: 3 };
+    const last: SelectionState = { selectedIndex: 2, itemCount: 3 };
+    expect(first.selectedIndex).toBe(0);
+    expect(last.selectedIndex).toBe(last.itemCount - 1);
+  });
+});
+
+describe('UI state types — BannerData', () => {
+  it('constructs a non-dismissible warning banner', () => {
+    expect(dismissibleBanner.dismissible).toBe(false);
+    expect(dismissibleBanner.level).toBe('warning');
+    expect(dismissibleBanner.id).toBe('provider-unavailable');
+  });
+
+  it('constructs a dismissible info banner', () => {
+    expect(infoBanner.dismissible).toBe(true);
+    expect(infoBanner.level).toBe('info');
+    expect(infoBanner.id).toBe('session-halted');
+  });
+
+  it.each(['info', 'warning', 'error'] as const)('level "%s" is valid for BannerData', (level) => {
+    const b: BannerData = { id: 'test', message: 'msg', level, dismissible: true };
+    expect(b.level).toBe(level);
+  });
+});
+
+describe('UI state types — CompletionState', () => {
+  it('constructs minimal completion state with only isComplete', () => {
+    expect(minimalCompletion.isComplete).toBe(true);
+    expect(minimalCompletion.summary).toBeUndefined();
+    expect(minimalCompletion.artifactPaths).toBeUndefined();
+    expect(minimalCompletion.nextAction).toBeUndefined();
+  });
+
+  it('constructs full completion state with summary, paths, and next action', () => {
+    expect(fullCompletion.isComplete).toBe(true);
+    expect(fullCompletion.summary).toBe('All artifacts generated.');
+    expect(fullCompletion.artifactPaths).toHaveLength(2);
+    expect(fullCompletion.artifactPaths?.[0]).toContain('docs/plans');
+    expect(fullCompletion.nextAction).toContain('ralphex');
+  });
+
+  it('accepts an incomplete completion state (isComplete: false)', () => {
+    const pending: CompletionState = { isComplete: false };
+    expect(pending.isComplete).toBe(false);
   });
 });
 

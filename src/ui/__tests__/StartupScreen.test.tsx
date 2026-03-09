@@ -110,4 +110,58 @@ describe('StartupScreen', () => {
     const output = renderScreen({ version: '0.1.0', steps: [] });
     expect(output).toContain('Starting cobuild');
   });
+
+  it('shows actionHint sub-row when actionHint is present', () => {
+    const steps: StartupStep[] = [
+      {
+        id: 'provider',
+        label: 'Checking provider (ollama)',
+        status: 'warning',
+        detail: 'ollama not reachable',
+        actionHint: 'codex-cli is available — use --new-session --provider codex-cli to switch',
+      },
+    ];
+    const output = renderScreen({ version: '1.0.0', steps });
+    expect(output).toContain('codex-cli is available');
+    expect(output).toContain('--new-session --provider codex-cli');
+  });
+
+  it('does not show actionHint row when actionHint is absent', () => {
+    const steps: StartupStep[] = [
+      { id: 'provider', label: 'Checking provider (ollama)', status: 'warning', detail: 'not reachable' },
+    ];
+    const output = renderScreen({ version: '1.0.0', steps });
+    expect(output).not.toContain('→');
+  });
+
+  it('shows actionHint alongside warning detail', () => {
+    const steps: StartupStep[] = [
+      {
+        id: 'provider',
+        label: 'Checking provider (ollama)',
+        status: 'warning',
+        detail: 'connection refused',
+        actionHint: 'codex-cli is available — use --new-session --provider codex-cli to switch',
+      },
+    ];
+    const output = renderScreen({ version: '1.0.0', steps });
+    expect(output).toContain('connection refused');
+    expect(output).toContain('codex-cli is available');
+  });
+
+  it('shows resumed session detail with stage label', () => {
+    const steps: StartupStep[] = [
+      { id: 'session', label: 'Resolving session', status: 'ok', detail: 'resumed · spec generation' },
+    ];
+    const output = renderScreen({ version: '1.0.0', steps });
+    expect(output).toContain('resumed · spec generation');
+  });
+
+  it('shows new session detail', () => {
+    const steps: StartupStep[] = [
+      { id: 'session', label: 'Resolving session', status: 'ok', detail: 'new session' },
+    ];
+    const output = renderScreen({ version: '1.0.0', steps });
+    expect(output).toContain('new session');
+  });
 });

@@ -13,6 +13,22 @@ function renderShell(props: Parameters<typeof AppShell>[0]) {
   return { ...instance, stream };
 }
 
+function renderShellText(props: Parameters<typeof AppShell>[0]): string {
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const { unmount } = render(React.createElement(AppShell, props), {
+    stdout: stream as unknown as NodeJS.WriteStream,
+  });
+  unmount();
+  const raw = Buffer.concat(chunks).toString();
+  /* eslint-disable no-control-regex */
+  return raw
+    .replace(/\x1b\[[0-9;]*[mGKHFJ]/g, '')
+    .replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
+  /* eslint-enable no-control-regex */
+}
+
 const sampleStatusBar: StatusHeaderData = {
   sessionId: 'abcd-1234-efgh-5678',
   stage: 'interview',
@@ -212,5 +228,125 @@ describe('AppShell StatusHeaderData resumabilityContext', () => {
     expect(bar.resumabilityContext).toBe('resumed from dev-plans');
     const { unmount } = renderShell({ statusBar: bar });
     unmount();
+  });
+});
+
+describe('AppShell two-row header layout', () => {
+  it('renders sess: abbreviation (not session:) in header', () => {
+    const output = renderShellText({ statusBar: sampleStatusBar });
+    expect(output).toContain('sess:');
+    expect(output).not.toContain('session:');
+  });
+
+  it('renders version and stage in header', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, version: '1.2.3', stage: 'spec' },
+    });
+    expect(output).toContain('cobuild v1.2.3');
+    expect(output).toContain('spec');
+  });
+
+  it('renders provider on the second header row', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, provider: 'codex-cli' },
+    });
+    expect(output).toContain('codex-cli');
+  });
+
+  it('renders model in header when set', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, model: 'mistral' },
+    });
+    expect(output).toContain('mistral');
+  });
+
+  it('renders UNAVAILABLE indicator when providerReady is false', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, providerReady: false },
+    });
+    expect(output).toContain('UNAVAILABLE');
+  });
+
+  it('renders resumabilityContext in header when set', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, resumabilityContext: 'resumed from plan' },
+    });
+    expect(output).toContain('resumed from plan');
+  });
+
+  it('renders truncated session ID (8 chars) in header', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, sessionId: 'abcdef12-1234-5678-abcd-ef1234567890' },
+    });
+    expect(output).toContain('abcdef12');
+  });
+});
+
+describe('AppShell notice and error placement', () => {
+  it('renders notice text in output', () => {
+    const output = renderShellText({ notice: 'Provider unavailable' });
+    expect(output).toContain('Notice: Provider unavailable');
+  });
+
+  it('renders transient error text in output', () => {
+    const output = renderShellText({ transientError: 'Connection refused' });
+    expect(output).toContain('Error: Connection refused');
+  });
+
+  it('notice and transient error are both shown when both set', () => {
+    const output = renderShellText({
+      notice: 'Startup notice',
+      transientError: 'Something failed',
+    });
+    expect(output).toContain('Notice: Startup notice');
+    expect(output).toContain('Error: Something failed');
+  });
+
+  it('notice appears in output when status bar and children are both present', () => {
+    const output = renderShellText({
+      statusBar: sampleStatusBar,
+      notice: 'Provider unavailable',
+      children: React.createElement(React.Fragment, null),
+    });
+    expect(output).toContain('Notice: Provider unavailable');
+  });
+});
+
+describe('AppShell footer normalization', () => {
+  it('renders footer commands from props (single location)', () => {
+    const output = renderShellText({
+      footer: { commands: ['/finish-now', '/model'], keybindings: [] },
+    });
+    expect(output).toContain('/finish-now');
+    expect(output).toContain('/model');
+  });
+
+  it('renders footer keybindings from props (single location)', () => {
+    const output = renderShellText({
+      footer: { commands: [], keybindings: ['ctrl+c: quit'] },
+    });
+    expect(output).toContain('ctrl+c: quit');
+  });
+
+  it('does not render footer section when both arrays are empty', () => {
+    const output = renderShellText({
+      footer: { commands: [], keybindings: [] },
+    });
+    expect(output).not.toContain('Commands:');
+    expect(output).not.toContain('Keys:');
+  });
+
+  it('renders Commands: label when commands are present', () => {
+    const output = renderShellText({
+      footer: { commands: ['/help'], keybindings: [] },
+    });
+    expect(output).toContain('Commands:');
+  });
+
+  it('renders Keys: label when keybindings are present', () => {
+    const output = renderShellText({
+      footer: { commands: [], keybindings: ['enter: confirm'] },
+    });
+    expect(output).toContain('Keys:');
   });
 });

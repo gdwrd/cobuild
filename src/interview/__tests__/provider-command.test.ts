@@ -89,7 +89,7 @@ describe('createProviderHandler (Ollama)', () => {
     expect(PROVIDER_MESSAGE).toBe(OLLAMA_PROVIDER_MESSAGE);
   });
 
-  it('ignores any args passed', async () => {
+  it('returns an error for an unrecognized provider name passed as arg', async () => {
     const handler = createProviderHandler('ollama');
     const result = await handler(['some', 'args']);
     expect(result.handled).toBe(true);
@@ -116,6 +116,30 @@ describe('createProviderHandler (Ollama)', () => {
 
     expect(result.message).toContain('Unknown provider');
     expect(saveSession).not.toHaveBeenCalled();
+  });
+
+  it('does not inject llama3 when switching from codex-cli to ollama with no saved model', async () => {
+    const session = makeSession({ provider: 'codex-cli', model: undefined });
+    const options = makeOptions(session);
+    const handler = createProviderHandler(options);
+
+    await handler(['ollama']);
+
+    expect(options.onSessionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'ollama', model: undefined }),
+    );
+  });
+
+  it('preserves saved model when switching to ollama', async () => {
+    const session = makeSession({ provider: 'codex-cli', model: 'mistral' });
+    const options = makeOptions(session);
+    const handler = createProviderHandler(options);
+
+    await handler(['ollama']);
+
+    expect(options.onSessionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'ollama', model: 'mistral' }),
+    );
   });
 });
 
@@ -156,7 +180,7 @@ describe('createProviderHandler (Codex CLI)', () => {
     expect(result.message).toContain('/model');
   });
 
-  it('ignores any args passed', async () => {
+  it('returns an error for an unrecognized provider name passed as arg', async () => {
     const handler = createProviderHandler('codex-cli');
     const result = await handler(['some', 'args']);
     expect(result.handled).toBe(true);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { OllamaProvider } from '../ollama.js';
+import { OllamaProvider, resolveOllamaModel } from '../ollama.js';
 
 vi.mock('../../logging/logger.js', () => ({
   getLogger: () => ({
@@ -164,5 +164,67 @@ describe('OllamaProvider', () => {
         provider.generate([{ role: 'user', content: 'Hi' }]),
       ).rejects.toThrow('invalid json');
     });
+  });
+});
+
+describe('resolveOllamaModel', () => {
+  it('returns current model when it is in the installed list', async () => {
+    const listModels = vi.fn(async () => ['llama3', 'mistral']);
+    const result = await resolveOllamaModel('llama3', listModels);
+    expect(result).toEqual({ resolvedModel: 'llama3', noModelsInstalled: false });
+  });
+
+  it('returns first model when current model is undefined', async () => {
+    const listModels = vi.fn(async () => ['mistral', 'llama3']);
+    const result = await resolveOllamaModel(undefined, listModels);
+    expect(result.resolvedModel).toBe('mistral');
+    expect(result.noModelsInstalled).toBe(false);
+    expect(result.notice).toBeUndefined();
+  });
+
+  it('returns first model and notice when saved model is missing from installed list', async () => {
+    const listModels = vi.fn(async () => ['mistral', 'phi3']);
+    const result = await resolveOllamaModel('llama3', listModels);
+    expect(result.resolvedModel).toBe('mistral');
+    expect(result.noModelsInstalled).toBe(false);
+    expect(result.notice).toContain('llama3');
+    expect(result.notice).toContain('mistral');
+  });
+
+  it('returns noModelsInstalled=true and guidance notice when model list is empty', async () => {
+    const listModels = vi.fn(async () => [] as string[]);
+    const result = await resolveOllamaModel(undefined, listModels);
+    expect(result.noModelsInstalled).toBe(true);
+    expect(result.resolvedModel).toBeUndefined();
+    expect(result.notice).toContain('ollama pull');
+  });
+
+  it('returns noModelsInstalled=true even when session had a saved model', async () => {
+    const listModels = vi.fn(async () => [] as string[]);
+    const result = await resolveOllamaModel('llama3', listModels);
+    expect(result.noModelsInstalled).toBe(true);
+    expect(result.notice).toContain('ollama pull');
+  });
+
+  it('returns current model unchanged when listing fails (non-fatal)', async () => {
+    const listModels = vi.fn(async () => { throw new Error('ECONNREFUSED'); });
+    const result = await resolveOllamaModel('llama3', listModels);
+    expect(result.resolvedModel).toBe('llama3');
+    expect(result.noModelsInstalled).toBe(false);
+    expect(result.notice).toBeUndefined();
+  });
+
+  it('returns undefined model unchanged when listing fails with no prior model', async () => {
+    const listModels = vi.fn(async () => { throw new Error('timeout'); });
+    const result = await resolveOllamaModel(undefined, listModels);
+    expect(result.resolvedModel).toBeUndefined();
+    expect(result.noModelsInstalled).toBe(false);
+  });
+
+  it('does not include notice when auto-selecting first model with no prior model set', async () => {
+    const listModels = vi.fn(async () => ['codellama']);
+    const result = await resolveOllamaModel(undefined, listModels);
+    expect(result.resolvedModel).toBe('codellama');
+    expect(result.notice).toBeUndefined();
   });
 });

@@ -1,9 +1,97 @@
-import { useState, useEffect, useRef } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { useReducer, useState, useEffect, useRef } from 'react';
+import { Box, Text, useInput, useApp, useStdin } from 'ink';
 import type { InterviewMessage } from '../session/session.js';
 import { ModelSelectPrompt } from './ModelSelectPrompt.js';
+import { filterCommands } from '../interview/commands.js';
+import type { CommandMetadata } from '../interview/commands.js';
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+// ---------------------------------------------------------------------------
+// Input state reducer — pure, tested editing logic
+// ---------------------------------------------------------------------------
+
+/** Combined value + cursor state for the interview input buffer. */
+export interface InputState {
+  value: string;
+  /** Cursor position as an index into value (0 = before first char). */
+  cursorPos: number;
+}
+
+/** Discrete editing operations dispatched from the keyboard handler. */
+export type InputAction =
+  | { type: 'insert'; char: string }
+  | { type: 'backspace' }
+  | { type: 'delete' }
+  | { type: 'left' }
+  | { type: 'right' }
+  | { type: 'home' }
+  | { type: 'end' }
+  | { type: 'clear' };
+
+const INITIAL_INPUT_STATE: InputState = { value: '', cursorPos: 0 };
+
+type InkInputKey = {
+  backspace?: boolean;
+  delete?: boolean;
+};
+
+/**
+ * Normalize terminal-specific backspace encodings so editing behavior remains
+ * consistent across terminals and shell configurations.
+ */
+export function isBackspaceKey(char: string, key: InkInputKey): boolean {
+  return Boolean(key.backspace || char === '\x7f' || char === '\b');
+}
+
+/**
+ * Ink parses raw DEL (\x7f) as "delete", even though many terminals emit it
+ * for the Backspace key. Use the raw sequence to keep forward-delete intact.
+ */
+export function isDeleteKey(rawSequence: string | undefined, key: InkInputKey): boolean {
+  if (!key.delete) return false;
+  return rawSequence !== '\x7f' && rawSequence !== '\x1b\x7f';
+}
+
+/**
+ * Pure reducer for interview input editing.
+ *
+ * Each action operates on the committed state it receives, so chained
+ * React dispatches (rapid keypresses before a re-render) always see the
+ * correct buffer and cursor rather than a stale snapshot.
+ */
+export function inputReducer(state: InputState, action: InputAction): InputState {
+  const { value, cursorPos } = state;
+  switch (action.type) {
+    case 'insert':
+      return {
+        value: value.slice(0, cursorPos) + action.char + value.slice(cursorPos),
+        cursorPos: cursorPos + 1,
+      };
+    case 'backspace':
+      if (cursorPos === 0) return state;
+      return {
+        value: value.slice(0, cursorPos - 1) + value.slice(cursorPos),
+        cursorPos: cursorPos - 1,
+      };
+    case 'delete':
+      if (cursorPos >= value.length) return state;
+      return {
+        value: value.slice(0, cursorPos) + value.slice(cursorPos + 1),
+        cursorPos,
+      };
+    case 'left':
+      return { value, cursorPos: Math.max(0, cursorPos - 1) };
+    case 'right':
+      return { value, cursorPos: Math.min(value.length, cursorPos + 1) };
+    case 'home':
+      return { value, cursorPos: 0 };
+    case 'end':
+      return { value, cursorPos: value.length };
+    case 'clear':
+      return INITIAL_INPUT_STATE;
+  }
+}
 
 /** Maximum number of transcript messages to display at once. */
 export const MAX_VISIBLE_MESSAGES = 10;
@@ -175,14 +263,61 @@ export function InterviewInput({ value, cursorPos, isThinking }: InterviewInputP
 }
 
 // ---------------------------------------------------------------------------
+// CommandAutocomplete — slash command suggestion list
+// ---------------------------------------------------------------------------
+
+/** Props for the CommandAutocomplete sub-component. */
+export interface CommandAutocompleteProps {
+  /** Filtered command suggestions to display. */
+  items: CommandMetadata[];
+  /** Index of the currently highlighted suggestion (0-based). */
+  selectedIndex: number;
+}
+
+/**
+ * CommandAutocomplete — renders a command palette suggestion list above the
+ * interview input when the user starts typing a slash command.
+ *
+ * Navigation and selection are handled by the parent App; this component is
+ * purely a display layer.
+ */
+export function CommandAutocomplete({ items, selectedIndex }: CommandAutocompleteProps) {
+  if (items.length === 0) return null;
+
+  const clampedIndex = Math.min(selectedIndex, items.length - 1);
+
+  return (
+    <Box flexDirection="column" paddingX={1} marginBottom={1}>
+      {items.map((item, i) => {
+        const isSelected = i === clampedIndex;
+        return (
+          <Box key={item.name} flexDirection="row">
+            <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+              {isSelected ? '▶ ' : '  '}
+              {item.usage.padEnd(28)}
+            </Text>
+            <Text dimColor>{item.description}</Text>
+          </Box>
+        );
+      })}
+      <Box marginTop={1}>
+        <Text dimColor>{'↑/↓ navigate  Enter run  Esc cancel'}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // App — interview screen orchestrator
 // ---------------------------------------------------------------------------
 
 /**
  * App — the interview (main) screen view.
  *
- * Composes TranscriptView and InterviewInput, managing their shared state:
+ * Composes TranscriptView, CommandAutocomplete, and InterviewInput, managing
+ * their shared state:
  *   - input buffer and cursor position (edited via keyboard)
+ *   - autocomplete suggestions and selected index (active when typing '/')
  *   - transcript scroll offset (PageUp / PageDown)
  *   - spinner frame for the thinking indicator
  *
@@ -191,14 +326,20 @@ export function InterviewInput({ value, cursorPos, isThinking }: InterviewInputP
  *
  * Supported editing keys:
  *   ← / →       move cursor left / right
+ *   ↑ / ↓       navigate autocomplete suggestions (when open)
  *   ctrl+a      move cursor to start of line
  *   ctrl+e      move cursor to end of line
  *   Backspace   delete character before cursor
  *   Delete      delete character at cursor
- *   Enter       submit input (trims whitespace)
+ *   Enter       submit input, or execute highlighted autocomplete suggestion
+ *   Esc         cancel autocomplete (clears the input buffer)
  *   PgUp        scroll transcript back SCROLL_STEP messages
  *   PgDn        scroll transcript forward SCROLL_STEP messages (toward bottom)
  *   ctrl+c      quit
+ *
+ * Autocomplete activates automatically when the buffer starts with '/' and
+ * contains no spaces. It filters COMMAND_DEFINITIONS by the typed prefix and
+ * shows matching suggestions with usage text and a brief description.
  *
  * When modelSelectOptions is provided, a ModelSelectPrompt is shown above
  * the input area instead of appending a plain-text list to the transcript.
@@ -227,18 +368,28 @@ export function App({
   onSubmit,
 }: AppProps) {
   const { exit } = useApp();
-  const [input, setInput] = useState('');
-  const [cursorPos, setCursorPos] = useState(0);
-  // cursorPosRef mirrors cursorPos so useInput handlers always read the latest
-  // value even when a second keystroke fires before the next re-render.
-  const cursorPosRef = useRef(0);
+  const { internal_eventEmitter } = useStdin();
+  const [inputState, dispatch] = useReducer(inputReducer, INITIAL_INPUT_STATE);
+  // inputStateRef mirrors the committed inputState so the submit handler always
+  // reads the latest value even when a keystroke fires before the next re-render.
+  const inputStateRef = useRef(INITIAL_INPUT_STATE);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
 
-  // Keep cursorPosRef in sync with cursorPos state after every render so that
-  // rapid keystrokes handled before a re-render still read the correct position.
+  // Autocomplete selection index — kept in both state (for rendering) and ref
+  // (for reading inside useInput without stale-closure issues).
+  const [autocompleteIndex, setAutocompleteIndex] = useState(0);
+  const autocompleteIndexRef = useRef(0);
+  const lastRawInputRef = useRef('');
+
+  // isThinkingRef mirrors the isThinking prop so that useInput always reads
+  // the latest value without stale-closure issues (Ink batches subscriptions).
+  const isThinkingRef = useRef(isThinking);
+
+  // Keep refs in sync with committed state after every render.
   useEffect(() => {
-    cursorPosRef.current = cursorPos;
+    inputStateRef.current = inputState;
+    isThinkingRef.current = isThinking;
   });
 
   useEffect(() => {
@@ -259,6 +410,24 @@ export function App({
     prevIsThinkingRef.current = isThinking;
   }, [isThinking]);
 
+  // Reset autocomplete selection index whenever the input value or thinking state
+  // changes so that newly filtered results always start highlighted at the first item.
+  useEffect(() => {
+    autocompleteIndexRef.current = 0;
+    setAutocompleteIndex(0);
+  }, [inputState.value, isThinking]);
+
+  useEffect(() => {
+    const handleRawInput = (data: string | Buffer) => {
+      lastRawInputRef.current = typeof data === 'string' ? data : data.toString('utf8');
+    };
+
+    internal_eventEmitter?.on('input', handleRawInput);
+    return () => {
+      internal_eventEmitter?.removeListener('input', handleRawInput);
+    };
+  }, [internal_eventEmitter]);
+
   useInput((char, key) => {
     if (key.ctrl && char === 'c') {
       exit();
@@ -268,6 +437,14 @@ export function App({
     // While model selection is active, ModelSelectPrompt handles all input.
     const isModelSelecting = Boolean(modelSelectOptions && modelSelectOptions.length > 0);
     if (isModelSelecting) return;
+
+    // Compute current autocomplete state once from the latest refs so all key
+    // handlers below see a consistent snapshot without stale-closure issues.
+    const currentValue = inputStateRef.current.value;
+    const currentlyThinking = isThinkingRef.current;
+    const autocompleteActive =
+      !currentlyThinking && currentValue.startsWith('/') && !currentValue.includes(' ');
+    const items = autocompleteActive ? filterCommands(currentValue) : [];
 
     // Transcript scrollback
     if (key.pageUp) {
@@ -282,14 +459,52 @@ export function App({
       return;
     }
 
-    // Submit
+    // Up/Down: navigate autocomplete suggestions when the palette is open.
+    if (key.upArrow) {
+      if (items.length > 0) {
+        const next = Math.max(0, autocompleteIndexRef.current - 1);
+        autocompleteIndexRef.current = next;
+        setAutocompleteIndex(next);
+        return;
+      }
+    }
+    if (key.downArrow) {
+      if (items.length > 0) {
+        const next = Math.min(items.length - 1, autocompleteIndexRef.current + 1);
+        autocompleteIndexRef.current = next;
+        setAutocompleteIndex(next);
+        return;
+      }
+    }
+
+    // Escape: cancel autocomplete by clearing the input buffer whenever it
+    // starts with '/', regardless of whether suggestions are currently visible.
+    if (key.escape) {
+      if (currentValue.startsWith('/')) {
+        dispatch({ type: 'clear' });
+      }
+      return;
+    }
+
+    // Submit — execute the highlighted autocomplete suggestion when the palette
+    // is open; otherwise submit the raw input as normal.
     if (key.return) {
-      const trimmed = input.trim();
-      if ((trimmed || allowEmptySubmit) && !isThinking) {
+      if (items.length > 0 && !currentlyThinking) {
+        const selected = items[Math.min(autocompleteIndexRef.current, items.length - 1)];
+        if (selected) {
+          onSubmit?.(selected.name);
+          dispatch({ type: 'clear' });
+          setScrollOffset(0);
+        }
+        return;
+      }
+
+      // Normal submit — read latest value via ref so a character typed just before
+      // Enter is not lost to a stale state snapshot.
+      const trimmed = inputStateRef.current.value.trim();
+      if ((trimmed || allowEmptySubmit) && !currentlyThinking) {
         onSubmit?.(trimmed);
-        setInput('');
-        setCursorPos(0);
-        cursorPosRef.current = 0;
+        dispatch({ type: 'clear' });
         setScrollOffset(0);
       }
       return;
@@ -297,57 +512,50 @@ export function App({
 
     // Cursor movement
     if (key.leftArrow) {
-      const newPos = Math.max(0, cursorPosRef.current - 1);
-      setCursorPos(newPos);
-      cursorPosRef.current = newPos;
+      dispatch({ type: 'left' });
       return;
     }
     if (key.rightArrow) {
-      const newPos = Math.min(input.length, cursorPosRef.current + 1);
-      setCursorPos(newPos);
-      cursorPosRef.current = newPos;
+      dispatch({ type: 'right' });
       return;
     }
 
     // ctrl+a / ctrl+e: POSIX readline home / end
     if (key.ctrl && char === 'a') {
-      setCursorPos(0);
-      cursorPosRef.current = 0;
+      dispatch({ type: 'home' });
       return;
     }
     if (key.ctrl && char === 'e') {
-      setCursorPos(input.length);
-      cursorPosRef.current = input.length;
+      dispatch({ type: 'end' });
       return;
     }
 
-    // Backspace: delete character before cursor
-    if (key.backspace) {
-      const pos = cursorPosRef.current;
-      if (pos > 0) {
-        setInput(prev => prev.slice(0, pos - 1) + prev.slice(pos));
-        setCursorPos(pos - 1);
-        cursorPosRef.current = pos - 1;
-      }
+    // Normalize common terminal backspace encodings before checking delete.
+    // Many terminals send DEL (\x7f) or BS (\x08 / ctrl+h) for Backspace.
+    if (isBackspaceKey(char, key) || (key.delete && lastRawInputRef.current === '\x7f')) {
+      dispatch({ type: 'backspace' });
       return;
     }
 
     // Delete: delete character at cursor (forward delete)
-    if (key.delete) {
-      const pos = cursorPosRef.current;
-      setInput(prev => (pos < prev.length ? prev.slice(0, pos) + prev.slice(pos + 1) : prev));
-      // cursorPos stays the same
+    if (isDeleteKey(lastRawInputRef.current, key)) {
+      dispatch({ type: 'delete' });
       return;
     }
 
     // Insert character at cursor position
     if (!key.ctrl && !key.meta && char) {
-      const pos = cursorPosRef.current;
-      setInput(prev => prev.slice(0, pos) + char + prev.slice(pos));
-      setCursorPos(pos + 1);
-      cursorPosRef.current = pos + 1;
+      dispatch({ type: 'insert', char });
     }
   });
+
+  // Derive current autocomplete items for rendering.
+  const isModelSelecting = Boolean(modelSelectOptions && modelSelectOptions.length > 0);
+  const autocompleteItems: CommandMetadata[] = (() => {
+    const v = inputState.value;
+    if (isThinking || isModelSelecting || !v.startsWith('/') || v.includes(' ')) return [];
+    return filterCommands(v);
+  })();
 
   return (
     <Box flexDirection="column">
@@ -375,7 +583,12 @@ export function App({
           <Text color="magenta">Interview complete.</Text>
         </Box>
       ) : modelSelectOptions && modelSelectOptions.length > 0 ? null : (
-        <InterviewInput value={input} cursorPos={cursorPos} isThinking={isThinking} />
+        <>
+          {autocompleteItems.length > 0 && (
+            <CommandAutocomplete items={autocompleteItems} selectedIndex={autocompleteIndex} />
+          )}
+          <InterviewInput value={inputState.value} cursorPos={inputState.cursorPos} isThinking={isThinking} />
+        </>
       )}
     </Box>
   );

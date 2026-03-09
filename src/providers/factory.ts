@@ -8,7 +8,7 @@ export function createProvider(providerName: ProviderName, model?: string): Mode
   if (providerName === 'codex-cli') {
     return new CodexCliProvider();
   }
-  return new OllamaProvider({ model: model ?? 'llama3' });
+  return new OllamaProvider({ model });
 }
 
 export function supportsModelListing(

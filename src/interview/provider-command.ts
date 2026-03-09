@@ -86,7 +86,7 @@ export function createProviderHandler(options: ProviderName | ProviderHandlerOpt
     const updatedSession: Session = {
       ...session,
       provider: requestedProvider,
-      model: requestedProvider === 'ollama' ? session.model ?? 'llama3' : session.model,
+      model: session.model,
       updatedAt: new Date().toISOString(),
     };
     saveSession(updatedSession);

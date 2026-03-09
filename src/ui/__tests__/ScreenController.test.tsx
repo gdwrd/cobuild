@@ -8,10 +8,11 @@ import { runInterviewLoop } from '../../interview/controller.js';
 import { runArtifactPipeline } from '../../artifacts/generator.js';
 import { RetryExhaustedError } from '../../interview/retry.js';
 import { writeArtifactFile } from '../../artifacts/file-output.js';
-import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession, persistRetryExhaustedState } from '../../session/session.js';
+import { persistErrorState, persistSpecArtifact, completeSpecStage, loadSession, saveSession, persistRetryExhaustedState } from '../../session/session.js';
 import { runPostSpecWorkflow } from '../../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../../artifacts/dev-plan-loop.js';
-import { createProvider } from '../../providers/factory.js';
+import { createProvider, supportsModelListing } from '../../providers/factory.js';
+import { resolveOllamaModel } from '../../providers/ollama.js';
 
 const { mockApp, mockAppShell } = vi.hoisted(() => ({
   mockApp: vi.fn(() => null),
@@ -112,12 +113,17 @@ vi.mock('../../session/session.js', () => {
   };
   return {
     loadSession: vi.fn(() => base),
+    saveSession: vi.fn(),
     persistErrorState: vi.fn(),
     persistSpecArtifact: vi.fn(() => base),
     completeSpecStage: vi.fn(() => base),
     persistRetryExhaustedState: vi.fn(() => base),
   };
 });
+
+vi.mock('../../providers/ollama.js', () => ({
+  resolveOllamaModel: vi.fn().mockResolvedValue({ resolvedModel: undefined, noModelsInstalled: false }),
+}));
 
 vi.mock('../../providers/factory.js', () => ({
   createProvider: vi.fn(() => ({
@@ -294,6 +300,34 @@ describe('ScreenController', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(mockAppShell).toHaveBeenCalled();
     expect(mockApp).toHaveBeenCalled();
+    unmount();
+  });
+
+  it('creates Ollama provider without llama3 default when session has no model', async () => {
+    // Simulate a session with no model field set
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      transcript: [],
+      provider: 'ollama',
+      // model is intentionally absent
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    // createProvider should be called with 'ollama' and undefined model (not 'llama3')
+    expect(createProvider).toHaveBeenCalledWith('ollama', undefined);
     unmount();
   });
 });
@@ -516,7 +550,7 @@ describe('ScreenController codex-cli provider', () => {
     );
     await new Promise(resolve => setTimeout(resolve, 20));
 
-    expect(createProvider).toHaveBeenCalledWith('codex-cli', expect.anything());
+    expect(createProvider).toHaveBeenCalledWith('codex-cli', undefined);
 
     unmount();
   });
@@ -594,7 +628,7 @@ describe('ScreenController codex-cli provider', () => {
     );
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    expect(createProvider).toHaveBeenCalledWith('codex-cli', expect.anything());
+    expect(createProvider).toHaveBeenCalledWith('codex-cli', undefined);
     expect(runDevPlanLoop).toHaveBeenCalledWith(
       devPlanCodexSession,
       expect.anything(),
@@ -744,6 +778,166 @@ describe('ScreenController execution state (applyExecutionEvent integration)', (
       { stdout: stream as unknown as NodeJS.WriteStream },
     );
     await new Promise(resolve => setTimeout(resolve, 20));
+    unmount();
+  });
+});
+
+describe('ScreenController Ollama model fallback', () => {
+  const baseSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview' as const,
+    provider: 'ollama' as const,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
+    vi.mocked(createProvider).mockReturnValue({
+      generate: vi.fn<() => Promise<string>>(),
+      listModels: vi.fn(),
+    } as unknown as ReturnType<typeof createProvider>);
+    vi.mocked(supportsModelListing).mockReturnValue(true);
+    vi.mocked(loadSession).mockReturnValue(baseSession);
+    vi.mocked(saveSession).mockImplementation(() => {});
+    vi.mocked(runInterviewLoop).mockReturnValue(new Promise(() => {}));
+    vi.mocked(resolveOllamaModel).mockResolvedValue({ resolvedModel: undefined, noModelsInstalled: false });
+  });
+
+  it('calls resolveOllamaModel when provider is ollama and interview is starting', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(resolveOllamaModel).toHaveBeenCalled();
+    unmount();
+  });
+
+  it('persists and applies the fallback model when resolution returns a different model', async () => {
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: 'mistral',
+      noModelsInstalled: false,
+      notice: 'Ollama model "llama3" is not installed. Switched to "mistral".',
+    });
+    vi.mocked(loadSession).mockReturnValue({ ...baseSession, model: 'llama3' });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(saveSession).toHaveBeenCalledWith(expect.objectContaining({ model: 'mistral' }));
+    expect(createProvider).toHaveBeenCalledWith('ollama', 'mistral');
+    unmount();
+  });
+
+  it('does not save session when model is already correct', async () => {
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: 'llama3',
+      noModelsInstalled: false,
+    });
+    vi.mocked(loadSession).mockReturnValue({ ...baseSession, model: 'llama3' });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(saveSession).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('does not start interview loop when no models are installed', async () => {
+    const notice = 'No Ollama models are installed. Run `ollama pull <model>` to install one.';
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: undefined,
+      noModelsInstalled: true,
+      notice,
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(runInterviewLoop).not.toHaveBeenCalled();
+    expect(mockAppShell).toHaveBeenCalledWith(
+      expect.objectContaining({ notice }),
+      expect.any(Object),
+    );
+    unmount();
+  });
+
+  it('surfaces notice to AppShell when model fallback occurs', async () => {
+    const notice = 'Ollama model "llama3" is not installed. Switched to "mistral".';
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: 'mistral',
+      noModelsInstalled: false,
+      notice,
+    });
+    vi.mocked(loadSession).mockReturnValue({ ...baseSession, model: 'llama3' });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(mockAppShell).toHaveBeenCalledWith(
+      expect.objectContaining({ notice }),
+      expect.any(Object),
+    );
+    unmount();
+  });
+
+  it('starts interview with newly resolved first model when session has no model', async () => {
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: 'phi3',
+      noModelsInstalled: false,
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(saveSession).toHaveBeenCalledWith(expect.objectContaining({ model: 'phi3' }));
+    expect(createProvider).toHaveBeenCalledWith('ollama', 'phi3');
+    expect(runInterviewLoop).toHaveBeenCalled();
     unmount();
   });
 });

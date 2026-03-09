@@ -9,7 +9,7 @@ vi.mock('../../logging/logger.js', () => ({
   }),
 }));
 
-import { isSlashCommand, parseCommand, createCommandRouter, HELP_MESSAGE, buildUnknownCommandMessage, KNOWN_COMMANDS } from '../commands.js';
+import { isSlashCommand, parseCommand, createCommandRouter, HELP_MESSAGE, buildUnknownCommandMessage, KNOWN_COMMANDS, filterCommands, COMMAND_DEFINITIONS } from '../commands.js';
 import type { CommandResult } from '../commands.js';
 
 describe('KNOWN_COMMANDS', () => {
@@ -125,5 +125,73 @@ describe('createCommandRouter', () => {
     await route({ command: '/model', args: ['llama3'] });
 
     expect(handler).toHaveBeenCalledWith(['llama3']);
+  });
+});
+
+describe('COMMAND_DEFINITIONS', () => {
+  it('contains an entry for every KNOWN_COMMAND', () => {
+    const definedNames = COMMAND_DEFINITIONS.map(d => d.name);
+    for (const cmd of KNOWN_COMMANDS) {
+      expect(definedNames).toContain(cmd);
+    }
+  });
+
+  it('every entry has non-empty usage and description', () => {
+    for (const def of COMMAND_DEFINITIONS) {
+      expect(def.usage.length).toBeGreaterThan(0);
+      expect(def.description.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('filterCommands', () => {
+  it('returns all commands for bare "/" prefix', () => {
+    const results = filterCommands('/');
+    expect(results).toHaveLength(COMMAND_DEFINITIONS.length);
+  });
+
+  it('filters to matching commands by prefix', () => {
+    const results = filterCommands('/f');
+    expect(results.map(r => r.name)).toEqual(['/finish-now']);
+  });
+
+  it('returns /model for "/m" prefix', () => {
+    const results = filterCommands('/m');
+    expect(results.map(r => r.name)).toEqual(['/model']);
+  });
+
+  it('returns /provider for "/p" prefix', () => {
+    const results = filterCommands('/p');
+    expect(results.map(r => r.name)).toEqual(['/provider']);
+  });
+
+  it('returns /help for "/he" prefix', () => {
+    const results = filterCommands('/he');
+    expect(results.map(r => r.name)).toEqual(['/help']);
+  });
+
+  it('returns empty array for non-slash prefix', () => {
+    expect(filterCommands('model')).toEqual([]);
+    expect(filterCommands('')).toEqual([]);
+  });
+
+  it('returns empty array when no command matches', () => {
+    expect(filterCommands('/zzz')).toEqual([]);
+  });
+
+  it('matches case-insensitively', () => {
+    const results = filterCommands('/F');
+    expect(results.map(r => r.name)).toEqual(['/finish-now']);
+  });
+
+  it('returns exact match for full command name', () => {
+    const results = filterCommands('/finish-now');
+    expect(results.map(r => r.name)).toEqual(['/finish-now']);
+  });
+
+  it('includes usage and description on each result', () => {
+    const results = filterCommands('/h');
+    expect(results[0]).toHaveProperty('usage');
+    expect(results[0]).toHaveProperty('description');
   });
 });

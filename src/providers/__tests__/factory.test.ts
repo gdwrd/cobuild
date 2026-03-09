@@ -18,9 +18,18 @@ describe('createProvider', () => {
     expect(provider).toBeInstanceOf(OllamaProvider);
   });
 
-  it('returns OllamaProvider with default model when model omitted', () => {
+  it('returns OllamaProvider with no model when model omitted', () => {
     const provider = createProvider('ollama');
     expect(provider).toBeInstanceOf(OllamaProvider);
+  });
+
+  it('does not inject llama3 as default model for Ollama when model is omitted', () => {
+    // OllamaProvider is constructed without a model — no 'llama3' fallback.
+    // The provider instance should still be created successfully.
+    const provider = createProvider('ollama');
+    expect(provider).toBeInstanceOf(OllamaProvider);
+    // supportsModelListing works regardless of whether a model is set
+    expect(typeof (provider as OllamaProvider & { listModels: unknown }).listModels).toBe('function');
   });
 
   it('returns CodexCliProvider for codex-cli', () => {

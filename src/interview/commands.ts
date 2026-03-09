@@ -2,14 +2,44 @@ import { getLogger } from '../logging/logger.js';
 
 export type SlashCommand = '/finish-now' | '/model' | '/provider' | '/help';
 
-export const KNOWN_COMMANDS: SlashCommand[] = ['/finish-now', '/model', '/provider', '/help'];
+/** Structured metadata for a slash command — drives parsing, help output, and autocomplete. */
+export interface CommandMetadata {
+  name: SlashCommand;
+  /** Short usage string shown in autocomplete suggestions and the help reference. */
+  usage: string;
+  /** One-line description of what the command does. */
+  description: string;
+}
+
+/** Source-of-truth command definitions. All exports below are derived from this list. */
+export const COMMAND_DEFINITIONS: CommandMetadata[] = [
+  {
+    name: '/finish-now',
+    usage: '/finish-now',
+    description: 'end the interview now and generate your spec',
+  },
+  {
+    name: '/model',
+    usage: '/model [name]',
+    description: 'list available models or switch to a named model',
+  },
+  {
+    name: '/provider',
+    usage: '/provider ollama|codex-cli',
+    description: 'switch provider',
+  },
+  {
+    name: '/help',
+    usage: '/help',
+    description: 'show this command reference',
+  },
+];
+
+export const KNOWN_COMMANDS: SlashCommand[] = COMMAND_DEFINITIONS.map(d => d.name);
 
 export const HELP_MESSAGE = [
   'Available commands:',
-  '  /finish-now   — end the interview now and generate your spec',
-  '  /model        — list available models or switch to a named model (/model <name>)',
-  '  /provider     — switch provider (/provider ollama | codex-cli)',
-  '  /help         — show this command reference',
+  ...COMMAND_DEFINITIONS.map(d => `  ${d.name.padEnd(14)} — ${d.description}`),
 ].join('\n');
 
 export function buildUnknownCommandMessage(input: string): string {
@@ -46,6 +76,17 @@ export function parseCommand(input: string): ParsedCommand | null {
   }
 
   return { command: command as SlashCommand, args };
+}
+
+/**
+ * Filter COMMAND_DEFINITIONS by a slash-command prefix.
+ * Used by the interview input autocomplete to narrow suggestions as the user types.
+ * Returns an empty array when prefix is empty or does not start with '/'.
+ */
+export function filterCommands(prefix: string): CommandMetadata[] {
+  if (!prefix.startsWith('/')) return [];
+  const lower = prefix.toLowerCase();
+  return COMMAND_DEFINITIONS.filter(d => d.name.toLowerCase().startsWith(lower));
 }
 
 export function createCommandRouter(

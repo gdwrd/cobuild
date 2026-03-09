@@ -20,12 +20,12 @@ interface OllamaChatResponse {
 }
 
 export interface OllamaProviderOptions {
-  model: string;
+  model?: string;
   baseUrl?: string;
 }
 
 export class OllamaProvider implements ModelProvider, ModelLister {
-  private readonly model: string;
+  private readonly model: string | undefined;
   private readonly baseUrl: string;
 
   constructor(options: OllamaProviderOptions) {
@@ -78,6 +78,10 @@ export class OllamaProvider implements ModelProvider, ModelLister {
   }
 
   async generate(messages: ModelMessage[]): Promise<string> {
+    if (!this.model) {
+      throw new Error('No Ollama model selected. Use /model to select a model.');
+    }
+
     const logger = getLogger();
     const url = `${this.baseUrl}/api/chat`;
 
@@ -135,4 +139,60 @@ export class OllamaProvider implements ModelProvider, ModelLister {
 
     return content;
   }
+}
+
+export interface OllamaModelResolution {
+  /** The model to use. Undefined means no change from the caller's current model (e.g. when listing fails). */
+  resolvedModel: string | undefined;
+  /** True when Ollama is reachable but has zero installed models. */
+  noModelsInstalled: boolean;
+  /** Optional message to surface to the user in the UI. */
+  notice?: string;
+}
+
+/**
+ * Resolve which Ollama model to use for a session.
+ *
+ * Scenarios handled:
+ * - Current model is installed → returns it unchanged.
+ * - Current model is missing or undefined, other models exist → returns first available + notice if model was missing.
+ * - Ollama has zero models → returns noModelsInstalled=true with actionable guidance.
+ * - Listing fails (Ollama down etc.) → returns current model unchanged (non-fatal; existing checks handle it).
+ */
+export async function resolveOllamaModel(
+  currentModel: string | undefined,
+  listModels: () => Promise<string[]>,
+): Promise<OllamaModelResolution> {
+  const logger = getLogger();
+  let models: string[];
+  try {
+    models = await listModels();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.warn(`ollama: model resolution skipped (could not list models): ${detail}`);
+    return { resolvedModel: currentModel, noModelsInstalled: false };
+  }
+
+  if (models.length === 0) {
+    logger.info('ollama: no models installed');
+    return {
+      resolvedModel: undefined,
+      noModelsInstalled: true,
+      notice:
+        'No Ollama models are installed. Run `ollama pull <model>` to install one, or use /provider codex-cli to switch providers.',
+    };
+  }
+
+  if (currentModel !== undefined && models.includes(currentModel)) {
+    logger.info(`ollama: resolved model "${currentModel}" (already installed)`);
+    return { resolvedModel: currentModel, noModelsInstalled: false };
+  }
+
+  const fallbackModel = models[0];
+  const notice = currentModel
+    ? `Ollama model "${currentModel}" is not installed. Switched to "${fallbackModel}".`
+    : undefined;
+
+  logger.info(`ollama: resolved model "${fallbackModel}" (fallback from "${currentModel ?? 'none'}")`);
+  return { resolvedModel: fallbackModel, noModelsInstalled: false, notice };
 }

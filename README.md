@@ -30,15 +30,19 @@ The workflow is interactive and stateful:
 ### Ollama (default)
 
 - [Ollama](https://ollama.com) running locally at `http://localhost:11434`
-- At least one Ollama model installed locally
+- At least one Ollama model installed locally (any model will do)
 
 Example model setup:
 
 ```sh
-ollama pull llama3
+ollama pull llama3.2
 ```
 
-`cobuild` defaults to the `llama3` model unless the session already has a different model saved or you switch models during the interview with `/model`.
+When starting a new session, `cobuild` automatically selects the first model returned by Ollama's `/api/tags` endpoint. No hardcoded default model name is assumed. Use `/model` during the interview to list available models and switch to a different one at any time.
+
+If you resume a session whose saved model is no longer installed, `cobuild` automatically falls back to the first available model, persists the update, and displays a notice in the UI explaining the switch.
+
+If Ollama is running but has no models installed, `cobuild` starts normally and displays an actionable notice. Pull any model and then use `/model <name>` to continue.
 
 ### Codex CLI
 
@@ -169,6 +173,8 @@ The input field supports cursor movement and basic editing:
 - Backspace: delete the character before the cursor
 - Delete: delete the character at the cursor (forward delete)
 
+Editing state is managed with a reducer so rapid keypresses, repeated deletes, and mid-string edits all operate reliably on the latest buffer state.
+
 When the buffer is empty, a hint reminds you to type a message or use `/help`.
 
 ### Slash Commands
@@ -183,6 +189,18 @@ These commands are available during the interview:
 | `/help` | Print the full command reference inline in the interview transcript |
 
 Unknown slash commands display the `/help` message listing all available commands instead of being silently ignored.
+
+### Slash Command Autocomplete
+
+Typing `/` in the input field activates inline autocomplete. A suggestion list appears above the input showing all commands that match what you have typed so far.
+
+- Up/Down arrows: move the selection through matching commands
+- Enter: execute the highlighted command
+- Continue typing: the list filters to match
+- Backspace past the `/`: the suggestion list closes
+- Ctrl+c: quit (autocomplete does not intercept it)
+
+Each suggestion shows the command name and a short usage hint. When autocomplete is open, Enter runs the selected command directly without requiring you to finish typing it.
 
 ### Prompt Size Guardrail
 
@@ -380,7 +398,7 @@ There is no support yet for:
 - Ollama is not installed. See [ollama.com](https://ollama.com) for installation instructions.
 - Ollama is installed but not running. Start it with `ollama serve` (or the Ollama app on macOS).
 - Ollama is running on a non-default port. cobuild does not currently support a configurable Ollama URL.
-- No models are installed. Pull at least one model: `ollama pull llama3`.
+- No models are installed. Pull at least one model: `ollama pull llama3.2` (or any model you prefer).
 
 If Ollama becomes available while the interview is in progress, use `/provider ollama` to switch to it.
 

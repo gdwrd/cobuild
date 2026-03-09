@@ -11,8 +11,9 @@ import { GenerationScreen, STAGE_DISPLAY_LABELS, DEV_PLAN_PHASE_LABEL_PREFIX } f
 import type { GenerationStatus, GenerationStage, CompletedStage } from './GenerationScreen.js';
 import { YesNoPrompt } from './YesNoPrompt.js';
 import type { InterviewMessage, Session } from '../session/session.js';
-import { loadSession, persistErrorState, persistSpecArtifact, completeSpecStage, persistRetryExhaustedState } from '../session/session.js';
+import { loadSession, saveSession, persistErrorState, persistSpecArtifact, completeSpecStage, persistRetryExhaustedState } from '../session/session.js';
 import { createProvider, supportsModelListing } from '../providers/factory.js';
+import { resolveOllamaModel } from '../providers/ollama.js';
 import { runInterviewLoop } from '../interview/controller.js';
 import type { ModelProvider } from '../interview/controller.js';
 import { buildInterviewSystemPrompt } from '../interview/prompts.js';
@@ -134,11 +135,14 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
   const yesNoResolverRef = useRef<((answer: boolean) => void) | null>(null);
   const currentSessionRef = useRef<Session | null>(null);
   const providerRef = useRef<ModelProvider | null>(null);
-  const currentModelRef = useRef<string>('llama3');
+  const currentModelRef = useRef<string | undefined>(undefined);
   const interviewStartedRef = useRef(false);
   const pipelineStartedRef = useRef(false);
   const isSelectingModelRef = useRef(false);
   const commandRunnerRef = useRef<((input: string) => Promise<boolean>) | null>(null);
+  // Monotonically increasing counter used to detect and discard stale Ollama model resolutions
+  // that complete after a newer resolution has already started.
+  const ollamaResolutionGenRef = useRef(0);
 
   // Subscribe to staged startup progress events
   useEffect(() => {
@@ -230,12 +234,12 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     currentSessionRef.current = session;
     setTranscript(session.transcript);
 
-    const model = session.model ?? 'llama3';
+    const model = session.model ?? undefined;
     currentModelRef.current = model;
     const activeProvider = session.provider ?? 'ollama';
     setCurrentProvider(activeProvider);
     setCurrentModel(model);
-    getLogger().info(`screen: initializing provider=${activeProvider} model=${model} (session ${session.id})`);
+    getLogger().info(`screen: initializing provider=${activeProvider} model=${model ?? 'none'} (session ${session.id})`);
     providerRef.current = createProvider(activeProvider, model);
     commandRunnerRef.current = null;
 
@@ -273,11 +277,68 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     const onSessionUpdate = (updated: Session): void => {
       currentSessionRef.current = updated;
       const updatedProvider = updated.provider ?? 'ollama';
-      const updatedModel = updated.model ?? currentModelRef.current ?? 'llama3';
+      const updatedModel = updated.model ?? currentModelRef.current;
       currentModelRef.current = updatedModel;
       setCurrentProvider(updatedProvider);
       setCurrentModel(updatedModel);
-      getLogger().info(`screen: session updated provider=${updatedProvider} model=${updatedModel} (session ${updated.id})`);
+      getLogger().info(`screen: session updated provider=${updatedProvider} model=${updatedModel ?? 'none'} (session ${updated.id})`);
+      // When switching to Ollama with no model, immediately point providerRef at the new Ollama
+      // provider (model-less) so any prompts during resolution fail with "No Ollama model selected"
+      // rather than silently routing to the previous provider. Async resolution fills in the model.
+      if (updatedProvider === 'ollama' && !updatedModel) {
+        const tempProvider = createProvider('ollama', undefined);
+        // Immediately update providerRef so prompts during resolution hit the correct backend.
+        providerRef.current = tempProvider;
+        if (supportsModelListing(tempProvider)) {
+          const ollamaProvider = tempProvider as { listModels(): Promise<string[]> };
+          const resolutionGen = ++ollamaResolutionGenRef.current;
+          void resolveOllamaModel(undefined, () => ollamaProvider.listModels()).then((resolution) => {
+            // Guard: discard if provider changed or a newer resolution has since started.
+            if (currentSessionRef.current?.provider !== 'ollama') return;
+            if (ollamaResolutionGenRef.current !== resolutionGen) return;
+            if (resolution.noModelsInstalled) {
+              providerRef.current = createProvider('ollama', undefined);
+              setNoticeMessage(
+                resolution.notice ?? 'No Ollama models are installed. Run `ollama pull <model>` to install one.',
+              );
+              return;
+            }
+            if (!resolution.resolvedModel) {
+              providerRef.current = createProvider('ollama', undefined);
+              setNoticeMessage(
+                'Could not determine an Ollama model. Ensure Ollama is running with at least one model installed, then try again.',
+              );
+              return;
+            }
+            const resolvedModel = resolution.resolvedModel;
+            currentModelRef.current = resolvedModel;
+            setCurrentModel(resolvedModel);
+            // Always update the notice — clear any stale "unavailable" messages when resolution succeeds.
+            setNoticeMessage(resolution.notice ?? null);
+            // Reload from disk to capture any transcript updates written by appendInterviewMessage
+            // during the async resolution period (those calls save to disk but do not update the ref).
+            const diskSession = loadSession(updated.id) ?? currentSessionRef.current!;
+            const freshSession: Session = {
+              ...diskSession,
+              model: resolvedModel,
+              updatedAt: new Date().toISOString(),
+            };
+            saveSession(freshSession);
+            currentSessionRef.current = freshSession;
+            providerRef.current = createProvider('ollama', resolvedModel);
+            getLogger().info(
+              `screen: post-switch Ollama model resolved to "${resolvedModel}" (session ${updated.id})`,
+            );
+          }).catch((err: unknown) => {
+            getLogger().warn(`screen: Ollama post-switch model resolution failed: ${String(err)}`);
+          });
+          // Skip refreshProviderStatus: listModels already proves Ollama reachability, and a
+          // concurrent notice write would race with the resolver above and clear its messages.
+          return;
+        }
+      }
+      // Invalidate any in-flight Ollama model resolution so it cannot overwrite this explicit state.
+      ollamaResolutionGenRef.current++;
       providerRef.current = createProvider(updatedProvider, updatedModel);
       void refreshProviderStatus(updatedProvider).then(readiness => {
         setNoticeMessage(readiness.ok ? null : `Active provider ${updatedProvider} is unavailable. ${readiness.message}`);
@@ -354,15 +415,99 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
       return;
     }
 
+    // Prevent re-entry before the async model resolution below.
     interviewStartedRef.current = true;
-    setIsThinking(true);
-    runInterviewLoop(session, providerProxy, systemPrompt, onUserInput, onAssistantResponse, {
-      '/finish-now': finishNowHandler,
-      '/model': modelHandler,
-      '/provider': providerHandler,
-      '/help': helpHandler,
-    })
+
+    const runWithModelResolution = async (): Promise<Session | null> => {
+      // For Ollama: resolve which model to use before the first interview turn.
+      if (activeProvider === 'ollama' && supportsModelListing(providerRef.current!)) {
+        const ollamaProvider = providerRef.current as { listModels(): Promise<string[]> };
+        // Snapshot the generation counter so we can detect explicit /model changes during resolution.
+        const resolutionGen = ollamaResolutionGenRef.current;
+        const resolution = await resolveOllamaModel(
+          currentModelRef.current,
+          () => ollamaProvider.listModels(),
+        );
+
+        if (resolution.noModelsInstalled) {
+          // Show the notice here so it is not displayed if this resolution is later discarded by a guard.
+          if (resolution.notice) {
+            setNoticeMessage(resolution.notice);
+          }
+          getLogger().info(
+            `screen: no Ollama models installed, keeping session interactive (session ${sessionId})`,
+          );
+          // Reset so that switching providers via /provider or /model can re-trigger this effect
+          interviewStartedRef.current = false;
+          return null;
+        }
+
+        // Finding 2: listing failed and no model was previously set — can't start the interview.
+        if (resolution.resolvedModel === undefined) {
+          getLogger().warn(
+            `screen: Ollama model resolution returned undefined (listing may have failed with no current model), keeping session interactive (session ${sessionId})`,
+          );
+          interviewStartedRef.current = false;
+          setNoticeMessage(
+            'Could not determine an Ollama model. Ensure Ollama is running with at least one model installed, then try again. Alternatively, switch with /provider codex-cli.',
+          );
+          return null;
+        }
+
+        if (resolution.resolvedModel !== currentModelRef.current) {
+          // Guard: if the user ran /provider during resolution, don't overwrite their choice.
+          if (currentSessionRef.current?.provider !== activeProvider) {
+            getLogger().info(
+              `screen: provider changed during Ollama model resolution, skipping model update (session ${sessionId})`,
+            );
+          // Guard: if the user ran /model during resolution, the gen counter will have advanced.
+          } else if (ollamaResolutionGenRef.current !== resolutionGen) {
+            getLogger().info(
+              `screen: model changed during Ollama model resolution, skipping stale update (session ${sessionId})`,
+            );
+          } else {
+            const updatedSession: Session = {
+              ...currentSessionRef.current!,
+              model: resolution.resolvedModel,
+              updatedAt: new Date().toISOString(),
+            };
+            saveSession(updatedSession);
+            currentSessionRef.current = updatedSession;
+            currentModelRef.current = resolution.resolvedModel;
+            setCurrentModel(resolution.resolvedModel);
+            providerRef.current = createProvider(activeProvider, resolution.resolvedModel);
+            // Only show the displacement notice when we actually apply the resolved model;
+            // if either guard above fired and discarded the resolution, suppressing the
+            // notice avoids showing a misleading "switched to X" message.
+            if (resolution.notice) {
+              setNoticeMessage(resolution.notice);
+            }
+            getLogger().info(
+              `screen: Ollama model resolved to "${resolution.resolvedModel ?? 'none'}" (session ${sessionId})`,
+            );
+          }
+        }
+      }
+
+      setIsThinking(true);
+      return runInterviewLoop(
+        currentSessionRef.current!,
+        providerProxy,
+        systemPrompt,
+        onUserInput,
+        onAssistantResponse,
+        {
+          '/finish-now': finishNowHandler,
+          '/model': modelHandler,
+          '/provider': providerHandler,
+          '/help': helpHandler,
+        },
+      );
+    };
+
+    void runWithModelResolution()
       .then((finalSession) => {
+        if (finalSession === null) return;
         // Reload from disk so that session state written by command handlers (e.g. /finish-now
         // calling completeInterview) is not overwritten by the stale local session from the loop.
         currentSessionRef.current = loadSession(finalSession.id) ?? finalSession;
@@ -375,7 +520,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         setIsThinking(false);
         interviewStartedRef.current = false;
       });
-  }, [screen, sessionId, sessionStage, isActiveProviderReady, refreshProviderStatus, exit]);
+  }, [screen, sessionId, sessionStage, isActiveProviderReady, currentProvider, currentModel, refreshProviderStatus, exit]);
 
   useEffect(() => {
     if (screen !== 'main' || sessionStage !== 'dev-plans' || !sessionId) return;
@@ -410,46 +555,105 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     }
     setCompletedStages(resumeStages);
 
-    const model = session.model ?? 'llama3';
+    const model = session.model ?? undefined;
     const resumeProvider = session.provider ?? 'ollama';
-    getLogger().info(`dev-plan resume: initializing provider=${resumeProvider} model=${model} (session ${sessionId})`);
+    getLogger().info(`dev-plan resume: initializing provider=${resumeProvider} model=${model ?? 'none'} (session ${sessionId})`);
     providerRef.current = createProvider(resumeProvider, model);
     setCurrentProvider(resumeProvider);
     setCurrentModel(model);
-    const provider = providerRef.current;
 
-    setGenerationStage('dev-plan');
-    setScreen('generating');
+    const runDevPlanWithModelResolution = async () => {
+      // For Ollama: resolve which model to use before running the dev plan loop.
+      if (resumeProvider === 'ollama' && supportsModelListing(providerRef.current!)) {
+        const ollamaProvider = providerRef.current as { listModels(): Promise<string[]> };
+        const resolution = await resolveOllamaModel(
+          model,
+          () => ollamaProvider.listModels(),
+        );
 
-    runDevPlanLoop(session, provider, {
-      onPhaseStart: (phaseNumber, total) => {
-        setDevPlanProgress({ current: phaseNumber, total });
-      },
-      onPhaseComplete: (phaseNumber, filePath) => {
-        setCompletedStages((prev) => [
-          ...prev,
-          { label: `${DEV_PLAN_PHASE_LABEL_PREFIX} ${phaseNumber}`, filePath },
-        ]);
-      },
-    })
-      .then((resultSession) => {
-        if (resultSession.devPlanHalted) {
-          setGenerationError('Dev plan generation stopped after repeated failures. Resume cobuild in this directory to retry from the failed phase.');
+        if (resolution.notice) {
+          setNoticeMessage(resolution.notice);
+        }
+
+        if (resolution.noModelsInstalled) {
+          getLogger().info(
+            `dev-plan resume: no Ollama models installed, cannot resume (session ${sessionId})`,
+          );
+          setGenerationStage('dev-plan');
+          setScreen('generating');
+          setGenerationError(
+            'No Ollama models are installed. Run `ollama pull <model>` to install one, or use /provider codex-cli to switch providers.',
+          );
           setGenerationStatus('error');
-        } else {
-          setGenerationStatus('success');
+          return;
         }
-      })
-      .catch((err: unknown) => {
-        logFullError(getLogger(), 'generation screen: dev-plan resume failed', err);
-        const msg = formatUserMessage(err);
-        const s = loadSession(sessionId) ?? currentSessionRef.current;
-        if (s) {
-          try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
+
+        // Finding 2: listing failed and no model was previously set — can't start the dev-plan loop.
+        if (resolution.resolvedModel === undefined) {
+          getLogger().warn(
+            `dev-plan resume: Ollama model resolution returned undefined (listing may have failed with no current model), cannot resume (session ${sessionId})`,
+          );
+          setGenerationStage('dev-plan');
+          setScreen('generating');
+          setGenerationError(
+            'Could not determine an Ollama model. Ensure Ollama is running with at least one model installed, then try again.',
+          );
+          setGenerationStatus('error');
+          return;
         }
-        setGenerationError(msg);
-        setGenerationStatus('error');
+
+        if (resolution.resolvedModel !== model) {
+          const updatedSession: Session = {
+            ...currentSessionRef.current!,
+            model: resolution.resolvedModel,
+            updatedAt: new Date().toISOString(),
+          };
+          saveSession(updatedSession);
+          currentSessionRef.current = updatedSession;
+          currentModelRef.current = resolution.resolvedModel;
+          setCurrentModel(resolution.resolvedModel);
+          providerRef.current = createProvider(resumeProvider, resolution.resolvedModel);
+          getLogger().info(
+            `dev-plan resume: Ollama model resolved to "${resolution.resolvedModel ?? 'none'}" (session ${sessionId})`,
+          );
+        }
+      }
+
+      setGenerationStage('dev-plan');
+      setScreen('generating');
+
+      const resultSession = await runDevPlanLoop(currentSessionRef.current!, providerRef.current!, {
+        onPhaseStart: (phaseNumber, total) => {
+          setDevPlanProgress({ current: phaseNumber, total });
+        },
+        onPhaseComplete: (phaseNumber, filePath) => {
+          setCompletedStages((prev) => [
+            ...prev,
+            { label: `${DEV_PLAN_PHASE_LABEL_PREFIX} ${phaseNumber}`, filePath },
+          ]);
+        },
       });
+
+      if (resultSession.devPlanHalted) {
+        setGenerationError(
+          'Dev plan generation stopped after repeated failures. Resume cobuild in this directory to retry from the failed phase.',
+        );
+        setGenerationStatus('error');
+      } else {
+        setGenerationStatus('success');
+      }
+    };
+
+    void runDevPlanWithModelResolution().catch((err: unknown) => {
+      logFullError(getLogger(), 'generation screen: dev-plan resume failed', err);
+      const msg = formatUserMessage(err);
+      const s = loadSession(sessionId) ?? currentSessionRef.current;
+      if (s) {
+        try { persistErrorState(s, msg); } catch (persistErr) { getLogger().warn(`generation screen: failed to persist error state: ${String(persistErr)}`); }
+      }
+      setGenerationError(msg);
+      setGenerationStatus('error');
+    });
   }, [screen, sessionId, sessionStage, isActiveProviderReady, exit]);
 
   useEffect(() => {

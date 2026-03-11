@@ -1,26 +1,18 @@
-# cobuild v0.1.2 — Release Notes
+# cobuild v0.1.4 — Release Notes
 
 ## Overview
 
-cobuild v0.1.2 is the first release configured for automated npm publishing via trusted publishing. It provides an interactive, AI-powered CLI workflow that takes a software project idea through a structured interview and generates a full set of planning artifacts using a locally running AI model. Two providers are supported: Ollama (default) and Codex CLI.
+cobuild v0.1.4 adds persistent global provider settings, tighter provider/model UX rules, and branded startup/interview presentation. It keeps the interactive CLI workflow intact while making startup state and provider switching more predictable across sessions.
 
 ## What's included
 
-- Interactive interview engine with slash command support (`/finish-now`, `/model`, `/provider`)
-- Multi-provider support: Ollama (local inference via `/api/chat`) and Codex CLI (via the `codex` binary)
-- Runtime provider switching via `/provider <ollama|codex-cli>` during the interview
-- Startup that does not block on provider availability: cobuild launches with a notice if the active provider is unreachable, so you can switch providers without restarting
-- AI-generated project specification (`docs/<project>-spec.md`)
-- AI-generated architecture document (`docs/<project>-architecture.md`)
-- AI-generated high-level development plan (`docs/<project>-high-level-plan.md`)
-- AI-generated per-phase developer plans (`docs/plans/YYYY-MM-DD-phase-<N>-<title>.md`)
-- Session persistence with automatic resume: re-running cobuild in the same directory picks up where you left off
-- Dev-plan resume: if a run stops mid-phase, the next run continues from the first incomplete phase
-- Retry logic with configurable attempt limits for all generation stages
-- Structured validation of all generated artifacts before they are accepted
-- Atomic file writes to prevent partial or corrupted output
-- Daily log files at `~/.cobuild/logs/` with full debug output and session IDs
-- Session files at `~/.cobuild/sessions/` with schema versioning and forward-compatible migration
+- Global settings persisted under `~/.cobuild/settings.json`, including the default provider selection
+- Startup now loads global settings before restoring or creating a session, so provider choice is stable across runs
+- `/provider` updates both the active session and the persisted default provider
+- Provider-specific model handling is stricter: Codex CLI no longer shows a misleading model name in the header, while Ollama continues to show the active model
+- Branded ASCII cobuild logo added to the interview experience with regression tests covering visibility
+- Expanded automated coverage for settings persistence, provider switching, model display rules, and branded UI rendering
+- Existing workflow remains intact: interactive interview, artifact generation, resume support, retry logic, and atomic persistence
 
 ## Requirements
 
@@ -41,4 +33,4 @@ See the [Known Limitations](README.md#known-limitations) section of the README f
 
 ## Upgrade notes
 
-This is the initial release; there is no prior version to upgrade from.
+Upgrade from v0.1.3 by installing the new version. Existing sessions continue to work, and `~/.cobuild/settings.json` will be created automatically when settings are first persisted.

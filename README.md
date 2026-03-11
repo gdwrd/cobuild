@@ -362,7 +362,7 @@ Behavior on failure:
 ~/.cobuild/settings.json
 ```
 
-The settings file is created automatically once you write any default via a future `/settings` workflow. Until then, the file is absent and all values fall back to their defaults. You can create or edit it manually — `cobuild` validates the file on load and silently falls back to defaults on any parse error or unknown schema version.
+The settings file is created automatically the first time you use `/model` or `/provider` during an interview. Until then, the file is absent and all values fall back to their defaults. You can also create or edit it manually — `cobuild` validates the file on load and silently falls back to defaults on any parse error or unknown schema version.
 
 ### Settings Schema
 

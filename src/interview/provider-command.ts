@@ -87,7 +87,7 @@ export function createProviderHandler(options: ProviderName | ProviderHandlerOpt
     const updatedSession: Session = {
       ...session,
       provider: requestedProvider,
-      model: session.model,
+      model: requestedProvider === 'codex-cli' ? undefined : session.model,
       updatedAt: new Date().toISOString(),
     };
     saveSession(updatedSession);

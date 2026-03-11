@@ -572,8 +572,10 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
       // For Ollama: resolve which model to use before running the dev plan loop.
       if (resumeProvider === 'ollama' && supportsModelListing(providerRef.current!)) {
         const ollamaProvider = providerRef.current as { listModels(): Promise<string[]> };
+        // Prefer: saved session model > global settings default > first available model
+        const modelHint = model ?? globalSettingsRef.current?.defaultOllamaModel;
         const resolution = await resolveOllamaModel(
-          model,
+          modelHint,
           () => ollamaProvider.listModels(),
         );
 

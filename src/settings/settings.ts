@@ -96,8 +96,8 @@ export function saveSettings(settings: GlobalSettings): void {
   const tmpPath = `${filePath}.${process.pid}.tmp`;
   const json = JSON.stringify({ ...settings, schemaVersion: CURRENT_SETTINGS_VERSION }, null, 2);
 
-  fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
   try {
+    fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
     try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }

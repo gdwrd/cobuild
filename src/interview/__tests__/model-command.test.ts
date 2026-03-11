@@ -410,4 +410,34 @@ describe('createModelHandler global settings persistence', () => {
 
     expect(saveSettings).not.toHaveBeenCalled();
   });
+
+  it('does not throw when saveSettings fails during manual model override', async () => {
+    vi.mocked(saveSettings).mockImplementationOnce(() => { throw new Error('disk full'); });
+    const session = makeSession();
+    const lister = makeLister([]);
+    const options = makeOptions(session, lister);
+    const handler = createModelHandler(options);
+
+    await expect(handler(['llama3.2'])).resolves.toBeDefined();
+  });
+});
+
+describe('createModelHandler with missing modelLister', () => {
+  it('returns unavailable message when supportsModelListing=true but modelLister not provided', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: true,
+    });
+
+    const result = await handler([]);
+
+    expect(result).toEqual({
+      handled: true,
+      continueInterview: true,
+      message: 'Model listing is unavailable.',
+    });
+  });
 });

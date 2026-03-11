@@ -161,17 +161,14 @@ describe('App component logo visibility', () => {
 });
 
 describe('ASCII art regression guard', () => {
-  it('LOGO_LINES content matches expected cobuild ASCII art', () => {
-    // Lock in the specific ASCII art characters to catch accidental modifications.
-    // Update this test intentionally when the branding is changed.
-    expect(LOGO_LINES[0]).toContain('___');
-    expect(LOGO_LINES[0]).toContain('___ ');
-    // The word COBUILD is spelled out across all four lines
-    const combined = LOGO_LINES.join('\n');
-    expect(combined).toContain('___');
-    expect(combined).toContain('|');
-    expect(combined).toContain('/');
-    expect(combined).toContain('\\');
+  it('LOGO_LINES contains exactly 4 lines matching the cobuild ASCII art', () => {
+    // Lock in the exact ASCII art content to catch accidental modifications.
+    // Update these expected values intentionally when the branding is changed.
+    expect(LOGO_LINES).toHaveLength(4);
+    expect(LOGO_LINES[0]).toBe('  ___  ___  ___  _   _ ___ _    ___');
+    expect(LOGO_LINES[1]).toBe(' / __|/ _ \\| _ )| | | |_ _|| |  |   \\');
+    expect(LOGO_LINES[2]).toBe('| (__ | (_) | _ \\| |_| || | | |__| |) |');
+    expect(LOGO_LINES[3]).toBe(' \\___| \\___/|___/ \\___/|___||____|___/');
   });
 
   it('LOGO_LINES[0] starts with the expected opening characters', () => {
@@ -188,16 +185,8 @@ describe('ASCII art regression guard', () => {
     expect(trimmed.endsWith('\u2699')).toBe(true);
   });
 
-  it('full LOGO_LINES array joined equals expected multi-line string', () => {
-    const joined = LOGO_LINES.join('\n');
-    // Verify distinctive fragments from each line are present and in order
-    const line0Idx = joined.indexOf(LOGO_LINES[0]);
-    const line1Idx = joined.indexOf(LOGO_LINES[1]);
-    const line2Idx = joined.indexOf(LOGO_LINES[2]);
-    const line3Idx = joined.indexOf(LOGO_LINES[3]);
-    expect(line0Idx).toBeLessThan(line1Idx);
-    expect(line1Idx).toBeLessThan(line2Idx);
-    expect(line2Idx).toBeLessThan(line3Idx);
+  it('LOGO_TAGLINE contains the expected tagline text', () => {
+    expect(LOGO_TAGLINE).toContain('build software with AI');
   });
 });
 

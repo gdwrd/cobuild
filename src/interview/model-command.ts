@@ -1,7 +1,7 @@
 import { Session, saveSession } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import type { CommandHandler, CommandResult } from './commands.js';
-import { loadSettings, saveSettings } from '../settings/settings.js';
+import { loadSettings, saveSettings, type GlobalSettings } from '../settings/settings.js';
 
 export interface ModelLister {
   listModels(): Promise<string[]>;
@@ -16,10 +16,11 @@ export interface ModelHandlerOptions {
   modelLister?: ModelLister;
   onSelectModel: (models: string[]) => Promise<string | null>;
   supportsModelListing: boolean;
+  onSettingsUpdate?: (settings: GlobalSettings) => void;
 }
 
 export function createModelHandler(options: ModelHandlerOptions): CommandHandler {
-  const { getSession, onSessionUpdate, modelLister, onSelectModel, supportsModelListing } = options;
+  const { getSession, onSessionUpdate, modelLister, onSelectModel, supportsModelListing, onSettingsUpdate } = options;
   const logger = getLogger();
 
   return async function handleModel(_args: string[]): Promise<CommandResult> {
@@ -42,7 +43,9 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
       saveSession(updatedSession);
       onSessionUpdate(updatedSession);
       try {
-        saveSettings({ ...loadSettings(), defaultOllamaModel: requestedModel });
+        const updatedSettings = { ...loadSettings(), defaultOllamaModel: requestedModel };
+        saveSettings(updatedSettings);
+        onSettingsUpdate?.(updatedSettings);
         logger.info(`/model: saved defaultOllamaModel="${requestedModel}" to global settings`);
       } catch (err) {
         logger.warn(`/model: failed to save global settings: ${String(err)}`);
@@ -98,7 +101,9 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
     saveSession(updatedSession);
     onSessionUpdate(updatedSession);
     try {
-      saveSettings({ ...loadSettings(), defaultOllamaModel: selected });
+      const updatedSettings = { ...loadSettings(), defaultOllamaModel: selected };
+      saveSettings(updatedSettings);
+      onSettingsUpdate?.(updatedSettings);
       logger.info(`/model: saved defaultOllamaModel="${selected}" to global settings`);
     } catch (err) {
       logger.warn(`/model: failed to save global settings: ${String(err)}`);

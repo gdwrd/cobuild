@@ -420,6 +420,54 @@ describe('createModelHandler global settings persistence', () => {
 
     await expect(handler(['llama3.2'])).resolves.toBeDefined();
   });
+
+  it('calls onSettingsUpdate with saved settings after model selection via list', async () => {
+    const onSettingsUpdate = vi.fn();
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'ollama' });
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'llama3'),
+      onSettingsUpdate,
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(onSettingsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultOllamaModel: 'llama3', defaultProvider: 'ollama' }),
+    );
+  });
+
+  it('calls onSettingsUpdate with saved settings after manual model override', async () => {
+    const onSettingsUpdate = vi.fn();
+    const session = makeSession();
+    const lister = makeLister([]);
+    const options = makeOptions(session, lister, { onSettingsUpdate });
+    const handler = createModelHandler(options);
+
+    await handler(['mistral']);
+
+    expect(onSettingsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultOllamaModel: 'mistral' }),
+    );
+  });
+
+  it('does not call onSettingsUpdate when saveSettings fails', async () => {
+    const onSettingsUpdate = vi.fn();
+    vi.mocked(saveSettings).mockImplementationOnce(() => { throw new Error('disk full'); });
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'llama3'),
+      onSettingsUpdate,
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(onSettingsUpdate).not.toHaveBeenCalled();
+  });
 });
 
 describe('createModelHandler with missing modelLister', () => {

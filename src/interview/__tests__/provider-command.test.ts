@@ -255,4 +255,38 @@ describe('createProviderHandler global settings persistence', () => {
 
     await expect(handler(['codex-cli'])).resolves.toBeDefined();
   });
+
+  it('calls onSettingsUpdate with saved settings after switching providers', async () => {
+    const onSettingsUpdate = vi.fn();
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultOllamaModel: 'llama3' });
+    const options = makeOptions(makeSession(), { onSettingsUpdate });
+    const handler = createProviderHandler(options);
+
+    await handler(['codex-cli']);
+
+    expect(onSettingsUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultProvider: 'codex-cli', defaultOllamaModel: 'llama3' }),
+    );
+  });
+
+  it('does not call onSettingsUpdate when provider is unchanged', async () => {
+    const onSettingsUpdate = vi.fn();
+    const options = makeOptions(makeSession({ provider: 'ollama' }), { onSettingsUpdate });
+    const handler = createProviderHandler(options);
+
+    await handler(['ollama']);
+
+    expect(onSettingsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('does not call onSettingsUpdate when saveSettings fails', async () => {
+    const onSettingsUpdate = vi.fn();
+    vi.mocked(saveSettings).mockImplementationOnce(() => { throw new Error('disk full'); });
+    const options = makeOptions(makeSession(), { onSettingsUpdate });
+    const handler = createProviderHandler(options);
+
+    await handler(['codex-cli']);
+
+    expect(onSettingsUpdate).not.toHaveBeenCalled();
+  });
 });

@@ -374,6 +374,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,
         onSessionUpdate,
         checkReadiness: async provider => refreshProviderStatus(provider),
+        onSettingsUpdate: (settings) => { globalSettingsRef.current = settings; },
       })(args);
     const modelHandler = (args: string[]) =>
       createModelHandler({
@@ -387,6 +388,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         },
         onSelectModel,
         supportsModelListing: supportsModelListing(providerRef.current!),
+        onSettingsUpdate: (settings) => { globalSettingsRef.current = settings; },
       })(args);
     const finishNowHandler = createFinishNowHandler({
       getSession: () => loadSession(sessionId) ?? currentSessionRef.current!,

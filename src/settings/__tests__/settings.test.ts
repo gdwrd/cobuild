@@ -142,6 +142,37 @@ describe('loadSettings', () => {
     const s = loadSettings();
     expect(s.schemaVersion).toBe(999);
   });
+
+  it('preserves unknown fields from a newer schema version', async () => {
+    const stored = JSON.stringify({
+      schemaVersion: 999,
+      defaultProvider: 'ollama',
+      futureField: 'future-value',
+      anotherNew: 42,
+    });
+    fsMock.readFileSync.mockReturnValue(stored);
+
+    const { loadSettings } = await import('../settings.js');
+    const s = loadSettings() as unknown as Record<string, unknown>;
+    expect(s['futureField']).toBe('future-value');
+    expect(s['anotherNew']).toBe(42);
+    expect(s['defaultProvider']).toBe('ollama');
+  });
+
+  it('does not pollute Object.prototype when settings contain __proto__ key', async () => {
+    // JSON.parse surfaces __proto__ as an own property; bracket assignment would mutate the
+    // prototype if not guarded. Verify the unsafeKeys filter blocks this.
+    const stored = '{"schemaVersion":999,"__proto__":{"polluted":true}}';
+    fsMock.readFileSync.mockReturnValue(stored);
+
+    const { loadSettings } = await import('../settings.js');
+    const s = loadSettings() as unknown as Record<string, unknown>;
+
+    // The migrated object must not carry the pollution payload as a field.
+    expect(s['polluted']).toBeUndefined();
+    // Object.prototype itself must be unmodified.
+    expect((Object.prototype as Record<string, unknown>)['polluted']).toBeUndefined();
+  });
 });
 
 describe('saveSettings', () => {
@@ -187,6 +218,24 @@ describe('saveSettings', () => {
     const written = (fsMock.writeFileSync.mock.calls[0][1] as string);
     const parsed = JSON.parse(written) as { schemaVersion: number };
     expect(parsed.schemaVersion).toBe(futureVersion);
+  });
+
+  it('serializes unknown fields preserved from a newer schema version', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { saveSettings, CURRENT_SETTINGS_VERSION } = await import('../settings.js');
+    const futureVersion = CURRENT_SETTINGS_VERSION + 1;
+    const settingsWithExtra = Object.assign(
+      { schemaVersion: futureVersion, defaultProvider: 'ollama' as const },
+      { futureField: 'preserve-me' },
+    );
+    saveSettings(settingsWithExtra);
+
+    const written = fsMock.writeFileSync.mock.calls[0][1] as string;
+    const parsed = JSON.parse(written) as Record<string, unknown>;
+    expect(parsed['futureField']).toBe('preserve-me');
+    expect(parsed['schemaVersion']).toBe(futureVersion);
   });
 
   it('re-throws rename error and unlinks tmp file', async () => {

@@ -39,6 +39,20 @@ function migrateSettings(raw: unknown): GlobalSettings {
     schemaVersion: fromVersion > CURRENT_SETTINGS_VERSION ? fromVersion : CURRENT_SETTINGS_VERSION,
   };
 
+  // When the settings file was written by a newer binary, preserve fields this binary
+  // does not know about so that subsequent writes (e.g. from /model or /provider) do
+  // not silently erase future extensions.
+  if (fromVersion > CURRENT_SETTINGS_VERSION) {
+    const knownKeys = new Set(['schemaVersion', 'defaultProvider', 'defaultOllamaModel']);
+    // Exclude prototype-polluting keys that JSON.parse can surface as own properties.
+    const unsafeKeys = new Set(['__proto__', 'constructor', 'prototype']);
+    for (const [key, value] of Object.entries(data)) {
+      if (!knownKeys.has(key) && !unsafeKeys.has(key)) {
+        (migrated as unknown as Record<string, unknown>)[key] = value;
+      }
+    }
+  }
+
   const rawProvider = data['defaultProvider'];
   if (rawProvider === 'ollama' || rawProvider === 'codex-cli') {
     migrated.defaultProvider = rawProvider;

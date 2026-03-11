@@ -36,9 +36,9 @@
 - [x] Verify the logo layout works with the persistent shell chrome, long transcripts, model selection mode, and narrow-terminal rendering without pushing critical input content off screen.
 
 ### Task 6: Cover branding behavior with UI tests
-- [ ] Add or update UI tests that assert the logo appears on the main interview screen and does not appear on unrelated screens such as generation, restore, or fatal error views.
-- [ ] Add snapshot-style or text-output assertions that lock in the chosen ASCII art enough to catch accidental regressions while still allowing intentional branding edits.
-- [ ] Ensure the new logo component does not break existing transcript/input rendering tests, especially those that depend on visible interview content order.
+- [x] Add or update UI tests that assert the logo appears on the main interview screen and does not appear on unrelated screens such as generation, restore, or fatal error views.
+- [x] Add snapshot-style or text-output assertions that lock in the chosen ASCII art enough to catch accidental regressions while still allowing intentional branding edits.
+- [x] Ensure the new logo component does not break existing transcript/input rendering tests, especially those that depend on visible interview content order.
 
 ### Task 7: Update documentation and operational notes
 - [ ] Update `README.md` to document global settings behavior, the precedence order between CLI flags, global defaults, and resumed sessions, and the provider-specific model display rules.

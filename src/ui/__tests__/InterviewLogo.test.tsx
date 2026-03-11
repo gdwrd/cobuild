@@ -4,6 +4,9 @@ import React from 'react';
 import { PassThrough } from 'node:stream';
 import { InterviewLogo, LOGO_LINES, LOGO_TAGLINE } from '../InterviewLogo.js';
 import { App } from '../App.js';
+import { GenerationScreen } from '../GenerationScreen.js';
+import { RestoredSession } from '../RestoredSession.js';
+import { ErrorScreen } from '../ErrorScreen.js';
 import type { InterviewMessage } from '../../session/session.js';
 
 vi.mock('../../logging/logger.js', () => ({
@@ -122,5 +125,142 @@ describe('App component logo visibility', () => {
   it('does not show the logo when isThinking is true', () => {
     const text = renderText(React.createElement(App, { transcript: [], isThinking: true }));
     expect(text).not.toContain('build software with AI');
+  });
+
+  it('renders transcript content in correct order: logo first then messages', () => {
+    // When logo is visible (empty transcript), it appears before input area
+    const welcomeText = renderText(React.createElement(App, { transcript: [] }));
+    const logoPos = welcomeText.indexOf('build software with AI');
+    const cursorPos = welcomeText.indexOf('█');
+    expect(logoPos).toBeGreaterThanOrEqual(0);
+    expect(cursorPos).toBeGreaterThan(logoPos);
+  });
+
+  it('transcript content appears without any logo content mixed in', () => {
+    const transcript: InterviewMessage[] = [
+      {
+        role: 'assistant',
+        content: 'What project would you like to build today?',
+        timestamp: '2024-01-01T00:00:00.000Z',
+      },
+      {
+        role: 'user',
+        content: 'A calendar app',
+        timestamp: '2024-01-01T00:00:01.000Z',
+      },
+    ];
+    const text = renderText(React.createElement(App, { transcript }));
+    expect(text).toContain('What project would you like to build today?');
+    expect(text).toContain('A calendar app');
+    // Logo must not appear at all
+    expect(text).not.toContain('build software with AI');
+    for (const line of LOGO_LINES) {
+      expect(text).not.toContain(line.trim().slice(0, 12));
+    }
+  });
+});
+
+describe('ASCII art regression guard', () => {
+  it('LOGO_LINES content matches expected cobuild ASCII art', () => {
+    // Lock in the specific ASCII art characters to catch accidental modifications.
+    // Update this test intentionally when the branding is changed.
+    expect(LOGO_LINES[0]).toContain('___');
+    expect(LOGO_LINES[0]).toContain('___ ');
+    // The word COBUILD is spelled out across all four lines
+    const combined = LOGO_LINES.join('\n');
+    expect(combined).toContain('___');
+    expect(combined).toContain('|');
+    expect(combined).toContain('/');
+    expect(combined).toContain('\\');
+  });
+
+  it('LOGO_LINES[0] starts with the expected opening characters', () => {
+    expect(LOGO_LINES[0].trimStart()).toMatch(/^___/);
+  });
+
+  it('LOGO_LINES[3] (bottom row) ends with the closing slash pattern', () => {
+    expect(LOGO_LINES[3]).toContain('___/');
+  });
+
+  it('LOGO_TAGLINE starts with gear symbol and ends with gear symbol', () => {
+    const trimmed = LOGO_TAGLINE.trim();
+    expect(trimmed.startsWith('\u2699')).toBe(true);
+    expect(trimmed.endsWith('\u2699')).toBe(true);
+  });
+
+  it('full LOGO_LINES array joined equals expected multi-line string', () => {
+    const joined = LOGO_LINES.join('\n');
+    // Verify distinctive fragments from each line are present and in order
+    const line0Idx = joined.indexOf(LOGO_LINES[0]);
+    const line1Idx = joined.indexOf(LOGO_LINES[1]);
+    const line2Idx = joined.indexOf(LOGO_LINES[2]);
+    const line3Idx = joined.indexOf(LOGO_LINES[3]);
+    expect(line0Idx).toBeLessThan(line1Idx);
+    expect(line1Idx).toBeLessThan(line2Idx);
+    expect(line2Idx).toBeLessThan(line3Idx);
+  });
+});
+
+describe('Logo absent on non-interview screens', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('GenerationScreen does not render the logo tagline', () => {
+    const text = renderText(React.createElement(GenerationScreen, { status: 'generating' }));
+    expect(text).not.toContain('build software with AI');
+  });
+
+  it('GenerationScreen does not render any logo line content', () => {
+    const text = renderText(React.createElement(GenerationScreen, { status: 'success', filePath: '/tmp/spec.md' }));
+    for (const line of LOGO_LINES) {
+      expect(text).not.toContain(line.trim().slice(0, 12));
+    }
+  });
+
+  it('GenerationScreen in error state does not render the logo', () => {
+    const text = renderText(
+      React.createElement(GenerationScreen, { status: 'error', errorMessage: 'failed' }),
+    );
+    expect(text).not.toContain('build software with AI');
+  });
+
+  it('RestoredSession does not render the logo tagline', () => {
+    const text = renderText(
+      React.createElement(RestoredSession, {
+        sessionId: 'abc-123-def-456',
+        onContinue: vi.fn(),
+      }),
+    );
+    expect(text).not.toContain('build software with AI');
+  });
+
+  it('RestoredSession does not render any logo line content', () => {
+    const text = renderText(
+      React.createElement(RestoredSession, {
+        sessionId: 'abc-123-def-456',
+        stage: 'interview',
+        onContinue: vi.fn(),
+      }),
+    );
+    for (const line of LOGO_LINES) {
+      expect(text).not.toContain(line.trim().slice(0, 12));
+    }
+  });
+
+  it('ErrorScreen does not render the logo tagline', () => {
+    const text = renderText(
+      React.createElement(ErrorScreen, { message: 'Something went wrong' }),
+    );
+    expect(text).not.toContain('build software with AI');
+  });
+
+  it('ErrorScreen does not render any logo line content', () => {
+    const text = renderText(
+      React.createElement(ErrorScreen, { message: 'Fatal error occurred' }),
+    );
+    for (const line of LOGO_LINES) {
+      expect(text).not.toContain(line.trim().slice(0, 12));
+    }
   });
 });

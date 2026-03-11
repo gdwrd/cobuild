@@ -941,3 +941,148 @@ describe('ScreenController Ollama model fallback', () => {
     unmount();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Provider-aware model display invariant
+// Invariant: codex-cli sessions must never show a model name in the header.
+// ---------------------------------------------------------------------------
+
+describe('ScreenController provider-aware model display', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
+    vi.mocked(createProvider).mockReturnValue({
+      generate: vi.fn<() => Promise<string>>(),
+      listModels: vi.fn(),
+    } as unknown as ReturnType<typeof createProvider>);
+    vi.mocked(supportsModelListing).mockReturnValue(false);
+    vi.mocked(runInterviewLoop).mockReturnValue(new Promise(() => {}));
+  });
+
+  it('passes undefined model to AppShell statusBar when session provider is codex-cli with no model', async () => {
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      stage: 'interview' as const,
+      provider: 'codex-cli' as const,
+      transcript: [],
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(mockAppShell).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusBar: expect.objectContaining({ model: undefined }),
+      }),
+      expect.any(Object),
+    );
+    unmount();
+  });
+
+  it('passes undefined model to AppShell statusBar when session is codex-cli with stale model field', async () => {
+    // Simulates a session that previously had an Ollama model but switched to codex-cli
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      stage: 'interview' as const,
+      provider: 'codex-cli' as const,
+      model: 'llama3', // stale Ollama model should not be shown
+      transcript: [],
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    // The statusBar must not include a model name when provider is codex-cli
+    const calls = mockAppShell.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    const statusBar = (lastCall[0] as { statusBar?: { model?: string } }).statusBar;
+    expect(statusBar?.model).toBeUndefined();
+
+    unmount();
+  });
+
+  it('passes model to AppShell statusBar when session provider is ollama', async () => {
+    vi.mocked(supportsModelListing).mockReturnValue(true);
+    vi.mocked(resolveOllamaModel).mockResolvedValue({
+      resolvedModel: 'mistral',
+      noModelsInstalled: false,
+    });
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      stage: 'interview' as const,
+      provider: 'ollama' as const,
+      model: 'mistral',
+      transcript: [],
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    // After Ollama model resolution resolves, AppShell should include the model
+    const calls = mockAppShell.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    const statusBar = (lastCall[0] as { statusBar?: { model?: string } }).statusBar;
+    expect(statusBar?.model).toBe('mistral');
+
+    unmount();
+  });
+
+  it('does not call resolveOllamaModel when session provider is codex-cli', async () => {
+    vi.mocked(loadSession).mockReturnValue({
+      id: 'abc-123',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      workingDirectory: '/tmp',
+      completed: false,
+      stage: 'interview' as const,
+      provider: 'codex-cli' as const,
+      transcript: [],
+    });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({ success: true, message: 'ok', sessionId: 'abc-123' }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(resolveOllamaModel).not.toHaveBeenCalled();
+    unmount();
+  });
+});

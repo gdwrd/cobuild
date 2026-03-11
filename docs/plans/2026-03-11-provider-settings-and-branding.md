@@ -7,9 +7,9 @@
 - `npm run typecheck`
 
 ### Task 1: Reproduce and pin down provider/model header behavior
-- [ ] Trace the active provider and model state flow through `src/ui/ScreenController.tsx`, `src/interview/provider-command.ts`, `src/providers/factory.ts`, and `src/ui/AppShell.tsx` to document exactly when a stale Ollama model survives a switch to `codex-cli`.
-- [ ] Add or update focused tests in `src/ui/__tests__/ScreenController.test.tsx` and `src/ui/__tests__/AppShell.test.tsx` that reproduce the current bug: switching or resuming a `codex-cli` session must not render an Ollama model name in the header.
-- [ ] Define the invariant for display state: only show a model in the shell when the active provider supports an in-app model concept, and ensure the tests fail before the implementation change.
+- [x] Trace the active provider and model state flow through `src/ui/ScreenController.tsx`, `src/interview/provider-command.ts`, `src/providers/factory.ts`, and `src/ui/AppShell.tsx` to document exactly when a stale Ollama model survives a switch to `codex-cli`.
+- [x] Add or update focused tests in `src/ui/__tests__/ScreenController.test.tsx` and `src/ui/__tests__/AppShell.test.tsx` that reproduce the current bug: switching or resuming a `codex-cli` session must not render an Ollama model name in the header.
+- [x] Define the invariant for display state: only show a model in the shell when the active provider supports an in-app model concept, and ensure the tests fail before the implementation change.
 
 ### Task 2: Fix provider-specific model state and session updates
 - [ ] Update provider switching logic so moving to `codex-cli` clears or ignores any Ollama-only UI model state instead of carrying `currentModel` forward into the header.

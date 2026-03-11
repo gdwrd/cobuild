@@ -280,6 +280,27 @@ describe('AppShell two-row header layout', () => {
     });
     expect(output).toContain('abcdef12');
   });
+
+  it('does not render model name when provider is codex-cli even if model prop is set', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, provider: 'codex-cli', model: 'llama3' },
+    });
+    expect(output).not.toContain('llama3');
+  });
+
+  it('does not render slash-model syntax when provider is codex-cli', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, provider: 'codex-cli', model: 'mistral' },
+    });
+    expect(output).not.toContain('/mistral');
+  });
+
+  it('renders model name for ollama provider', () => {
+    const output = renderShellText({
+      statusBar: { ...sampleStatusBar, provider: 'ollama', model: 'llama3' },
+    });
+    expect(output).toContain('llama3');
+  });
 });
 
 describe('AppShell notice and error placement', () => {

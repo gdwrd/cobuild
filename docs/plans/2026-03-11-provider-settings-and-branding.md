@@ -24,10 +24,10 @@
 - [x] Add unit tests for settings persistence, invalid file recovery, default value behavior, and path handling using the same temp-home patterns already used for session/bootstrap tests.
 
 ### Task 4: Wire global settings into new-session startup and provider/model workflows
-- [ ] Update CLI startup/config resolution so a new session uses global defaults when present, while an explicitly passed `--provider` flag still wins and resumed sessions still use their saved session provider.
-- [ ] Extend Ollama model bootstrap so a new Ollama session prefers the globally configured default model before falling back to first-installed-model resolution, while still handling missing-model and zero-model cases gracefully.
-- [ ] Decide how users set and update global defaults from the existing interaction model, then implement the minimum coherent workflow in slash commands and/or startup behavior without breaking current `/model` and `/provider` semantics.
-- [ ] Add tests in CLI, provider, interview-command, and ScreenController suites that cover new sessions with saved defaults, explicit CLI overrides, missing configured models, and `codex-cli` defaults with no model shown in UI.
+- [x] Update CLI startup/config resolution so a new session uses global defaults when present, while an explicitly passed `--provider` flag still wins and resumed sessions still use their saved session provider.
+- [x] Extend Ollama model bootstrap so a new Ollama session prefers the globally configured default model before falling back to first-installed-model resolution, while still handling missing-model and zero-model cases gracefully.
+- [x] Decide how users set and update global defaults from the existing interaction model, then implement the minimum coherent workflow in slash commands and/or startup behavior without breaking current `/model` and `/provider` semantics.
+- [x] Add tests in CLI, provider, interview-command, and ScreenController suites that cover new sessions with saved defaults, explicit CLI overrides, missing configured models, and `codex-cli` defaults with no model shown in UI.
 
 ### Task 5: Add branded ASCII logo support to the interview screen
 - [ ] Design a large ASCII `cobuild` logo with a tool/wrench motif that fits typical terminal widths, remains readable in plain text, and preserves the repo’s current Ink rendering style.

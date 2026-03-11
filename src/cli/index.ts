@@ -52,11 +52,13 @@ per-screen keybinding hints. Use ctrl+c to quit at any point.
   )
   .action(async (opts: { newSession?: boolean; verbose?: boolean; provider: string }) => {
     const provider = opts.provider as 'ollama' | 'codex-cli';
+    const providerExplicit = program.getOptionValueSource('provider') === 'cli';
     const config = createConfig({
       version,
       newSession: opts.newSession ?? false,
       verbose: opts.verbose ?? false,
       provider,
+      providerExplicit,
     });
 
     const { channel: startupProgressChannel, onProgress } = createStartupProgressChannel();

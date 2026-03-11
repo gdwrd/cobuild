@@ -31,9 +31,14 @@ vi.mock('../../logging/logger.js', () => ({
   getLogger: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), log: vi.fn() }),
 }));
 
+vi.mock('../../settings/settings.js', () => ({
+  loadSettings: vi.fn(() => ({ schemaVersion: 1 })),
+}));
+
 import { checkTTY, checkProviderReadiness } from '../../validation/env.js';
 import { bootstrapDirectories } from '../../fs/bootstrap.js';
 import { createAndSaveSession, findLatestByWorkingDirectory } from '../../session/session.js';
+import { loadSettings } from '../../settings/settings.js';
 
 const mockNewSession = {
   id: 'mock-session-id',
@@ -55,12 +60,13 @@ describe('runStartup', () => {
       cobuildDir: '/home/testuser/.cobuild',
       message: 'directories ready: /home/testuser/.cobuild',
     });
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1 });
     vi.mocked(createAndSaveSession).mockReturnValue(mockNewSession);
     vi.mocked(findLatestByWorkingDirectory).mockReturnValue(null);
   });
 
   it('returns success when validations pass and no existing session', async () => {
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.message).toBeTruthy();
     expect(result.sessionId).toBe('mock-session-id');
@@ -68,12 +74,12 @@ describe('runStartup', () => {
   });
 
   it('calls checkProviderReadiness with ollama for a new ollama session', async () => {
-    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('ollama');
   });
 
   it('calls checkProviderReadiness with codex-cli for a new codex-cli session', async () => {
-    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const });
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const, providerExplicit: true });
     expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('codex-cli');
   });
 
@@ -87,7 +93,7 @@ describe('runStartup', () => {
       transcript: [],
       provider: 'ollama' as const,
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('existing-session-id');
     expect(result.sessionResolution).toBe('resumed');
@@ -105,7 +111,7 @@ describe('runStartup', () => {
       provider: 'codex-cli' as const,
     });
     // config says ollama but the session says codex-cli — must use codex-cli
-    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('codex-cli');
   });
 
@@ -119,7 +125,7 @@ describe('runStartup', () => {
       transcript: [],
       provider: 'codex-cli' as const,
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('codex-session-id');
     expect(result.sessionResolution).toBe('resumed');
@@ -135,7 +141,7 @@ describe('runStartup', () => {
       transcript: [],
       // no provider field — legacy session
     });
-    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(vi.mocked(checkProviderReadiness)).toHaveBeenCalledWith('ollama');
   });
 
@@ -149,7 +155,7 @@ describe('runStartup', () => {
       transcript: [],
       provider: 'ollama' as const,
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('mock-session-id');
     expect(result.sessionResolution).toBe('new');
@@ -165,7 +171,7 @@ describe('runStartup', () => {
       transcript: [],
       provider: 'ollama' as const,
     });
-    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.sessionId).toBe('mock-session-id');
     expect(result.sessionResolution).toBe('new');
@@ -173,12 +179,12 @@ describe('runStartup', () => {
   });
 
   it('returns success with newSession=true', async () => {
-    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: true, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
   });
 
   it('returns success with verbose=true', async () => {
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: true, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: true, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
   });
 
@@ -187,7 +193,7 @@ describe('runStartup', () => {
       ok: false,
       message: 'cobuild requires an interactive terminal.',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/interactive terminal/i);
   });
@@ -197,7 +203,7 @@ describe('runStartup', () => {
       ok: false,
       message: 'Ollama is not reachable at http://localhost:11434 (connection refused).',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.startupNotice).toMatch(/not reachable/i);
     expect(result.providerStatuses).toEqual([
@@ -213,7 +219,7 @@ describe('runStartup', () => {
         ok: false,
         message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
       });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.startupNotice).toMatch(/Active provider codex-cli is not available yet/i);
   });
@@ -232,7 +238,7 @@ describe('runStartup', () => {
       ok: false,
       message: 'codex CLI is not available (codex binary not found on PATH). Install Codex CLI and ensure it is on your PATH.',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(true);
     expect(result.startupNotice).toMatch(/codex CLI is not available/i);
   });
@@ -243,7 +249,7 @@ describe('runStartup', () => {
       cobuildDir: '/home/testuser/.cobuild',
       message: 'failed to create directories: permission denied',
     });
-    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/permission denied/i);
   });
@@ -257,7 +263,7 @@ describe('runStartup', () => {
       steps.splice(0, steps.length, ...s);
     });
     const result = await runStartup(
-      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true },
       onProgress,
     );
     expect(result.success).toBe(true);
@@ -274,7 +280,7 @@ describe('runStartup', () => {
       steps.splice(0, steps.length, ...s);
     });
     await runStartup(
-      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true },
       onProgress,
     );
     const providerStep = steps.find((s) => s.id === 'provider');
@@ -287,7 +293,7 @@ describe('runStartup', () => {
       steps.splice(0, steps.length, ...s);
     });
     await runStartup(
-      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true },
       onProgress,
     );
     const sessionStep = steps.find((s) => s.id === 'session');
@@ -310,7 +316,7 @@ describe('runStartup', () => {
       steps.splice(0, steps.length, ...s);
     });
     await runStartup(
-      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true },
       onProgress,
     );
     const sessionStep = steps.find((s) => s.id === 'session');
@@ -334,10 +340,58 @@ describe('runStartup', () => {
       steps.splice(0, steps.length, ...s);
     });
     await runStartup(
-      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const },
+      { newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true },
       onProgress,
     );
     const sessionStep = steps.find((s) => s.id === 'session');
     expect(sessionStep?.detail).toBe('resumed · dev plan generation');
+  });
+
+  it('uses global settings defaultProvider for new session when --provider is not explicit', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'codex-cli' });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: false });
+    expect(result.success).toBe(true);
+    expect(result.activeProvider).toBe('codex-cli');
+    expect(vi.mocked(createAndSaveSession)).toHaveBeenCalledWith('codex-cli');
+  });
+
+  it('explicit --provider overrides global settings defaultProvider', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'codex-cli' });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: true });
+    expect(result.success).toBe(true);
+    expect(result.activeProvider).toBe('ollama');
+    expect(vi.mocked(createAndSaveSession)).toHaveBeenCalledWith('ollama');
+  });
+
+  it('resumed session provider overrides global settings defaultProvider', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'codex-cli' });
+    vi.mocked(findLatestByWorkingDirectory).mockReturnValue({
+      id: 'ollama-session-id',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      workingDirectory: process.cwd(),
+      completed: false,
+      transcript: [],
+      provider: 'ollama' as const,
+    });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: false });
+    expect(result.success).toBe(true);
+    expect(result.activeProvider).toBe('ollama');
+    expect(vi.mocked(createAndSaveSession)).not.toHaveBeenCalled();
+  });
+
+  it('falls back to ollama when no global settings and no explicit provider', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1 });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: false });
+    expect(result.success).toBe(true);
+    expect(result.activeProvider).toBe('ollama');
+    expect(vi.mocked(createAndSaveSession)).toHaveBeenCalledWith('ollama');
+  });
+
+  it('returns globalSettings in the result', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'codex-cli', defaultOllamaModel: 'llama3' });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: false });
+    expect(result.success).toBe(true);
+    expect(result.globalSettings).toEqual({ schemaVersion: 1, defaultProvider: 'codex-cli', defaultOllamaModel: 'llama3' });
   });
 });

@@ -105,8 +105,10 @@ export async function runStartup(
   }
 
   // Determine effective provider before running the readiness check.
-  // For resumed sessions the provider is taken from the saved session, not from config.
-  let effectiveProvider: ProviderName = config.provider;
+  // Priority: resumed session provider > explicit --provider flag > global settings default > 'ollama'.
+  let effectiveProvider: ProviderName = config.providerExplicit
+    ? config.provider
+    : (globalSettings.defaultProvider ?? config.provider);
   let existingSession: ReturnType<typeof findLatestByWorkingDirectory> = null;
 
   if (!config.newSession) {
@@ -164,10 +166,10 @@ export async function runStartup(
   try {
     if (config.newSession) {
       logger.info('--new-session flag set, forcing new session');
-      const session = createAndSaveSession(config.provider);
+      const session = createAndSaveSession(effectiveProvider);
       sessionId = session.id;
       sessionResolution = 'new';
-      logger.info(`new session created: ${session.id} (provider=${config.provider})`);
+      logger.info(`new session created: ${session.id} (provider=${effectiveProvider})`);
     } else {
       if (isResumeable(existingSession) && existingSession) {
         logger.info(
@@ -182,10 +184,10 @@ export async function runStartup(
         } else {
           logger.info('no existing session found for working directory, starting new session');
         }
-        const session = createAndSaveSession(config.provider);
+        const session = createAndSaveSession(effectiveProvider);
         sessionId = session.id;
         sessionResolution = 'new';
-        logger.info(`new session created: ${session.id} (provider=${config.provider})`);
+        logger.info(`new session created: ${session.id} (provider=${effectiveProvider})`);
       }
     }
     logger.info(`active session: ${sessionId} (${sessionResolution}, provider=${effectiveProvider})`);

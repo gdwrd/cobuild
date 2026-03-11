@@ -1086,3 +1086,92 @@ describe('ScreenController provider-aware model display', () => {
     unmount();
   });
 });
+
+describe('ScreenController global settings model hint', () => {
+  const baseSession = {
+    id: 'abc-123',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    workingDirectory: '/tmp',
+    completed: false,
+    stage: 'interview' as const,
+    provider: 'ollama' as const,
+    transcript: [],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockAppShell.mockImplementation(({ children }: { children?: React.ReactNode }) => children ?? null);
+    vi.mocked(createProvider).mockReturnValue({
+      generate: vi.fn<() => Promise<string>>(),
+      listModels: vi.fn(),
+    } as unknown as ReturnType<typeof createProvider>);
+    vi.mocked(supportsModelListing).mockReturnValue(true);
+    vi.mocked(loadSession).mockReturnValue({ ...baseSession, model: undefined });
+    vi.mocked(saveSession).mockImplementation(() => {});
+    vi.mocked(runInterviewLoop).mockReturnValue(new Promise(() => {}));
+    vi.mocked(resolveOllamaModel).mockResolvedValue({ resolvedModel: 'llama3', noModelsInstalled: false });
+  });
+
+  it('passes global settings defaultOllamaModel as hint when session has no model', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          globalSettings: { schemaVersion: 1, defaultOllamaModel: 'mistral' },
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(resolveOllamaModel).toHaveBeenCalledWith('mistral', expect.any(Function));
+    unmount();
+  });
+
+  it('saved session model takes precedence over global settings default', async () => {
+    vi.mocked(loadSession).mockReturnValue({ ...baseSession, model: 'codellama' });
+
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          globalSettings: { schemaVersion: 1, defaultOllamaModel: 'mistral' },
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(resolveOllamaModel).toHaveBeenCalledWith('codellama', expect.any(Function));
+    unmount();
+  });
+
+  it('passes undefined hint when no session model and no global default', async () => {
+    const stream = new PassThrough();
+    const { unmount } = render(
+      React.createElement(ScreenController, {
+        startupPromise: Promise.resolve({
+          success: true,
+          message: 'ok',
+          sessionId: 'abc-123',
+          globalSettings: { schemaVersion: 1 },
+        }),
+        version: '0.1.0',
+      }),
+      { stdout: stream as unknown as NodeJS.WriteStream },
+    );
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(resolveOllamaModel).toHaveBeenCalledWith(undefined, expect.any(Function));
+    unmount();
+  });
+});

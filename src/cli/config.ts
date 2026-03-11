@@ -7,6 +7,8 @@ export interface RuntimeConfig {
   version: string;
   verbose: boolean;
   provider: ProviderName;
+  /** True when --provider was explicitly passed on the CLI; false when using a default or global setting. */
+  providerExplicit: boolean;
 }
 
 export function createConfig(opts: Partial<RuntimeConfig> & { version: string }): RuntimeConfig {
@@ -15,5 +17,6 @@ export function createConfig(opts: Partial<RuntimeConfig> & { version: string })
     version: opts.version,
     verbose: opts.verbose ?? false,
     provider: opts.provider ?? 'ollama',
+    providerExplicit: opts.providerExplicit ?? false,
   };
 }

@@ -8,7 +8,13 @@ vi.mock('../../logging/logger.js', () => ({
   getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
+vi.mock('../../settings/settings.js', () => ({
+  loadSettings: vi.fn(() => ({ schemaVersion: 1 })),
+  saveSettings: vi.fn(),
+}));
+
 import { saveSession } from '../../session/session.js';
+import { loadSettings, saveSettings } from '../../settings/settings.js';
 import {
   createProviderHandler,
   PROVIDER_MESSAGE,
@@ -46,6 +52,7 @@ const makeOptions = (
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1 });
 });
 
 describe('createProviderHandler (Ollama)', () => {
@@ -196,5 +203,56 @@ describe('createProviderHandler (Codex CLI)', () => {
 
     expect(result.message).toContain('Availability: unavailable');
     expect(result.message).toContain('codex binary not found');
+  });
+});
+
+describe('createProviderHandler global settings persistence', () => {
+  it('saves defaultProvider to global settings when switching providers', async () => {
+    const options = makeOptions(makeSession());
+    const handler = createProviderHandler(options);
+
+    await handler(['codex-cli']);
+
+    expect(saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultProvider: 'codex-cli' }),
+    );
+  });
+
+  it('does not save global settings when provider is unchanged', async () => {
+    const options = makeOptions(makeSession({ provider: 'ollama' }));
+    const handler = createProviderHandler(options);
+
+    await handler(['ollama']);
+
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('does not save global settings when no provider arg is given', async () => {
+    const options = makeOptions(makeSession());
+    const handler = createProviderHandler(options);
+
+    await handler([]);
+
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('preserves existing settings fields when saving defaultProvider', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultOllamaModel: 'llama3' });
+    const options = makeOptions(makeSession());
+    const handler = createProviderHandler(options);
+
+    await handler(['codex-cli']);
+
+    expect(saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultOllamaModel: 'llama3', defaultProvider: 'codex-cli' }),
+    );
+  });
+
+  it('does not throw when saveSettings fails', async () => {
+    vi.mocked(saveSettings).mockImplementationOnce(() => { throw new Error('disk full'); });
+    const options = makeOptions(makeSession());
+    const handler = createProviderHandler(options);
+
+    await expect(handler(['codex-cli'])).resolves.toBeDefined();
   });
 });

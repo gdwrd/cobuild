@@ -8,7 +8,13 @@ vi.mock('../../session/session.js', () => ({
   saveSession: vi.fn(),
 }));
 
+vi.mock('../../settings/settings.js', () => ({
+  loadSettings: vi.fn(() => ({ schemaVersion: 1 })),
+  saveSettings: vi.fn(),
+}));
+
 import { saveSession } from '../../session/session.js';
+import { loadSettings, saveSettings } from '../../settings/settings.js';
 import { createModelHandler, MODEL_NOT_SUPPORTED_MESSAGE } from '../model-command.js';
 import type { ModelHandlerOptions, ModelLister } from '../model-command.js';
 import type { Session } from '../../session/session.js';
@@ -48,6 +54,7 @@ const makeOptions = (
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(saveSession).mockImplementation(() => {});
+  vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1 });
 });
 
 describe('createModelHandler', () => {
@@ -323,5 +330,84 @@ describe('createModelHandler with supportsModelListing=false', () => {
     const result = await handler([]);
 
     expect(result.message).toContain('Codex');
+  });
+});
+
+describe('createModelHandler global settings persistence', () => {
+  it('saves defaultOllamaModel to global settings when model is selected via list', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3', 'mistral']);
+    const options = makeOptions(session, lister, {
+      onSelectModel: vi.fn(async () => 'mistral'),
+    });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultOllamaModel: 'mistral' }),
+    );
+  });
+
+  it('saves defaultOllamaModel to global settings when model is set manually', async () => {
+    const session = makeSession();
+    const lister = makeLister([]);
+    const options = makeOptions(session, lister);
+    const handler = createModelHandler(options);
+
+    await handler(['llama3.2']);
+
+    expect(saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultOllamaModel: 'llama3.2' }),
+    );
+  });
+
+  it('does not save global settings when user cancels model selection', async () => {
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, { onSelectModel: vi.fn(async () => null) });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('preserves existing settings fields when saving defaultOllamaModel', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'ollama' });
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, { onSelectModel: vi.fn(async () => 'llama3') });
+    const handler = createModelHandler(options);
+
+    await handler([]);
+
+    expect(saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultProvider: 'ollama', defaultOllamaModel: 'llama3' }),
+    );
+  });
+
+  it('does not throw when saveSettings fails during model selection', async () => {
+    vi.mocked(saveSettings).mockImplementationOnce(() => { throw new Error('disk full'); });
+    const session = makeSession();
+    const lister = makeLister(['llama3']);
+    const options = makeOptions(session, lister, { onSelectModel: vi.fn(async () => 'llama3') });
+    const handler = createModelHandler(options);
+
+    await expect(handler([])).resolves.toBeDefined();
+  });
+
+  it('does not save global settings when supportsModelListing is false', async () => {
+    const session = makeSession();
+    const handler = createModelHandler({
+      getSession: () => session,
+      onSessionUpdate: vi.fn(),
+      onSelectModel: vi.fn(async () => null),
+      supportsModelListing: false,
+    });
+
+    await handler([]);
+
+    expect(saveSettings).not.toHaveBeenCalled();
   });
 });

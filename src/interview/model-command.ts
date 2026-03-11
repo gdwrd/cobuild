@@ -1,6 +1,7 @@
 import { Session, saveSession } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import type { CommandHandler, CommandResult } from './commands.js';
+import { loadSettings, saveSettings } from '../settings/settings.js';
 
 export interface ModelLister {
   listModels(): Promise<string[]>;
@@ -40,6 +41,12 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
       };
       saveSession(updatedSession);
       onSessionUpdate(updatedSession);
+      try {
+        saveSettings({ ...loadSettings(), defaultOllamaModel: requestedModel });
+        logger.info(`/model: saved defaultOllamaModel="${requestedModel}" to global settings`);
+      } catch (err) {
+        logger.warn(`/model: failed to save global settings: ${String(err)}`);
+      }
       return {
         handled: true,
         continueInterview: true,
@@ -90,6 +97,12 @@ export function createModelHandler(options: ModelHandlerOptions): CommandHandler
     };
     saveSession(updatedSession);
     onSessionUpdate(updatedSession);
+    try {
+      saveSettings({ ...loadSettings(), defaultOllamaModel: selected });
+      logger.info(`/model: saved defaultOllamaModel="${selected}" to global settings`);
+    } catch (err) {
+      logger.warn(`/model: failed to save global settings: ${String(err)}`);
+    }
 
     logger.info(`/model: persisted model "${selected}" in session ${updatedSession.id}`);
 

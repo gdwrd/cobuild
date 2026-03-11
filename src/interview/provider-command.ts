@@ -3,6 +3,7 @@ import { saveSession, type Session } from '../session/session.js';
 import { getLogger } from '../logging/logger.js';
 import type { ProviderName } from '../session/session.js';
 import type { CommandHandler, CommandResult } from './commands.js';
+import { loadSettings, saveSettings } from '../settings/settings.js';
 
 export const OLLAMA_PROVIDER_MESSAGE =
   'Provider: Ollama. To change models, use /model.';
@@ -92,6 +93,12 @@ export function createProviderHandler(options: ProviderName | ProviderHandlerOpt
     saveSession(updatedSession);
     normalized.onSessionUpdate(updatedSession);
     logger.info(`/provider: switched active provider to ${requestedProvider}`);
+    try {
+      saveSettings({ ...loadSettings(), defaultProvider: requestedProvider });
+      logger.info(`/provider: saved defaultProvider=${requestedProvider} to global settings`);
+    } catch (err) {
+      logger.warn(`/provider: failed to save global settings: ${String(err)}`);
+    }
 
     const readiness = normalized.checkReadiness
       ? await normalized.checkReadiness(requestedProvider)

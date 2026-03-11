@@ -32,6 +32,7 @@ import { runPostSpecWorkflow } from '../artifacts/workflow-controller.js';
 import { runDevPlanLoop } from '../artifacts/dev-plan-loop.js';
 import { getLogger } from '../logging/logger.js';
 import { checkProviderReadiness } from '../validation/env.js';
+import type { GlobalSettings } from '../settings/settings.js';
 import type { Screen, SessionStage, StatusHeaderData, FooterHelpData, FlowWrapperState, FlowLifecyclePhase, ExecutionUserAction } from './types.js';
 import { applyExecutionEvent, INITIAL_EXECUTION_STATE } from './types.js';
 import { ExecutionConsole } from './ExecutionConsole.js';
@@ -143,6 +144,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
   // Monotonically increasing counter used to detect and discard stale Ollama model resolutions
   // that complete after a newer resolution has already started.
   const ollamaResolutionGenRef = useRef(0);
+  const globalSettingsRef = useRef<GlobalSettings | undefined>(undefined);
 
   // Subscribe to staged startup progress events
   useEffect(() => {
@@ -169,6 +171,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     startupPromise
       .then(result => {
         if (result.success) {
+          globalSettingsRef.current = result.globalSettings;
           setSessionId(result.sessionId ?? '');
           setSessionStage(result.sessionStage ?? 'interview');
           setNoticeMessage(result.startupNotice ?? null);
@@ -425,8 +428,10 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         const ollamaProvider = providerRef.current as { listModels(): Promise<string[]> };
         // Snapshot the generation counter so we can detect explicit /model changes during resolution.
         const resolutionGen = ollamaResolutionGenRef.current;
+        // Prefer: saved session model > global settings default > first available model
+        const modelHint = currentModelRef.current ?? globalSettingsRef.current?.defaultOllamaModel;
         const resolution = await resolveOllamaModel(
-          currentModelRef.current,
+          modelHint,
           () => ollamaProvider.listModels(),
         );
 

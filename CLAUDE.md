@@ -68,11 +68,16 @@ src/
                  GenerationScreen.tsx (multi-stage generation workflow stepper),
                  YesNoPrompt.tsx (yes/no decision prompt for post-spec workflow),
                  ModelSelectPrompt.tsx (model selection shown when /model returns a list),
+                 InterviewLogo.tsx (branded ASCII art logo shown on welcome/empty-transcript state;
+                 exports LOGO_LINES, LOGO_TAGLINE, InterviewLogo component),
                  ExecutionConsole.tsx (dormant execution output pane for future ralphex runner),
                  FlowWrapper.tsx (lifecycle chrome for generation and future execution flows),
                  types.ts (shared UI state contracts: Screen, SessionStage, StatusHeaderData,
                  FooterHelpData, SharedUIState, StageProgressData, ExecutionState, ExecutionEvent,
                  applyExecutionEvent, INITIAL_EXECUTION_STATE, FlowWrapperState, RalphexRunMetadata)
+  settings/    — Global user settings: settings.ts (GlobalSettings interface, CURRENT_SETTINGS_VERSION=1,
+                 getSettingsFilePath, defaultSettings, loadSettings, saveSettings; atomic writes via
+                 .tmp+rename; migration-friendly schema with best-effort field mapping for unknown versions)
   utils/       — Cross-platform path helpers (paths.ts)
   validation/  — TTY detection and provider readiness checks (env.ts): checkTTY, checkOllama,
                  checkCodexCli (synchronous spawnSync probe of `codex --version`),
@@ -94,6 +99,10 @@ src/
 - **Post-spec workflow**: After `SpecGenerator` succeeds, `runPostSpecWorkflow` (in `src/artifacts/workflow-controller.ts`) is called with an `onDecision` callback. There are three sequential decision points: architecture → plan → dev plans. Each decision transitions the screen to `'yesno'`, where `YesNoPrompt` resolves the pending `Promise<boolean>` via `yesNoResolverRef`. If the user declines at architecture or plan, `terminatedAt` is set (`'architecture-decision'` or `'plan-decision'`) and the app shows a success state. If the user declines dev plans, `terminatedAt: 'dev-plans-decision'` is returned and the app exits. If the user accepts dev plans, `runPostSpecWorkflow` returns without `terminatedAt` and `ScreenController` calls `runDevPlanLoop` directly to execute sequential phase generation.
 - **Dev plan loop**: `runDevPlanLoop` (in `src/artifacts/dev-plan-loop.ts`) iterates through `PlanPhase` objects sequentially, calling `DevPlanGenerator` for each phase and passing all previously generated plan content as context. Each phase's output is written to `docs/plans/YYYY-MM-DD-phase-<number>-<title>.md` via `writeDevPlanFile`. On resume, already-completed phases (found in `session.devPlanArtifacts`) are skipped and their `onPhaseComplete` callbacks are replayed to restore UI state. If `DevPlanGenerator` throws `RetryExhaustedError`, the loop calls `persistDevPlanHalt`, fires the optional `onHalt` callback, and breaks without completing remaining phases. `completeDevPlanStage` is only called when all phases complete without halting.
 - **Session resolution**: `runStartup` in `app-shell.ts` calls `findLatestByWorkingDirectory` to find an incomplete session for the current working directory. If found, it sets `sessionResolution: 'resumed'`; otherwise creates a new session. The `--new-session` flag bypasses lookup. `StartupResult` includes `sessionStage` for the resumed session's current stage. When `sessionStage` is `'dev-plans'`, `ScreenController` skips the interview entirely and fires a dedicated `useEffect` that populates completed stages from existing session artifacts, sets the screen to `'generating'`, and calls `runDevPlanLoop` to continue from the first incomplete phase.
+- **Global settings**: `loadSettings()` in `src/settings/settings.ts` reads `~/.cobuild/settings.json`. It returns `defaultSettings()` on ENOENT, parse errors, or unexpected data shape. `saveSettings()` writes atomically via `.pid.tmp` + rename with mode `0o600`. The schema is versioned at `CURRENT_SETTINGS_VERSION = 1`. Fields: `defaultProvider` (must be a valid `ProviderName`) and `defaultOllamaModel` (non-empty string). `migrateSettings()` silently discards invalid field values, logs upgrades, and warns on newer-than-supported schema versions. Tests must mock `../../logging/logger.js` and write to a temp home directory.
+- **Global settings precedence**: For new sessions, `runStartup` applies global settings after loading: if `settings.defaultProvider` is set and no `--provider` flag was passed, the default provider is used; if `settings.defaultOllamaModel` is set, it seeds the initial model for Ollama sessions. Resumed sessions always use their saved session provider and model, ignoring both CLI flags and global settings.
+- **Provider-aware model display in header**: `StatusHeaderData.model` is set to `undefined` for `codex-cli` sessions so `AppShell` never renders a model name for Codex CLI. This invariant is enforced at the point where `StatusHeaderData` is constructed in `ScreenController.tsx`. Ollama sessions always show the resolved model. The rule holds across new sessions, resumed sessions, mid-interview `/provider` switches, and dev-plan resume paths.
+- **InterviewLogo component**: `src/ui/InterviewLogo.tsx` exports `LOGO_LINES` (4-line ASCII art array), `LOGO_TAGLINE` (gear-decorated tagline), and the `InterviewLogo` React component. It is mounted in `App.tsx` only when the transcript is empty (welcome state) so it disappears once the conversation starts. It is not rendered on any other screen (startup, generation, restore, yes/no, error).
 
 ## Toolchain
 
@@ -112,6 +121,7 @@ src/
 - Log level default is `'debug'` (all messages written). Minimum level can be set via `new Logger(path, minLevel)`.
 - Log files are daily: `~/.cobuild/logs/cobuild-YYYY-MM-DD.log`.
 - Session files are UUID-named JSON: `~/.cobuild/sessions/<uuid>.json`.
+- Global settings file: `~/.cobuild/settings.json` (schema version 1; created by `saveSettings`, absent by default).
 
 ## Testing Conventions
 

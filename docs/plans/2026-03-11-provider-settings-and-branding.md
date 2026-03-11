@@ -41,9 +41,9 @@
 - [x] Ensure the new logo component does not break existing transcript/input rendering tests, especially those that depend on visible interview content order.
 
 ### Task 7: Update documentation and operational notes
-- [ ] Update `README.md` to document global settings behavior, the precedence order between CLI flags, global defaults, and resumed sessions, and the provider-specific model display rules.
-- [ ] Document any new settings file path and schema in `README.md` and `CLAUDE.md`, including how default provider/model values affect new sessions.
-- [ ] Refresh any UI or usage docs that describe the interview screen so they mention the branded ASCII logo and keep screenshots/examples textually accurate.
+- [x] Update `README.md` to document global settings behavior, the precedence order between CLI flags, global defaults, and resumed sessions, and the provider-specific model display rules.
+- [x] Document any new settings file path and schema in `README.md` and `CLAUDE.md`, including how default provider/model values affect new sessions.
+- [x] Refresh any UI or usage docs that describe the interview screen so they mention the branded ASCII logo and keep screenshots/examples textually accurate.
 
 ### Task 8: Run end-to-end verification across the three requested changes
 - [ ] Run `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck` after implementation and fix any regressions introduced by the settings and UI changes.

@@ -106,11 +106,12 @@ cobuild -v                      # Print version
 On startup, `cobuild` runs a staged startup sequence displayed in the terminal:
 
 1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
-2. Verifies that stdin is attached to a TTY.
-3. Checks readiness for all known providers in parallel:
+2. Loads global settings from `~/.cobuild/settings.json` (if present).
+3. Verifies that stdin is attached to a TTY.
+4. Checks readiness for all known providers in parallel:
    - Ollama: verifies Ollama responds at `http://localhost:11434/api/tags`
    - Codex CLI: verifies the `codex` binary is available on your `PATH`
-4. Resolves the active session for the current working directory.
+5. Resolves the active session for the current working directory. For new sessions, applies global settings defaults for provider and model before falling back to built-in defaults.
 
 Each step appears as it completes in the startup screen. If a resumed session is found, an interstitial screen shows the session's stage, provider, model, and any resumable dev-plan progress before continuing.
 
@@ -147,6 +148,18 @@ Per-screen footers:
 The generation screen uses a workflow stepper that shows each stage (`spec`, `architecture`, `plan`, `dev-plan`) with its status: completed (with file path), active, pending, or skipped. Phase counts, retry state, and stop reasons are shown inline. On success the stepper freezes in its final state and waits for any key press before exiting — it does not auto-exit after a timeout.
 
 ## Interview Experience
+
+When you first launch `cobuild` and the interview has not yet started, a branded ASCII art logo is displayed above the input area:
+
+```
+  ___  ___  ___  _   _ ___ _    ___
+ / __|/ _ \| _ )| | | |_ _|| |  |   \
+| (__ | (_) | _ \| |_| || | | |__| |) |
+ \___| \___/|___/ \___/|___||____|___/
+    ⚙  build software with AI  ⚙
+```
+
+The logo is shown only when the transcript is empty. Once you type your first message, the logo is hidden to keep the screen clear for the conversation.
 
 The interview is driven by a system prompt that instructs the model to:
 
@@ -341,11 +354,57 @@ Behavior on failure:
   - Any other key to exit
 - If retries are exhausted during per-phase dev-plan generation, the session is marked halted and can be resumed later by running `cobuild` again in the same directory.
 
+## Global Settings
+
+`cobuild` stores persistent user preferences in a global settings file:
+
+```txt
+~/.cobuild/settings.json
+```
+
+The settings file is created automatically once you write any default via a future `/settings` workflow. Until then, the file is absent and all values fall back to their defaults. You can create or edit it manually — `cobuild` validates the file on load and silently falls back to defaults on any parse error or unknown schema version.
+
+### Settings Schema
+
+```json
+{
+  "schemaVersion": 1,
+  "defaultProvider": "ollama",
+  "defaultOllamaModel": "llama3.2"
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `schemaVersion` | number | — | Internal version for migration. Currently `1`. |
+| `defaultProvider` | `"ollama"` or `"codex-cli"` | `"ollama"` | Provider used when starting a new session with no `--provider` flag. |
+| `defaultOllamaModel` | string | none | Ollama model name preferred when starting a new Ollama session. Falls back to the first installed model if this model is not available. |
+
+### Precedence Order
+
+When resolving the provider and model for a new session:
+
+1. `--provider` CLI flag (explicit, always wins for new sessions)
+2. Global settings defaults (`defaultProvider`, `defaultOllamaModel`)
+3. Built-in defaults (`ollama` provider, first installed model)
+
+Resumed sessions always use the provider and model saved in the session file, regardless of CLI flags or global settings. To switch providers on a resumed session, use `/provider <name>` during the interview.
+
+### Provider-Specific Model Display
+
+The status bar header only shows a model name when the active provider supports in-app model selection:
+
+- **Ollama sessions**: the active model is shown in the header and updated whenever you use `/model`.
+- **Codex CLI sessions**: no model appears in the header. Model selection for Codex CLI is managed externally in Codex itself.
+
+This rule applies consistently across new sessions, resumed sessions, and mid-interview provider switches.
+
 ## Local Storage Layout
 
 | Path | Purpose |
 | --- | --- |
 | `~/.cobuild/` | Application home directory |
+| `~/.cobuild/settings.json` | Global user settings (default provider, default model) |
 | `~/.cobuild/sessions/` | Session JSON files |
 | `~/.cobuild/logs/` | Daily log files |
 | `<project>/docs/` | Generated spec, architecture, and high-level plan |
@@ -455,7 +514,8 @@ npm run integration-test  # Build, then run the end-to-end verification script
 | Path | Purpose |
 | --- | --- |
 | `src/cli/` | CLI entrypoint, config, and startup orchestration |
-| `src/ui/` | Ink UI: `AppShell` (shared chrome), `ScreenController` (screen router), `StartupScreen`, `ErrorScreen`, `RestoredSession`, `App` (interview with bounded transcript viewport and cursor-aware input), `ModelSelectPrompt` (keyboard-driven model picker), `YesNoPrompt`, `GenerationScreen` (workflow stepper with stable completion state), `ExecutionConsole` (execution output pane with scrollback, validation summaries, and action prompts; wired but awaiting a ralphex runner), `FlowWrapper` (lifecycle chrome shared by generation and execution flows), and `types.ts` (shared UI state contracts including `ExecutionState` and `applyExecutionEvent` reducer) |
+| `src/ui/` | Ink UI: `AppShell` (shared chrome), `ScreenController` (screen router), `StartupScreen`, `ErrorScreen`, `RestoredSession`, `App` (interview with bounded transcript viewport and cursor-aware input), `InterviewLogo` (branded ASCII art logo shown on the welcome/empty-transcript state), `ModelSelectPrompt` (keyboard-driven model picker), `YesNoPrompt`, `GenerationScreen` (workflow stepper with stable completion state), `ExecutionConsole` (execution output pane with scrollback, validation summaries, and action prompts; wired but awaiting a ralphex runner), `FlowWrapper` (lifecycle chrome shared by generation and execution flows), and `types.ts` (shared UI state contracts including `ExecutionState` and `applyExecutionEvent` reducer) |
+| `src/settings/` | Global settings module: `settings.ts` (schema, atomic load/save, migration) |
 | `src/interview/` | Interview loop, prompts, slash commands, and retry logic |
 | `src/providers/` | Model provider implementations |
 | `src/artifacts/` | Artifact prompts, generators, validators, file output, and dev-plan workflow |

@@ -183,7 +183,8 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
             if (result.sessionId) {
               const s = loadSession(result.sessionId);
               if (s) {
-                setCurrentModel(s.model ?? undefined);
+                const resumeProvider = s.provider ?? 'ollama';
+                setCurrentModel(resumeProvider === 'codex-cli' ? undefined : (s.model ?? undefined));
                 if (resumeStage === 'dev-plans') {
                   const completed = s.completedPhaseCount ?? (s.devPlanArtifacts?.length ?? 0);
                   const total = s.extractedPhases?.length ?? 0;
@@ -234,9 +235,9 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     currentSessionRef.current = session;
     setTranscript(session.transcript);
 
-    const model = session.model ?? undefined;
-    currentModelRef.current = model;
     const activeProvider = session.provider ?? 'ollama';
+    const model = activeProvider === 'codex-cli' ? undefined : (session.model ?? undefined);
+    currentModelRef.current = model;
     setCurrentProvider(activeProvider);
     setCurrentModel(model);
     getLogger().info(`screen: initializing provider=${activeProvider} model=${model ?? 'none'} (session ${session.id})`);
@@ -277,7 +278,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     const onSessionUpdate = (updated: Session): void => {
       currentSessionRef.current = updated;
       const updatedProvider = updated.provider ?? 'ollama';
-      const updatedModel = updated.model ?? currentModelRef.current;
+      const updatedModel = updatedProvider === 'codex-cli' ? undefined : (updated.model ?? currentModelRef.current);
       currentModelRef.current = updatedModel;
       setCurrentProvider(updatedProvider);
       setCurrentModel(updatedModel);
@@ -555,8 +556,8 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
     }
     setCompletedStages(resumeStages);
 
-    const model = session.model ?? undefined;
     const resumeProvider = session.provider ?? 'ollama';
+    const model = resumeProvider === 'codex-cli' ? undefined : (session.model ?? undefined);
     getLogger().info(`dev-plan resume: initializing provider=${resumeProvider} model=${model ?? 'none'} (session ${sessionId})`);
     providerRef.current = createProvider(resumeProvider, model);
     setCurrentProvider(resumeProvider);

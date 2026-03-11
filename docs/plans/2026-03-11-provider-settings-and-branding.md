@@ -12,10 +12,10 @@
 - [x] Define the invariant for display state: only show a model in the shell when the active provider supports an in-app model concept, and ensure the tests fail before the implementation change.
 
 ### Task 2: Fix provider-specific model state and session updates
-- [ ] Update provider switching logic so moving to `codex-cli` clears or ignores any Ollama-only UI model state instead of carrying `currentModel` forward into the header.
-- [ ] Decide and implement the session-level rule for `model` when `provider === 'codex-cli'`: either persist it as `undefined` on switch or treat it as provider-scoped data that is hidden and never reused outside Ollama.
-- [ ] Tighten `StatusHeaderData` production and `AppShell` rendering so `codex-cli` never displays `/model`, while Ollama still shows the resolved model and unavailable-provider indicators correctly.
-- [ ] Extend resume-path coverage so restored `codex-cli` sessions, mid-interview provider switches, and dev-plan resumes all honor the same provider-aware model display rules.
+- [x] Update provider switching logic so moving to `codex-cli` clears or ignores any Ollama-only UI model state instead of carrying `currentModel` forward into the header.
+- [x] Decide and implement the session-level rule for `model` when `provider === 'codex-cli'`: either persist it as `undefined` on switch or treat it as provider-scoped data that is hidden and never reused outside Ollama.
+- [x] Tighten `StatusHeaderData` production and `AppShell` rendering so `codex-cli` never displays `/model`, while Ollama still shows the resolved model and unavailable-provider indicators correctly.
+- [x] Extend resume-path coverage so restored `codex-cli` sessions, mid-interview provider switches, and dev-plan resumes all honor the same provider-aware model display rules.
 
 ### Task 3: Introduce persistent global settings for default provider and Ollama model
 - [ ] Add a new persisted settings module under `src/` for reading and writing a global config file in `~/.cobuild/`, with atomic writes, migration-friendly defaults, and repo-consistent logging/error handling.

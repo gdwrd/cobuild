@@ -45,7 +45,7 @@ export function AppShell({ statusBar, notice, transientError, footer, children }
           <Box flexDirection="row">
             <Text dimColor>
               {statusBar.provider}
-              {statusBar.model ? `/${statusBar.model}` : ''}
+              {statusBar.provider !== 'codex-cli' && statusBar.model ? `/${statusBar.model}` : ''}
             </Text>
             {!statusBar.providerReady && (
               <Text color="red"> [UNAVAILABLE]</Text>

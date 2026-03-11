@@ -296,7 +296,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
         if (supportsModelListing(tempProvider)) {
           const ollamaProvider = tempProvider as { listModels(): Promise<string[]> };
           const resolutionGen = ++ollamaResolutionGenRef.current;
-          void resolveOllamaModel(undefined, () => ollamaProvider.listModels()).then((resolution) => {
+          void resolveOllamaModel(globalSettingsRef.current?.defaultOllamaModel, () => ollamaProvider.listModels()).then((resolution) => {
             // Guard: discard if provider changed or a newer resolution has since started.
             if (currentSessionRef.current?.provider !== 'ollama') return;
             if (ollamaResolutionGenRef.current !== resolutionGen) return;

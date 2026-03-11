@@ -164,7 +164,7 @@ describe('saveSettings', () => {
     );
   });
 
-  it('always writes current schema version', async () => {
+  it('stamps current schema version when input version is older', async () => {
     fsMock.writeFileSync.mockImplementation(() => {});
     fsMock.renameSync.mockImplementation(() => {});
 
@@ -174,6 +174,19 @@ describe('saveSettings', () => {
     const written = (fsMock.writeFileSync.mock.calls[0][1] as string);
     const parsed = JSON.parse(written) as { schemaVersion: number };
     expect(parsed.schemaVersion).toBe(CURRENT_SETTINGS_VERSION);
+  });
+
+  it('preserves future schema version to avoid downgrading a newer settings file', async () => {
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.renameSync.mockImplementation(() => {});
+
+    const { saveSettings, CURRENT_SETTINGS_VERSION } = await import('../settings.js');
+    const futureVersion = CURRENT_SETTINGS_VERSION + 1;
+    saveSettings({ schemaVersion: futureVersion });
+
+    const written = (fsMock.writeFileSync.mock.calls[0][1] as string);
+    const parsed = JSON.parse(written) as { schemaVersion: number };
+    expect(parsed.schemaVersion).toBe(futureVersion);
   });
 
   it('re-throws rename error and unlinks tmp file', async () => {

@@ -103,15 +103,14 @@ cobuild -v                      # Print version
 
 ## Runtime Flow
 
-On startup, `cobuild` runs a staged startup sequence displayed in the terminal:
+On startup, `cobuild` runs a staged startup sequence. The terminal displays four steps as they complete:
 
-1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed.
-2. Loads global settings from `~/.cobuild/settings.json` (if present).
-3. Verifies that stdin is attached to a TTY.
-4. Checks readiness for all known providers in parallel:
+1. Creates `~/.cobuild/`, `~/.cobuild/sessions/`, and `~/.cobuild/logs/` if needed. Global settings are loaded silently at this point from `~/.cobuild/settings.json` (if present).
+2. Verifies that stdin is attached to a TTY.
+3. Checks readiness for all known providers in parallel:
    - Ollama: verifies Ollama responds at `http://localhost:11434/api/tags`
    - Codex CLI: verifies the `codex` binary is available on your `PATH`
-5. Resolves the active session for the current working directory. For new sessions, applies global settings defaults for provider and model before falling back to built-in defaults.
+4. Resolves the active session for the current working directory. For new sessions, applies global settings defaults for provider and model before falling back to built-in defaults.
 
 Each step appears as it completes in the startup screen. If a resumed session is found, an interstitial screen shows the session's stage, provider, model, and any resumable dev-plan progress before continuing.
 

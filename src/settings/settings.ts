@@ -94,7 +94,9 @@ export function loadSettings(): GlobalSettings {
 export function saveSettings(settings: GlobalSettings): void {
   const filePath = getSettingsFilePath();
   const tmpPath = `${filePath}.${process.pid}.tmp`;
-  const json = JSON.stringify({ ...settings, schemaVersion: CURRENT_SETTINGS_VERSION }, null, 2);
+  // Preserve future schema versions: do not downgrade a file written by a newer cobuild.
+  const schemaVersion = Math.max(settings.schemaVersion, CURRENT_SETTINGS_VERSION);
+  const json = JSON.stringify({ ...settings, schemaVersion }, null, 2);
 
   try {
     fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });

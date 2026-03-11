@@ -388,6 +388,14 @@ describe('runStartup', () => {
     expect(vi.mocked(createAndSaveSession)).toHaveBeenCalledWith('ollama');
   });
 
+  it('falls back to config.provider when no defaultProvider in global settings and provider is not explicit', async () => {
+    vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1 });
+    const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'codex-cli' as const, providerExplicit: false });
+    expect(result.success).toBe(true);
+    expect(result.activeProvider).toBe('codex-cli');
+    expect(vi.mocked(createAndSaveSession)).toHaveBeenCalledWith('codex-cli');
+  });
+
   it('returns globalSettings in the result', async () => {
     vi.mocked(loadSettings).mockReturnValue({ schemaVersion: 1, defaultProvider: 'codex-cli', defaultOllamaModel: 'llama3' });
     const result = await runStartup({ newSession: false, version: '1.0.0', verbose: false, provider: 'ollama' as const, providerExplicit: false });

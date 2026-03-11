@@ -30,10 +30,10 @@
 - [x] Add tests in CLI, provider, interview-command, and ScreenController suites that cover new sessions with saved defaults, explicit CLI overrides, missing configured models, and `codex-cli` defaults with no model shown in UI.
 
 ### Task 5: Add branded ASCII logo support to the interview screen
-- [ ] Design a large ASCII `cobuild` logo with a tool/wrench motif that fits typical terminal widths, remains readable in plain text, and preserves the repo’s current Ink rendering style.
-- [ ] Introduce a dedicated interview-logo component in `src/ui/` so the art is isolated from interview transcript/input logic and can be tested independently.
-- [ ] Mount the logo above the main interview UI only, keeping startup, restore, yes/no, generation, and error screens unchanged unless the final design requires a shared header treatment.
-- [ ] Verify the logo layout works with the persistent shell chrome, long transcripts, model selection mode, and narrow-terminal rendering without pushing critical input content off screen.
+- [x] Design a large ASCII `cobuild` logo with a tool/wrench motif that fits typical terminal widths, remains readable in plain text, and preserves the repo’s current Ink rendering style.
+- [x] Introduce a dedicated interview-logo component in `src/ui/` so the art is isolated from interview transcript/input logic and can be tested independently.
+- [x] Mount the logo above the main interview UI only, keeping startup, restore, yes/no, generation, and error screens unchanged unless the final design requires a shared header treatment.
+- [x] Verify the logo layout works with the persistent shell chrome, long transcripts, model selection mode, and narrow-terminal rendering without pushing critical input content off screen.
 
 ### Task 6: Cover branding behavior with UI tests
 - [ ] Add or update UI tests that assert the logo appears on the main interview screen and does not appear on unrelated screens such as generation, restore, or fatal error views.

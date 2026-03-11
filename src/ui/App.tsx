@@ -2,6 +2,7 @@ import { useReducer, useState, useEffect, useRef } from 'react';
 import { Box, Text, useInput, useApp, useStdin } from 'ink';
 import type { InterviewMessage } from '../session/session.js';
 import { ModelSelectPrompt } from './ModelSelectPrompt.js';
+import { InterviewLogo } from './InterviewLogo.js';
 import { filterCommands } from '../interview/commands.js';
 import type { CommandMetadata } from '../interview/commands.js';
 
@@ -557,8 +558,18 @@ export function App({
     return filterCommands(v);
   })();
 
+  // Show the logo only on the welcome/empty state: no messages yet, not thinking,
+  // not complete, not selecting a model, and no fatal error.
+  const showLogo =
+    transcript.length === 0 &&
+    !isThinking &&
+    !isComplete &&
+    !fatalErrorMessage &&
+    !(modelSelectOptions && modelSelectOptions.length > 0);
+
   return (
     <Box flexDirection="column">
+      {showLogo && <InterviewLogo />}
       <TranscriptView
         transcript={transcript}
         isThinking={isThinking}

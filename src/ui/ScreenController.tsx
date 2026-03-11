@@ -361,7 +361,7 @@ export function ScreenController({ startupPromise, startupProgressChannel, versi
       setIsThinking(true);
       const trimmed = choice.trim();
       if (!trimmed) return null;
-      return models.includes(trimmed) ? trimmed : null;
+      return trimmed;
     };
 
     const helpHandler = async (_args: string[]) => ({

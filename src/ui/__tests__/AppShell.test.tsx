@@ -173,14 +173,14 @@ describe('AppShell', () => {
     unmount();
   });
 
-  it('renders with notice without throwing', () => {
+  it('renders with provider notice without throwing', () => {
     const { unmount } = renderShell({
       notice: 'ollama is unavailable',
     });
     unmount();
   });
 
-  it('renders with transientError without throwing', () => {
+  it('renders with network transientError without throwing', () => {
     const { unmount } = renderShell({
       transientError: 'network timeout',
     });

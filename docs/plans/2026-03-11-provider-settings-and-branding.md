@@ -18,10 +18,10 @@
 - [x] Extend resume-path coverage so restored `codex-cli` sessions, mid-interview provider switches, and dev-plan resumes all honor the same provider-aware model display rules.
 
 ### Task 3: Introduce persistent global settings for default provider and Ollama model
-- [ ] Add a new persisted settings module under `src/` for reading and writing a global config file in `~/.cobuild/`, with atomic writes, migration-friendly defaults, and repo-consistent logging/error handling.
-- [ ] Define a small settings schema that stores default provider and default Ollama model, plus clear rules for invalid or partial data so legacy installs continue to work without manual migration.
-- [ ] Extend startup/bootstrap so the settings file location is created alongside existing `~/.cobuild/` state, and load global settings before new-session provider/model resolution begins.
-- [ ] Add unit tests for settings persistence, invalid file recovery, default value behavior, and path handling using the same temp-home patterns already used for session/bootstrap tests.
+- [x] Add a new persisted settings module under `src/` for reading and writing a global config file in `~/.cobuild/`, with atomic writes, migration-friendly defaults, and repo-consistent logging/error handling.
+- [x] Define a small settings schema that stores default provider and default Ollama model, plus clear rules for invalid or partial data so legacy installs continue to work without manual migration.
+- [x] Extend startup/bootstrap so the settings file location is created alongside existing `~/.cobuild/` state, and load global settings before new-session provider/model resolution begins.
+- [x] Add unit tests for settings persistence, invalid file recovery, default value behavior, and path handling using the same temp-home patterns already used for session/bootstrap tests.
 
 ### Task 4: Wire global settings into new-session startup and provider/model workflows
 - [ ] Update CLI startup/config resolution so a new session uses global defaults when present, while an explicitly passed `--provider` flag still wins and resumed sessions still use their saved session provider.

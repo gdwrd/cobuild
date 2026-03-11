@@ -4,6 +4,7 @@ import { checkTTY, checkProviderReadiness } from '../validation/env.js';
 import { bootstrapDirectories } from '../fs/bootstrap.js';
 import { getLogger } from '../logging/logger.js';
 import { createAndSaveSession, findLatestByWorkingDirectory } from '../session/session.js';
+import { loadSettings, type GlobalSettings } from '../settings/settings.js';
 
 export type SessionResolution = 'new' | 'resumed';
 
@@ -22,6 +23,7 @@ export interface StartupResult {
   activeProvider?: ProviderName;
   providerStatuses?: ProviderReadinessStatus[];
   startupNotice?: string;
+  globalSettings?: GlobalSettings;
 }
 
 /** A single named step shown in the staged startup screen. */
@@ -86,6 +88,9 @@ export async function runStartup(
   if (!bootstrapResult.ok) {
     return { success: false, message: bootstrapResult.message };
   }
+
+  const globalSettings = loadSettings();
+  logger.info(`settings loaded: defaultProvider=${globalSettings.defaultProvider ?? 'unset'}, defaultOllamaModel=${globalSettings.defaultOllamaModel ?? 'unset'}`);
 
   steps[1] = { ...steps[1], status: 'running' };
   emit();
@@ -217,6 +222,7 @@ export async function runStartup(
     activeProvider: effectiveProvider,
     providerStatuses,
     startupNotice,
+    globalSettings,
   };
 }
 

@@ -46,6 +46,6 @@
 - [x] Refresh any UI or usage docs that describe the interview screen so they mention the branded ASCII logo and keep screenshots/examples textually accurate.
 
 ### Task 8: Run end-to-end verification across the three requested changes
-- [ ] Run `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck` after implementation and fix any regressions introduced by the settings and UI changes.
-- [ ] Manually verify three interactive flows in a real TTY: switching from Ollama to `codex-cli` with no stale model in the header, starting a fresh session that picks up saved global defaults, and rendering the new interview logo without input/layout issues.
-- [ ] Confirm that resumed sessions still override global defaults, `codex-cli` sessions never expose an Ollama model name, and Ollama sessions still recover cleanly when the configured default model is unavailable.
+- [x] Run `npm run build`, `npm test`, `npm run lint`, and `npm run typecheck` after implementation and fix any regressions introduced by the settings and UI changes.
+- [x] Manually verify three interactive flows in a real TTY: switching from Ollama to `codex-cli` with no stale model in the header, starting a fresh session that picks up saved global defaults, and rendering the new interview logo without input/layout issues.
+- [x] Confirm that resumed sessions still override global defaults, `codex-cli` sessions never expose an Ollama model name, and Ollama sessions still recover cleanly when the configured default model is unavailable.
